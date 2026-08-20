@@ -1,0 +1,213 @@
+basePath: /api
+definitions:
+  projecttemp_internal_module_user.LoginParams:
+    properties:
+      userAccount:
+        maxLength: 20
+        minLength: 3
+        type: string
+      userPassword:
+        maxLength: 20
+        minLength: 6
+        type: string
+    required:
+    - userAccount
+    - userPassword
+    type: object
+  projecttemp_internal_module_user.RegisterParams:
+    properties:
+      userAccount:
+        description: 字母开头，后仅字母数字下划线；长度 3–20
+        maxLength: 20
+        minLength: 3
+        type: string
+      userAvatar:
+        maxLength: 1024
+        type: string
+      userName:
+        maxLength: 256
+        minLength: 1
+        type: string
+      userPassword:
+        maxLength: 20
+        minLength: 6
+        type: string
+      userProfile:
+        maxLength: 512
+        type: string
+    required:
+    - userAccount
+    - userPassword
+    type: object
+  projecttemp_internal_module_user.UpdateParams:
+    properties:
+      userAvatar:
+        maxLength: 1024
+        type: string
+      userName:
+        maxLength: 256
+        minLength: 1
+        type: string
+      userPassword:
+        maxLength: 20
+        minLength: 6
+        type: string
+      userProfile:
+        maxLength: 512
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Go Web 后端工程模板接口文档（业务模块由使用者自行接入）
+  title: Go Web API Template
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 登录信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/projecttemp_internal_module_user.LoginParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 登录
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionAuth: []
+      summary: 登出
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 注册信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/projecttemp_internal_module_user.RegisterParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 注册
+      tags:
+      - auth
+  /users/{id}:
+    get:
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 按 ID 查询用户
+      tags:
+      - users
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新字段
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/projecttemp_internal_module_user.UpdateParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionAuth: []
+      summary: 部分更新用户（仅本人）
+      tags:
+      - users
+securityDefinitions:
+  SessionAuth:
+    description: 'Session cookie authentication. Example: session=your-session-id'
+    in: header
+    name: Cookie
+    type: apiKey
+swagger: "2.0"

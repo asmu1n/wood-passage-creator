@@ -1,0 +1,69 @@
+# docker-compose.yml
+# Base stack: postgres + redis + app.
+services:
+  postgres:
+    image: postgres:18.4-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-projecttemp_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-projecttemp_db}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:8-alpine
+    command: /bin/sh -c 'redis-server --requirepass "${REDIS_PASSWORD:-}"'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a '${REDIS_PASSWORD:-}' ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${APP_IMAGE:-projecttemp:local}
+    environment:
+      # 1. 覆盖基础属性 (对应 config.yml 根节点)
+      APP_ENV: ${ENV:-production}
+      APP_LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      # 2. 覆盖 DB 属性 (利用 compose 的内网 DNS 覆盖 localhost)
+      APP_DATABASE_HOST: postgres
+      APP_DATABASE_USER: ${POSTGRES_USER:-postgres}
+      APP_DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      APP_DATABASE_DB_NAME: ${POSTGRES_DB:-projecttemp_db}
+
+      # 3. 覆盖 Redis 属性
+      APP_REDIS_HOST: redis
+      APP_REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+
+      # 4. Session（生产务必覆盖 secret）
+      APP_SESSION_SECRET: ${SESSION_SECRET:-change-me-session-secret}
+      APP_SESSION_SECURE: ${SESSION_SECURE:-false}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
