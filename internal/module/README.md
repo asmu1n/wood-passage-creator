@@ -61,6 +61,11 @@ return c.JSON(http.StatusOK, response.OK(nil))
 authed := api.Group("", middleware.AuthRequired())
 authed.GET("/me", h.Me)
 
+// 需要管理员的路由（会查库校验最新角色）
+admin := api.Group("", middleware.AdminRequired(userSvc))
+admin.GET("/users/list", h.List)
+admin.DELETE("/users/:id", h.Delete)
+
 // Handler 内
 uid, err := middleware.GetLoginUserID(c)
 

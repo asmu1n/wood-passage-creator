@@ -7,6 +7,7 @@ import (
 	"projecttemp/internal/httpapi/binding"
 	"projecttemp/internal/httpapi/middleware"
 	"projecttemp/internal/module/user"
+	"projecttemp/internal/pkg/page"
 	"projecttemp/internal/pkg/response"
 
 	"github.com/labstack/echo/v5"
@@ -81,6 +82,30 @@ func (h *Handler) Logout(c *echo.Context) error {
 	return c.JSON(http.StatusOK, response.OK(nil))
 }
 
+// List godoc
+// @Summary      分页查询用户列表（管理员）
+// @Tags         users
+// @Produce      json
+// @Param        pageNum  query int false "页码，默认 1"
+// @Param        pageSize query int false "每页条数，默认 10，最大 100"
+// @Success      200 {object} map[string]interface{}
+// @Failure      400 {object} map[string]interface{}
+// @Failure      401 {object} map[string]interface{}
+// @Failure      403 {object} map[string]interface{}
+// @Security     SessionAuth
+// @Router       /users/list [get]
+func (h *Handler) List(c *echo.Context) error {
+	var req page.PageRequest
+	if err := binding.BindAndValidate(c, &req); err != nil {
+		return err
+	}
+	users, err := h.svc.QueryList(c.Request().Context(), req)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, response.OK(users))
+}
+
 // GetByID godoc
 // @Summary      按 ID 查询用户
 // @Tags         users
@@ -135,4 +160,26 @@ func (h *Handler) Update(c *echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, response.OK(u))
+}
+
+// Delete godoc
+// @Summary      删除用户（软删除，管理员）
+// @Tags         users
+// @Produce      json
+// @Param        id path int true "用户 ID"
+// @Success      200 {object} map[string]interface{}
+// @Failure      400 {object} map[string]interface{}
+// @Failure      401 {object} map[string]interface{}
+// @Failure      403 {object} map[string]interface{}
+// @Security     SessionAuth
+// @Router       /users/{id} [delete]
+func (h *Handler) Delete(c *echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		return response.NewBizErrorWithDetail(response.ParamsError, "无效的用户 ID")
+	}
+	if err := h.svc.Delete(c.Request().Context(), id); err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, response.OK(nil))
 }

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"projecttemp/internal/pkg/logger"
+	"projecttemp/internal/pkg/page"
 	"projecttemp/internal/pkg/response"
 
 	"golang.org/x/crypto/bcrypt"
@@ -96,9 +97,26 @@ func (s *Service) GetByID(ctx context.Context, id int64) (*User, error) {
 	return u, nil
 }
 
+func (s *Service) QueryList(ctx context.Context, params page.PageRequest) ([]*User, error) {
+	users, err := s.repo.QueryList(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
 func (s *Service) Update(ctx context.Context, actorID, targetID int64, in UpdateParams) (*User, error) {
 	if actorID != targetID {
-		return nil, response.NewBizError(response.NoAuth)
+		actor, err := s.repo.FindByID(ctx, actorID)
+		if err != nil {
+			return nil, err
+		}
+		if actor == nil {
+			return nil, response.NewBizError(response.NoAuth)
+		}
+		if actor.UserRole != "admin" {
+			return nil, response.NewBizError(response.NoAuth)
+		}
 	}
 
 	existing, err := s.repo.FindByID(ctx, targetID)
@@ -136,6 +154,10 @@ func (s *Service) Update(ctx context.Context, actorID, targetID int64, in Update
 		"user_id", targetID,
 	)
 	return u, nil
+}
+
+func (s *Service) Delete(ctx context.Context, id int64) error {
+	return s.repo.Delete(ctx, id)
 }
 
 func hashPassword(plain string) (string, error) {

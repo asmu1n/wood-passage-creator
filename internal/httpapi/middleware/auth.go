@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"context"
+
+	"projecttemp/internal/module/user"
 	"projecttemp/internal/pkg/response"
 
 	"github.com/labstack/echo-contrib/v5/session"
@@ -13,31 +16,74 @@ const SessionName = "session"
 // SessionKeyUserID session / context 中存放登录用户 ID 的键。
 const SessionKeyUserID = "userID"
 
+// ContextKeyLoginUser 鉴权通过后写入 context 的当前用户（*user.User）。
+const ContextKeyLoginUser = "loginUser"
+
+// UserLoader 按 ID 加载用户，供需要角色/资料的鉴权中间件使用。
+type UserLoader interface {
+	GetByID(ctx context.Context, id int64) (*user.User, error)
+}
+
 // AuthRequired 要求请求已登录；未登录时 return BizError，由全局 HTTPErrorHandler 写 401 JSON。
 func AuthRequired() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			sess, err := session.Get(SessionName, c)
-			if err != nil {
-				return response.NewBizError(response.NotLogin)
+			if _, err := requireLogin(c); err != nil {
+				return err
 			}
-			uid, ok := asInt64(sess.Values[SessionKeyUserID])
-			if !ok || uid == 0 {
-				return response.NewBizError(response.NotLogin)
-			}
-			c.Set(SessionKeyUserID, uid)
 			return next(c)
 		}
 	}
 }
 
-// GetLoginUserID 从请求上下文读取当前登录用户 ID（应在 AuthRequired 之后调用）。
+// AdminRequired 要求已登录且角色为 admin。
+// loader 用于读取最新角色（避免仅信 session 导致提权/降权滞后）。
+func AdminRequired(loader UserLoader) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			uid, err := requireLogin(c)
+			if err != nil {
+				return err
+			}
+			if loader == nil {
+				return response.NewBizError(response.SystemError)
+			}
+
+			u, err := loader.GetByID(c.Request().Context(), uid)
+			if err != nil {
+				return err
+			}
+			if u == nil {
+				// session 仍在但用户已删/不可见
+				return response.NewBizError(response.NotLogin)
+			}
+			if u.UserRole != user.RoleAdmin {
+				return response.NewBizError(response.NoAuth)
+			}
+
+			c.Set(ContextKeyLoginUser, u)
+			return next(c)
+		}
+	}
+}
+
+// GetLoginUserID 从请求上下文读取当前登录用户 ID（应在 AuthRequired / AdminRequired 之后调用）。
 func GetLoginUserID(c *echo.Context) (int64, error) {
 	uid, ok := asInt64(c.Get(SessionKeyUserID))
 	if !ok || uid == 0 {
 		return 0, response.NewBizError(response.NotLogin)
 	}
 	return uid, nil
+}
+
+// GetLoginUser 读取 AdminRequired（或其它已写入的中间件）放入的当前用户。
+// 仅登录、未加载用户资料时返回 NotLogin。
+func GetLoginUser(c *echo.Context) (*user.User, error) {
+	u, ok := c.Get(ContextKeyLoginUser).(*user.User)
+	if !ok || u == nil {
+		return nil, response.NewBizError(response.NotLogin)
+	}
+	return u, nil
 }
 
 // SaveLoginUserID 写入登录用户 ID 并持久化 session（供登录 Handler 调用）。
@@ -67,6 +113,20 @@ func ClearLoginSession(c *echo.Context) error {
 	// MaxAge < 0：指示 store 删除 session 并让浏览器丢弃 cookie
 	sess.Options.MaxAge = -1
 	return sess.Save(c.Request(), c.Response())
+}
+
+// requireLogin 校验 session 并写入 userID 到 context，返回用户 ID。
+func requireLogin(c *echo.Context) (int64, error) {
+	sess, err := session.Get(SessionName, c)
+	if err != nil {
+		return 0, response.NewBizError(response.NotLogin)
+	}
+	uid, ok := asInt64(sess.Values[SessionKeyUserID])
+	if !ok || uid == 0 {
+		return 0, response.NewBizError(response.NotLogin)
+	}
+	c.Set(SessionKeyUserID, uid)
+	return uid, nil
 }
 
 func asInt64(v any) (int64, bool) {

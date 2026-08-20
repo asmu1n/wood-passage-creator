@@ -7,13 +7,14 @@ import (
 	"projecttemp/ent"
 	entgen "projecttemp/ent/user"
 	"projecttemp/internal/module/user"
+	"projecttemp/internal/pkg/page"
 )
 
 type UserRepo struct {
 	client *ent.Client
 }
 
-func New(client *ent.Client) *UserRepo {
+func New(client *ent.Client) user.Repository {
 	return &UserRepo{client: client}
 }
 
@@ -42,6 +43,19 @@ func (r *UserRepo) Create(ctx context.Context, in user.CreateRepoParams) (*user.
 		return nil, err
 	}
 	return toDomain(row), nil
+}
+
+func (r *UserRepo) QueryList(ctx context.Context, params page.PageRequest) ([]*user.User, error) {
+	rows, err := r.client.User.Query().
+		Where(entgen.IsDeleteEQ(false)).
+		Offset(int(params.Offset())).
+		Limit(int(params.Limit())).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return toDomainList(rows), nil
 }
 
 func (r *UserRepo) FindByID(ctx context.Context, id int64) (*user.User, error) {
@@ -120,8 +134,7 @@ func (r *UserRepo) ExistsAccount(ctx context.Context, account string) (bool, err
 		Exist(ctx)
 }
 
-// SoftDelete 预留：当前接口未暴露，便于后续扩展。
-func (r *UserRepo) SoftDelete(ctx context.Context, id int64) error {
+func (r *UserRepo) Delete(ctx context.Context, id int64) error {
 	n, err := r.client.User.Update().
 		Where(entgen.IDEQ(id), entgen.IsDeleteEQ(false)).
 		SetIsDelete(true).
@@ -150,6 +163,14 @@ func toDomain(row *ent.User) *user.User {
 		CreateTime:  row.CreateTime,
 		UpdateTime:  row.UpdateTime,
 	}
+}
+
+func toDomainList(rows []*ent.User) []*user.User {
+	users := make([]*user.User, 0, len(rows))
+	for _, row := range rows {
+		users = append(users, toDomain(row))
+	}
+	return users
 }
 
 func toEntRole(r user.UserRole) entgen.UserRole {

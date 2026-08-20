@@ -138,6 +138,41 @@ paths:
       tags:
       - auth
   /users/{id}:
+    delete:
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionAuth: []
+      summary: 删除用户（软删除，管理员）
+      tags:
+      - users
     get:
       parameters:
       - description: 用户 ID
@@ -202,6 +237,45 @@ paths:
       security:
       - SessionAuth: []
       summary: 部分更新用户（仅本人）
+      tags:
+      - users
+  /users/list:
+    get:
+      parameters:
+      - description: 页码，默认 1
+        in: query
+        name: pageNum
+        type: integer
+      - description: 每页条数，默认 10，最大 100
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionAuth: []
+      summary: 分页查询用户列表（管理员）
       tags:
       - users
 securityDefinitions:

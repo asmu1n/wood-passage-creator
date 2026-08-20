@@ -19,4 +19,7 @@ func Register(api *echo.Group, svc *user.Service) {
 	users := api.Group("/users")
 	users.GET("/:id", h.GetByID)
 	users.PATCH("/:id", h.Update, middleware.AuthRequired())
+	// 管理端：列表 / 删除需管理员
+	users.GET("/list", h.List, middleware.AdminRequired(svc))
+	users.DELETE("/:id", h.Delete, middleware.AdminRequired(svc))
 }

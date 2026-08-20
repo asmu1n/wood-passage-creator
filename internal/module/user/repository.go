@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"projecttemp/internal/pkg/page"
 )
 
 // ErrAccountConflict 账号唯一约束冲突（并发注册等）。
@@ -13,7 +14,9 @@ type Repository interface {
 	Create(ctx context.Context, in CreateRepoParams) (*User, error)
 	FindByID(ctx context.Context, id int64) (*User, error)
 	FindByAccount(ctx context.Context, account string) (*UserWithSecret, error)
+	QueryList(ctx context.Context, params page.PageRequest) ([]*User, error)
 	Update(ctx context.Context, id int64, in UpdateRepoParams) (*User, error)
+	Delete(ctx context.Context, id int64) error
 	ExistsAccount(ctx context.Context, account string) (bool, error)
 }
 
