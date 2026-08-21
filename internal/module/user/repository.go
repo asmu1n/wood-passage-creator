@@ -14,7 +14,7 @@ type Repository interface {
 	Create(ctx context.Context, in CreateRepoParams) (*User, error)
 	FindByID(ctx context.Context, id int64) (*User, error)
 	FindByAccount(ctx context.Context, account string) (*UserWithSecret, error)
-	QueryList(ctx context.Context, params page.PageRequest) ([]*User, error)
+	QueryList(ctx context.Context, params page.PageRequest) ([]*User, int, error)
 	Update(ctx context.Context, id int64, in UpdateRepoParams) (*User, error)
 	Delete(ctx context.Context, id int64) error
 	ExistsAccount(ctx context.Context, account string) (bool, error)

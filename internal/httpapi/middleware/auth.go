@@ -19,6 +19,9 @@ const SessionKeyUserID = "userID"
 // ContextKeyLoginUser 鉴权通过后写入 context 的当前用户（*user.User）。
 const ContextKeyLoginUser = "loginUser"
 
+// ContextKeyLoginUserRole 鉴权通过后写入 context 的当前用户角色。
+const ContextKeyLoginUserRole = "loginUserRole"
+
 // UserLoader 按 ID 加载用户，供需要角色/资料的鉴权中间件使用。
 type UserLoader interface {
 	GetByID(ctx context.Context, id int64) (*user.User, error)
@@ -36,9 +39,9 @@ func AuthRequired() echo.MiddlewareFunc {
 	}
 }
 
-// AdminRequired 要求已登录且角色为 admin。
+// AuthWithRoleRequired 要求已登录,并且会查询注入权限
 // loader 用于读取最新角色（避免仅信 session 导致提权/降权滞后）。
-func AdminRequired(loader UserLoader) echo.MiddlewareFunc {
+func AuthWithRoleRequired(loader UserLoader, onlyAdmin bool) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			uid, err := requireLogin(c)
@@ -57,23 +60,33 @@ func AdminRequired(loader UserLoader) echo.MiddlewareFunc {
 				// session 仍在但用户已删/不可见
 				return response.NewBizError(response.NotLogin)
 			}
-			if u.UserRole != user.RoleAdmin {
+			if onlyAdmin && u.UserRole != user.RoleAdmin {
 				return response.NewBizError(response.NoAuth)
 			}
 
 			c.Set(ContextKeyLoginUser, u)
+			c.Set(ContextKeyLoginUserRole, u.UserRole)
 			return next(c)
 		}
 	}
 }
 
-// GetLoginUserID 从请求上下文读取当前登录用户 ID（应在 AuthRequired / AdminRequired 之后调用）。
+// GetLoginUserID 从请求上下文读取当前登录用户 ID（应在 AuthRequired / AuthWithRoleRequired 之后调用）。
 func GetLoginUserID(c *echo.Context) (int64, error) {
 	uid, ok := asInt64(c.Get(SessionKeyUserID))
 	if !ok || uid == 0 {
 		return 0, response.NewBizError(response.NotLogin)
 	}
 	return uid, nil
+}
+
+// GetLoginUserRole 从请求上下文读取当前登录用户角色（应在 AuthWithRoleRequired 之后调用）。
+func GetLoginUserRole(c *echo.Context) (user.UserRole, error) {
+	role, ok := c.Get(ContextKeyLoginUserRole).(user.UserRole)
+	if !ok || role == "" {
+		return user.RoleUser, response.NewBizError(response.NotLogin)
+	}
+	return role, nil
 }
 
 // GetLoginUser 读取 AdminRequired（或其它已写入的中间件）放入的当前用户。

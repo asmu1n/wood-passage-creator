@@ -15,6 +15,380 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/article/confirm-outline": {
+            "post": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "在 OUTLINE_EDITING 阶段确认大纲；仅文章作者或管理员可操作。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "article"
+                ],
+                "summary": "确认文章大纲",
+                "parameters": [
+                    {
+                        "description": "确认大纲参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_module_article.ConfirmOutlineRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功（data 一般为 null）",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误/阶段不允许",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "无权限",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "文章不存在",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/article/confirm-title": {
+            "post": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "在 TITLE_SELECTING 阶段确认主/副标题；仅文章作者或管理员可操作。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "article"
+                ],
+                "summary": "确认文章标题",
+                "parameters": [
+                    {
+                        "description": "确认标题参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_module_article.ConfirmTitleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功（data 一般为 null）",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误/阶段不允许",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "无权限",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "文章不存在",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/article/create": {
+            "post": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "登录用户创建一篇文章任务，进入生成流水线（具体异步逻辑由服务层处理）。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "article"
+                ],
+                "summary": "创建文章生成任务",
+                "parameters": [
+                    {
+                        "description": "创建参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_module_article.CreateArticleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/projecttemp_internal_module_article.Article"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/article/delete": {
+            "post": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "按主键软删除文章。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "article"
+                ],
+                "summary": "删除文章（软删除）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "文章主键 ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功（data 一般为 null）",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "文章不存在",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/article/list": {
+            "post": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "管理端/全量列表；具体权限由路由中间件控制。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "article"
+                ],
+                "summary": "分页查询全部文章",
+                "parameters": [
+                    {
+                        "description": "分页与筛选（pageNum/pageSize/status）",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_module_article.QueryArticleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/projecttemp_internal_module_article.ArticleListData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "无权限",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/article/{taskId}": {
+            "get": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "使用创建任务时的 taskId 查询文章详情。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "article"
+                ],
+                "summary": "按任务 ID 查询文章",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "任务 ID（taskId）",
+                        "name": "taskId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/projecttemp_internal_module_article.Article"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "文章不存在",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/login": {
             "post": {
                 "consumes": [
@@ -34,23 +408,33 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/projecttemp_internal_module_user.LoginParams"
+                            "$ref": "#/definitions/projecttemp_internal_module_user.LoginRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "成功",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/projecttemp_internal_module_user.User"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "参数错误/账号或密码错误",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     }
                 }
@@ -72,17 +456,15 @@ const docTemplate = `{
                 "summary": "登出",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "成功（data 一般为 null）",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "未登录",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     }
                 }
@@ -107,23 +489,33 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/projecttemp_internal_module_user.RegisterParams"
+                            "$ref": "#/definitions/projecttemp_internal_module_user.RegisterRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "成功",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/projecttemp_internal_module_user.User"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "参数错误/账号冲突",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     }
                 }
@@ -159,31 +551,39 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "成功",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/projecttemp_internal_module_user.UserListData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "参数错误",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "未登录",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     },
                     "403": {
-                        "description": "Forbidden",
+                        "description": "无权限",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     }
                 }
@@ -209,17 +609,33 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "成功",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/projecttemp_internal_module_user.User"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "用户不存在",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     }
                 }
@@ -248,31 +664,33 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "成功（data 一般为 null）",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "参数错误",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "未登录",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     },
                     "403": {
-                        "description": "Forbidden",
+                        "description": "无权限",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "用户不存在",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     }
                 }
@@ -307,37 +725,51 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/projecttemp_internal_module_user.UpdateParams"
+                            "$ref": "#/definitions/projecttemp_internal_module_user.UpdateRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "成功",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/projecttemp_internal_module_user.User"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "参数错误",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "未登录",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     },
                     "403": {
-                        "description": "Forbidden",
+                        "description": "无权限",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "用户不存在",
+                        "schema": {
+                            "$ref": "#/definitions/projecttemp_internal_pkg_response.Response"
                         }
                     }
                 }
@@ -345,7 +777,311 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "projecttemp_internal_module_user.LoginParams": {
+        "projecttemp_internal_module_article.Article": {
+            "type": "object",
+            "properties": {
+                "completedTime": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "createTime": {
+                    "type": "string"
+                },
+                "enabledImageMethods": {
+                    "description": "允许的配图方式列表",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "errorMessage": {
+                    "type": "string"
+                },
+                "fullContent": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/projecttemp_internal_module_article.ImageResult"
+                    }
+                },
+                "mainTitle": {
+                    "type": "string"
+                },
+                "outline": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/projecttemp_internal_module_article.OutlineSection"
+                    }
+                },
+                "phase": {
+                    "description": "当前阶段",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/projecttemp_internal_module_article.ArticlePhase"
+                        }
+                    ]
+                },
+                "status": {
+                    "$ref": "#/definitions/projecttemp_internal_module_article.ArticleStatus"
+                },
+                "style": {
+                    "description": "文章风格",
+                    "type": "string"
+                },
+                "subTitle": {
+                    "type": "string"
+                },
+                "taskId": {
+                    "type": "string"
+                },
+                "titleOptions": {
+                    "description": "标题方案列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/projecttemp_internal_module_article.TitleOption"
+                    }
+                },
+                "topic": {
+                    "type": "string"
+                },
+                "userDescription": {
+                    "description": "用户补充描述",
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "projecttemp_internal_module_article.ArticleListData": {
+            "type": "object",
+            "properties": {
+                "pageNum": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/projecttemp_internal_module_article.Article"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "projecttemp_internal_module_article.ArticlePhase": {
+            "type": "string",
+            "enum": [
+                "PENDING",
+                "TITLE_GENERATING",
+                "TITLE_SELECTING",
+                "OUTLINE_GENERATING",
+                "OUTLINE_EDITING",
+                "CONTENT_GENERATING"
+            ],
+            "x-enum-comments": {
+                "PhaseContentGenerating": "生成正文中",
+                "PhaseOutlineEditing": "等待编辑大纲",
+                "PhaseOutlineGenerating": "生成大纲中",
+                "PhasePending": "等待处理",
+                "PhaseTitleGenerating": "生成标题中",
+                "PhaseTitleSelecting": "等待选择标题"
+            },
+            "x-enum-descriptions": [
+                "等待处理",
+                "生成标题中",
+                "等待选择标题",
+                "生成大纲中",
+                "等待编辑大纲",
+                "生成正文中"
+            ],
+            "x-enum-varnames": [
+                "PhasePending",
+                "PhaseTitleGenerating",
+                "PhaseTitleSelecting",
+                "PhaseOutlineGenerating",
+                "PhaseOutlineEditing",
+                "PhaseContentGenerating"
+            ]
+        },
+        "projecttemp_internal_module_article.ArticleStatus": {
+            "type": "string",
+            "enum": [
+                "PENDING",
+                "PROCESSING",
+                "COMPLETED",
+                "FAILED"
+            ],
+            "x-enum-varnames": [
+                "StatusPending",
+                "StatusProcessing",
+                "StatusCompleted",
+                "StatusFailed"
+            ]
+        },
+        "projecttemp_internal_module_article.ConfirmOutlineRequest": {
+            "type": "object",
+            "required": [
+                "outline",
+                "taskId"
+            ],
+            "properties": {
+                "outline": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/projecttemp_internal_module_article.OutlineSection"
+                    }
+                },
+                "taskId": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "minLength": 1
+                }
+            }
+        },
+        "projecttemp_internal_module_article.ConfirmTitleRequest": {
+            "type": "object",
+            "required": [
+                "selectedMainTitle",
+                "selectedSubTitle",
+                "taskId"
+            ],
+            "properties": {
+                "selectedMainTitle": {
+                    "type": "string",
+                    "maxLength": 512,
+                    "minLength": 1
+                },
+                "selectedSubTitle": {
+                    "type": "string",
+                    "maxLength": 512,
+                    "minLength": 1
+                },
+                "taskId": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "minLength": 1
+                },
+                "userDescription": {
+                    "description": "可选",
+                    "type": "string",
+                    "maxLength": 4000
+                }
+            }
+        },
+        "projecttemp_internal_module_article.CreateArticleRequest": {
+            "type": "object",
+            "required": [
+                "topic"
+            ],
+            "properties": {
+                "enabledImageMethods": {
+                    "description": "空/nil 表示支持所有方式",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "style": {
+                    "description": "tech/emotional/educational/humorous，可为空",
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "topic": {
+                    "type": "string",
+                    "maxLength": 512,
+                    "minLength": 1
+                }
+            }
+        },
+        "projecttemp_internal_module_article.ImageResult": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "keywords": {
+                    "type": "string"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "placeholderId": {
+                    "description": "{{IMAGE_PLACEHOLDER_N}}",
+                    "type": "string"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "sectionTitle": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "projecttemp_internal_module_article.OutlineSection": {
+            "type": "object",
+            "properties": {
+                "points": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "section": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "projecttemp_internal_module_article.QueryArticleRequest": {
+            "type": "object",
+            "properties": {
+                "pageNum": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "PENDING",
+                        "PROCESSING",
+                        "COMPLETED",
+                        "FAILED"
+                    ]
+                }
+            }
+        },
+        "projecttemp_internal_module_article.TitleOption": {
+            "type": "object",
+            "properties": {
+                "mainTitle": {
+                    "type": "string"
+                },
+                "subTitle": {
+                    "type": "string"
+                }
+            }
+        },
+        "projecttemp_internal_module_user.LoginRequest": {
             "type": "object",
             "required": [
                 "userAccount",
@@ -364,7 +1100,7 @@ const docTemplate = `{
                 }
             }
         },
-        "projecttemp_internal_module_user.RegisterParams": {
+        "projecttemp_internal_module_user.RegisterRequest": {
             "type": "object",
             "required": [
                 "userAccount",
@@ -397,7 +1133,7 @@ const docTemplate = `{
                 }
             }
         },
-        "projecttemp_internal_module_user.UpdateParams": {
+        "projecttemp_internal_module_user.UpdateRequest": {
             "type": "object",
             "properties": {
                 "userAvatar": {
@@ -417,6 +1153,89 @@ const docTemplate = `{
                 "userProfile": {
                     "type": "string",
                     "maxLength": 512
+                }
+            }
+        },
+        "projecttemp_internal_module_user.User": {
+            "type": "object",
+            "properties": {
+                "createTime": {
+                    "type": "string"
+                },
+                "editTime": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "quota": {
+                    "type": "integer"
+                },
+                "updateTime": {
+                    "type": "string"
+                },
+                "userAccount": {
+                    "type": "string"
+                },
+                "userAvatar": {
+                    "type": "string"
+                },
+                "userName": {
+                    "type": "string"
+                },
+                "userProfile": {
+                    "type": "string"
+                },
+                "userRole": {
+                    "$ref": "#/definitions/projecttemp_internal_module_user.UserRole"
+                },
+                "vipTime": {
+                    "type": "string"
+                }
+            }
+        },
+        "projecttemp_internal_module_user.UserListData": {
+            "type": "object",
+            "properties": {
+                "pageNum": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/projecttemp_internal_module_user.User"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "projecttemp_internal_module_user.UserRole": {
+            "type": "string",
+            "enum": [
+                "user",
+                "admin",
+                "vip"
+            ],
+            "x-enum-varnames": [
+                "RoleUser",
+                "RoleAdmin",
+                "RoleVIP"
+            ]
+        },
+        "projecttemp_internal_pkg_response.Response": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {},
+                "message": {
+                    "type": "string"
                 }
             }
         }

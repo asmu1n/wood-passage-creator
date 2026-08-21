@@ -14,6 +14,8 @@ import (
 	httpmw "projecttemp/internal/httpapi/middleware"
 	"projecttemp/internal/infra/database"
 	"projecttemp/internal/infra/redis"
+	"projecttemp/internal/module/article"
+	articlerepo "projecttemp/internal/module/article/repo"
 	"projecttemp/internal/module/user"
 	userrepo "projecttemp/internal/module/user/repo"
 	"projecttemp/internal/pkg/logger"
@@ -77,12 +79,13 @@ func main() {
 	// cacheClient := cache.New(redisClient)
 	_ = redisClient
 	userSvc := user.NewService(userrepo.New(db.Client))
+	articleSvc := article.NewService(articlerepo.NewArticleRepo(db.Client))
 
 	e.Use(session.Middleware(store))
 
 	e.GET("/swagger/*", echo.WrapHandler(httpSwagger.WrapHandler))
 
-	httpapi.RegisterRouter(e, userSvc)
+	httpapi.RegisterRouter(e, userSvc, articleSvc)
 
 	logger.Info("http server starting",
 		logger.FieldPurpose, logger.PurposeInfra,

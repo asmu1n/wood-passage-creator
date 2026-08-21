@@ -45,17 +45,21 @@ func (r *UserRepo) Create(ctx context.Context, in user.CreateRepoParams) (*user.
 	return toDomain(row), nil
 }
 
-func (r *UserRepo) QueryList(ctx context.Context, params page.PageRequest) ([]*user.User, error) {
-	rows, err := r.client.User.Query().
-		Where(entgen.IsDeleteEQ(false)).
+func (r *UserRepo) QueryList(ctx context.Context, params page.PageRequest) ([]*user.User, int, error) {
+	base := r.client.User.Query().
+		Where(entgen.IsDeleteEQ(false))
+
+	count, err := base.Clone().Count(ctx)
+
+	rows, err := base.Clone().
 		Offset(int(params.Offset())).
 		Limit(int(params.Limit())).
 		All(ctx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return toDomainList(rows), nil
+	return toDomainList(rows), count, nil
 }
 
 func (r *UserRepo) FindByID(ctx context.Context, id int64) (*user.User, error) {

@@ -25,7 +25,7 @@ func NewService(repo Repository) *Service {
 	}
 }
 
-func (s *Service) Register(ctx context.Context, in RegisterParams) (*User, error) {
+func (s *Service) Register(ctx context.Context, in RegisterRequest) (*User, error) {
 	exists, err := s.repo.ExistsAccount(ctx, in.UserAccount)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (s *Service) Register(ctx context.Context, in RegisterParams) (*User, error
 	return u, nil
 }
 
-func (s *Service) Login(ctx context.Context, in LoginParams) (*User, error) {
+func (s *Service) Login(ctx context.Context, in LoginRequest) (*User, error) {
 	row, err := s.repo.FindByAccount(ctx, in.UserAccount)
 	if err != nil {
 		return nil, err
@@ -97,15 +97,15 @@ func (s *Service) GetByID(ctx context.Context, id int64) (*User, error) {
 	return u, nil
 }
 
-func (s *Service) QueryList(ctx context.Context, params page.PageRequest) ([]*User, error) {
-	users, err := s.repo.QueryList(ctx, params)
+func (s *Service) QueryList(ctx context.Context, params page.PageRequest) ([]*User, int, error) {
+	users, total, err := s.repo.QueryList(ctx, params)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return users, nil
+	return users, total, nil
 }
 
-func (s *Service) Update(ctx context.Context, actorID, targetID int64, in UpdateParams) (*User, error) {
+func (s *Service) Update(ctx context.Context, actorID, targetID int64, in UpdateRequest) (*User, error) {
 	if actorID != targetID {
 		actor, err := s.repo.FindByID(ctx, actorID)
 		if err != nil {

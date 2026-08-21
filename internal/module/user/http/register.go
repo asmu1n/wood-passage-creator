@@ -1,4 +1,4 @@
-package userhttp
+package http
 
 import (
 	"projecttemp/internal/httpapi/middleware"
@@ -12,14 +12,18 @@ func Register(api *echo.Group, svc *user.Service) {
 	h := NewHandler(svc)
 
 	auth := api.Group("/auth")
-	auth.POST("/register", h.Register)
-	auth.POST("/login", h.Login)
-	auth.POST("/logout", h.Logout, middleware.AuthRequired())
+	{
+		auth.POST("/register", h.Register)
+		auth.POST("/login", h.Login)
+		auth.POST("/logout", h.Logout, middleware.AuthRequired())
+	}
 
 	users := api.Group("/users")
-	users.GET("/:id", h.GetByID)
-	users.PATCH("/:id", h.Update, middleware.AuthRequired())
-	// 管理端：列表 / 删除需管理员
-	users.GET("/list", h.List, middleware.AdminRequired(svc))
-	users.DELETE("/:id", h.Delete, middleware.AdminRequired(svc))
+	{
+		users.GET("/:id", h.GetByID)
+		users.PATCH("/:id", h.Update, middleware.AuthRequired())
+		// 管理端：列表 / 删除需管理员
+		users.GET("/list", h.List, middleware.AuthWithRoleRequired(svc, true))
+		users.DELETE("/:id", h.Delete, middleware.AuthWithRoleRequired(svc, true))
+	}
 }

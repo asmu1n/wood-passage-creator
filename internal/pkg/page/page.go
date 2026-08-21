@@ -51,15 +51,15 @@ func (p *PageRequest) Limit() int {
 
 // PageResponse 标准分页响应，作为接口 data 使用（字段保持 records/total/pageSize/pageNum）。
 type PageResponse[T any] struct {
-	Records  []T   `json:"records"`
-	Total    int64 `json:"total"`
-	PageSize int   `json:"pageSize"`
-	PageNum  int   `json:"pageNum"`
+	Records  []T `json:"records"`
+	Total    int `json:"total"`
+	PageSize int `json:"pageSize"`
+	PageNum  int `json:"pageNum"`
 }
 
 // NewPageResponse 由本页数据与总数组装响应。
 // 会 Normalize req；records 为 nil 时改为空切片，避免 JSON null。
-func NewPageResponse[T any](records []T, total int64, req PageRequest) *PageResponse[T] {
+func NewPageResponse[T any](records []T, total int, req PageRequest) *PageResponse[T] {
 	req.normalize()
 	if records == nil {
 		records = []T{}
@@ -73,7 +73,7 @@ func NewPageResponse[T any](records []T, total int64, req PageRequest) *PageResp
 }
 
 // MapPage 对本页元素做映射后组装响应（仅映射当前页，禁止先全表再分页）。
-func MapPage[A, B any](records []A, total int64, req PageRequest, fn func(A) B) *PageResponse[B] {
+func MapPage[A, B any](records []A, total int, req PageRequest, fn func(A) B) *PageResponse[B] {
 	out := make([]B, 0, len(records))
 	for _, item := range records {
 		out = append(out, fn(item))
@@ -82,15 +82,15 @@ func MapPage[A, B any](records []A, total int64, req PageRequest, fn func(A) B) 
 }
 
 // Pages 总页数（total=0 时为 0）。
-func (p *PageResponse[T]) Pages() int64 {
+func (p *PageResponse[T]) Pages() int {
 	if p.PageSize <= 0 {
 		return 0
 	}
 	if p.Total == 0 {
 		return 0
 	}
-	pages := p.Total / int64(p.PageSize)
-	if p.Total%int64(p.PageSize) != 0 {
+	pages := p.Total / p.PageSize
+	if p.Total%p.PageSize != 0 {
 		pages++
 	}
 	return pages

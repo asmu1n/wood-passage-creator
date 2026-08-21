@@ -1,6 +1,222 @@
 basePath: /api
 definitions:
-  projecttemp_internal_module_user.LoginParams:
+  projecttemp_internal_module_article.Article:
+    properties:
+      completedTime:
+        type: string
+      content:
+        type: string
+      createTime:
+        type: string
+      enabledImageMethods:
+        description: 允许的配图方式列表
+        items:
+          type: string
+        type: array
+      errorMessage:
+        type: string
+      fullContent:
+        type: string
+      id:
+        type: integer
+      images:
+        items:
+          $ref: '#/definitions/projecttemp_internal_module_article.ImageResult'
+        type: array
+      mainTitle:
+        type: string
+      outline:
+        items:
+          $ref: '#/definitions/projecttemp_internal_module_article.OutlineSection'
+        type: array
+      phase:
+        allOf:
+        - $ref: '#/definitions/projecttemp_internal_module_article.ArticlePhase'
+        description: 当前阶段
+      status:
+        $ref: '#/definitions/projecttemp_internal_module_article.ArticleStatus'
+      style:
+        description: 文章风格
+        type: string
+      subTitle:
+        type: string
+      taskId:
+        type: string
+      titleOptions:
+        description: 标题方案列表
+        items:
+          $ref: '#/definitions/projecttemp_internal_module_article.TitleOption'
+        type: array
+      topic:
+        type: string
+      userDescription:
+        description: 用户补充描述
+        type: string
+      userId:
+        type: integer
+    type: object
+  projecttemp_internal_module_article.ArticleListData:
+    properties:
+      pageNum:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/projecttemp_internal_module_article.Article'
+        type: array
+      total:
+        type: integer
+    type: object
+  projecttemp_internal_module_article.ArticlePhase:
+    enum:
+    - PENDING
+    - TITLE_GENERATING
+    - TITLE_SELECTING
+    - OUTLINE_GENERATING
+    - OUTLINE_EDITING
+    - CONTENT_GENERATING
+    type: string
+    x-enum-comments:
+      PhaseContentGenerating: 生成正文中
+      PhaseOutlineEditing: 等待编辑大纲
+      PhaseOutlineGenerating: 生成大纲中
+      PhasePending: 等待处理
+      PhaseTitleGenerating: 生成标题中
+      PhaseTitleSelecting: 等待选择标题
+    x-enum-descriptions:
+    - 等待处理
+    - 生成标题中
+    - 等待选择标题
+    - 生成大纲中
+    - 等待编辑大纲
+    - 生成正文中
+    x-enum-varnames:
+    - PhasePending
+    - PhaseTitleGenerating
+    - PhaseTitleSelecting
+    - PhaseOutlineGenerating
+    - PhaseOutlineEditing
+    - PhaseContentGenerating
+  projecttemp_internal_module_article.ArticleStatus:
+    enum:
+    - PENDING
+    - PROCESSING
+    - COMPLETED
+    - FAILED
+    type: string
+    x-enum-varnames:
+    - StatusPending
+    - StatusProcessing
+    - StatusCompleted
+    - StatusFailed
+  projecttemp_internal_module_article.ConfirmOutlineRequest:
+    properties:
+      outline:
+        items:
+          $ref: '#/definitions/projecttemp_internal_module_article.OutlineSection'
+        minItems: 1
+        type: array
+      taskId:
+        maxLength: 64
+        minLength: 1
+        type: string
+    required:
+    - outline
+    - taskId
+    type: object
+  projecttemp_internal_module_article.ConfirmTitleRequest:
+    properties:
+      selectedMainTitle:
+        maxLength: 512
+        minLength: 1
+        type: string
+      selectedSubTitle:
+        maxLength: 512
+        minLength: 1
+        type: string
+      taskId:
+        maxLength: 64
+        minLength: 1
+        type: string
+      userDescription:
+        description: 可选
+        maxLength: 4000
+        type: string
+    required:
+    - selectedMainTitle
+    - selectedSubTitle
+    - taskId
+    type: object
+  projecttemp_internal_module_article.CreateArticleRequest:
+    properties:
+      enabledImageMethods:
+        description: 空/nil 表示支持所有方式
+        items:
+          type: string
+        type: array
+      style:
+        description: tech/emotional/educational/humorous，可为空
+        maxLength: 64
+        type: string
+      topic:
+        maxLength: 512
+        minLength: 1
+        type: string
+    required:
+    - topic
+    type: object
+  projecttemp_internal_module_article.ImageResult:
+    properties:
+      description:
+        type: string
+      keywords:
+        type: string
+      method:
+        type: string
+      placeholderId:
+        description: '{{IMAGE_PLACEHOLDER_N}}'
+        type: string
+      position:
+        type: integer
+      sectionTitle:
+        type: string
+      url:
+        type: string
+    type: object
+  projecttemp_internal_module_article.OutlineSection:
+    properties:
+      points:
+        items:
+          type: string
+        type: array
+      section:
+        type: integer
+      title:
+        type: string
+    type: object
+  projecttemp_internal_module_article.QueryArticleRequest:
+    properties:
+      pageNum:
+        type: integer
+      pageSize:
+        type: integer
+      status:
+        enum:
+        - PENDING
+        - PROCESSING
+        - COMPLETED
+        - FAILED
+        type: string
+    type: object
+  projecttemp_internal_module_article.TitleOption:
+    properties:
+      mainTitle:
+        type: string
+      subTitle:
+        type: string
+    type: object
+  projecttemp_internal_module_user.LoginRequest:
     properties:
       userAccount:
         maxLength: 20
@@ -14,7 +230,7 @@ definitions:
     - userAccount
     - userPassword
     type: object
-  projecttemp_internal_module_user.RegisterParams:
+  projecttemp_internal_module_user.RegisterRequest:
     properties:
       userAccount:
         description: 字母开头，后仅字母数字下划线；长度 3–20
@@ -39,7 +255,7 @@ definitions:
     - userAccount
     - userPassword
     type: object
-  projecttemp_internal_module_user.UpdateParams:
+  projecttemp_internal_module_user.UpdateRequest:
     properties:
       userAvatar:
         maxLength: 1024
@@ -56,6 +272,62 @@ definitions:
         maxLength: 512
         type: string
     type: object
+  projecttemp_internal_module_user.User:
+    properties:
+      createTime:
+        type: string
+      editTime:
+        type: string
+      id:
+        type: integer
+      quota:
+        type: integer
+      updateTime:
+        type: string
+      userAccount:
+        type: string
+      userAvatar:
+        type: string
+      userName:
+        type: string
+      userProfile:
+        type: string
+      userRole:
+        $ref: '#/definitions/projecttemp_internal_module_user.UserRole'
+      vipTime:
+        type: string
+    type: object
+  projecttemp_internal_module_user.UserListData:
+    properties:
+      pageNum:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/projecttemp_internal_module_user.User'
+        type: array
+      total:
+        type: integer
+    type: object
+  projecttemp_internal_module_user.UserRole:
+    enum:
+    - user
+    - admin
+    - vip
+    type: string
+    x-enum-varnames:
+    - RoleUser
+    - RoleAdmin
+    - RoleVIP
+  projecttemp_internal_pkg_response.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -63,6 +335,235 @@ info:
   title: Go Web API Template
   version: "1.0"
 paths:
+  /article/{taskId}:
+    get:
+      description: 使用创建任务时的 taskId 查询文章详情。
+      parameters:
+      - description: 任务 ID（taskId）
+        in: path
+        name: taskId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/projecttemp_internal_module_article.Article'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "404":
+          description: 文章不存在
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+      security:
+      - SessionAuth: []
+      summary: 按任务 ID 查询文章
+      tags:
+      - article
+  /article/confirm-outline:
+    post:
+      consumes:
+      - application/json
+      description: 在 OUTLINE_EDITING 阶段确认大纲；仅文章作者或管理员可操作。
+      parameters:
+      - description: 确认大纲参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/projecttemp_internal_module_article.ConfirmOutlineRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功（data 一般为 null）
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "400":
+          description: 参数错误/阶段不允许
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "403":
+          description: 无权限
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "404":
+          description: 文章不存在
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+      security:
+      - SessionAuth: []
+      summary: 确认文章大纲
+      tags:
+      - article
+  /article/confirm-title:
+    post:
+      consumes:
+      - application/json
+      description: 在 TITLE_SELECTING 阶段确认主/副标题；仅文章作者或管理员可操作。
+      parameters:
+      - description: 确认标题参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/projecttemp_internal_module_article.ConfirmTitleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功（data 一般为 null）
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "400":
+          description: 参数错误/阶段不允许
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "403":
+          description: 无权限
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "404":
+          description: 文章不存在
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+      security:
+      - SessionAuth: []
+      summary: 确认文章标题
+      tags:
+      - article
+  /article/create:
+    post:
+      consumes:
+      - application/json
+      description: 登录用户创建一篇文章任务，进入生成流水线（具体异步逻辑由服务层处理）。
+      parameters:
+      - description: 创建参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/projecttemp_internal_module_article.CreateArticleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/projecttemp_internal_module_article.Article'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+      security:
+      - SessionAuth: []
+      summary: 创建文章生成任务
+      tags:
+      - article
+  /article/delete:
+    post:
+      description: 按主键软删除文章。
+      parameters:
+      - description: 文章主键 ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功（data 一般为 null）
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "404":
+          description: 文章不存在
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+      security:
+      - SessionAuth: []
+      summary: 删除文章（软删除）
+      tags:
+      - article
+  /article/list:
+    post:
+      consumes:
+      - application/json
+      description: 管理端/全量列表；具体权限由路由中间件控制。
+      parameters:
+      - description: 分页与筛选（pageNum/pageSize/status）
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/projecttemp_internal_module_article.QueryArticleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/projecttemp_internal_module_article.ArticleListData'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "403":
+          description: 无权限
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+      security:
+      - SessionAuth: []
+      summary: 分页查询全部文章
+      tags:
+      - article
   /auth/login:
     post:
       consumes:
@@ -73,20 +574,23 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/projecttemp_internal_module_user.LoginParams'
+          $ref: '#/definitions/projecttemp_internal_module_user.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 成功
           schema:
-            additionalProperties: true
-            type: object
+            allOf:
+            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/projecttemp_internal_module_user.User'
+              type: object
         "400":
-          description: Bad Request
+          description: 参数错误/账号或密码错误
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
       summary: 登录
       tags:
       - auth
@@ -96,15 +600,13 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 成功（data 一般为 null）
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
         "401":
-          description: Unauthorized
+          description: 未登录
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
       security:
       - SessionAuth: []
       summary: 登出
@@ -120,20 +622,23 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/projecttemp_internal_module_user.RegisterParams'
+          $ref: '#/definitions/projecttemp_internal_module_user.RegisterRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 成功
           schema:
-            additionalProperties: true
-            type: object
+            allOf:
+            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/projecttemp_internal_module_user.User'
+              type: object
         "400":
-          description: Bad Request
+          description: 参数错误/账号冲突
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
       summary: 注册
       tags:
       - auth
@@ -149,25 +654,25 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 成功（data 一般为 null）
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
         "400":
-          description: Bad Request
+          description: 参数错误
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
         "401":
-          description: Unauthorized
+          description: 未登录
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
         "403":
-          description: Forbidden
+          description: 无权限
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "404":
+          description: 用户不存在
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
       security:
       - SessionAuth: []
       summary: 删除用户（软删除，管理员）
@@ -184,15 +689,22 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 成功
           schema:
-            additionalProperties: true
-            type: object
+            allOf:
+            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/projecttemp_internal_module_user.User'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
         "404":
-          description: Not Found
+          description: 用户不存在
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
       summary: 按 ID 查询用户
       tags:
       - users
@@ -210,30 +722,35 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/projecttemp_internal_module_user.UpdateParams'
+          $ref: '#/definitions/projecttemp_internal_module_user.UpdateRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 成功
           schema:
-            additionalProperties: true
-            type: object
+            allOf:
+            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/projecttemp_internal_module_user.User'
+              type: object
         "400":
-          description: Bad Request
+          description: 参数错误
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
         "401":
-          description: Unauthorized
+          description: 未登录
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
         "403":
-          description: Forbidden
+          description: 无权限
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+        "404":
+          description: 用户不存在
+          schema:
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
       security:
       - SessionAuth: []
       summary: 部分更新用户（仅本人）
@@ -254,25 +771,26 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 成功
           schema:
-            additionalProperties: true
-            type: object
+            allOf:
+            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/projecttemp_internal_module_user.UserListData'
+              type: object
         "400":
-          description: Bad Request
+          description: 参数错误
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
         "401":
-          description: Unauthorized
+          description: 未登录
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
         "403":
-          description: Forbidden
+          description: 无权限
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
       security:
       - SessionAuth: []
       summary: 分页查询用户列表（管理员）
