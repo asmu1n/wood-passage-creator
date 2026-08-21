@@ -41,8 +41,40 @@ type User struct {
 	// 更新时间
 	UpdateTime time.Time `json:"update_time,omitempty"`
 	// 是否删除（软删除）
-	IsDelete     bool `json:"is_delete,omitempty"`
+	IsDelete bool `json:"is_delete,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the UserQuery when eager-loading is set.
+	Edges        UserEdges `json:"edges"`
 	selectValues sql.SelectValues
+}
+
+// UserEdges holds the relations/edges for other nodes in the graph.
+type UserEdges struct {
+	// Articles holds the value of the articles edge.
+	Articles []*Article `json:"articles,omitempty"`
+	// PaymentRecords holds the value of the payment_records edge.
+	PaymentRecords []*PaymentRecord `json:"payment_records,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [2]bool
+}
+
+// ArticlesOrErr returns the Articles value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) ArticlesOrErr() ([]*Article, error) {
+	if e.loadedTypes[0] {
+		return e.Articles, nil
+	}
+	return nil, &NotLoadedError{edge: "articles"}
+}
+
+// PaymentRecordsOrErr returns the PaymentRecords value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) PaymentRecordsOrErr() ([]*PaymentRecord, error) {
+	if e.loadedTypes[1] {
+		return e.PaymentRecords, nil
+	}
+	return nil, &NotLoadedError{edge: "payment_records"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -166,6 +198,16 @@ func (_m *User) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (_m *User) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
+}
+
+// QueryArticles queries the "articles" edge of the User entity.
+func (_m *User) QueryArticles() *ArticleQuery {
+	return NewUserClient(_m.config).QueryArticles(_m)
+}
+
+// QueryPaymentRecords queries the "payment_records" edge of the User entity.
+func (_m *User) QueryPaymentRecords() *PaymentRecordQuery {
+	return NewUserClient(_m.config).QueryPaymentRecords(_m)
 }
 
 // Update returns a builder for updating this User.

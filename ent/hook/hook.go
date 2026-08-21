@@ -8,6 +8,42 @@ import (
 	"projecttemp/ent"
 )
 
+// The AgentLogFunc type is an adapter to allow the use of ordinary
+// function as AgentLog mutator.
+type AgentLogFunc func(context.Context, *ent.AgentLogMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AgentLogFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AgentLogMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentLogMutation", m)
+}
+
+// The ArticleFunc type is an adapter to allow the use of ordinary
+// function as Article mutator.
+type ArticleFunc func(context.Context, *ent.ArticleMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ArticleFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ArticleMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ArticleMutation", m)
+}
+
+// The PaymentRecordFunc type is an adapter to allow the use of ordinary
+// function as PaymentRecord mutator.
+type PaymentRecordFunc func(context.Context, *ent.PaymentRecordMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PaymentRecordFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PaymentRecordMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PaymentRecordMutation", m)
+}
+
 // The UserFunc type is an adapter to allow the use of ordinary
 // function as User mutator.
 type UserFunc func(context.Context, *ent.UserMutation) (ent.Value, error)

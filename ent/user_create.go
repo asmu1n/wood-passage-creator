@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"projecttemp/ent/article"
+	"projecttemp/ent/paymentrecord"
 	"projecttemp/ent/user"
 	"time"
 
@@ -176,6 +178,36 @@ func (_c *UserCreate) SetNillableIsDelete(v *bool) *UserCreate {
 func (_c *UserCreate) SetID(v int64) *UserCreate {
 	_c.mutation.SetID(v)
 	return _c
+}
+
+// AddArticleIDs adds the "articles" edge to the Article entity by IDs.
+func (_c *UserCreate) AddArticleIDs(ids ...int64) *UserCreate {
+	_c.mutation.AddArticleIDs(ids...)
+	return _c
+}
+
+// AddArticles adds the "articles" edges to the Article entity.
+func (_c *UserCreate) AddArticles(v ...*Article) *UserCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddArticleIDs(ids...)
+}
+
+// AddPaymentRecordIDs adds the "payment_records" edge to the PaymentRecord entity by IDs.
+func (_c *UserCreate) AddPaymentRecordIDs(ids ...int64) *UserCreate {
+	_c.mutation.AddPaymentRecordIDs(ids...)
+	return _c
+}
+
+// AddPaymentRecords adds the "payment_records" edges to the PaymentRecord entity.
+func (_c *UserCreate) AddPaymentRecords(v ...*PaymentRecord) *UserCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddPaymentRecordIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -384,6 +416,38 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.IsDelete(); ok {
 		_spec.SetField(user.FieldIsDelete, field.TypeBool, value)
 		_node.IsDelete = value
+	}
+	if nodes := _c.mutation.ArticlesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ArticlesTable,
+			Columns: []string{user.ArticlesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(article.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.PaymentRecordsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentRecordsTable,
+			Columns: []string{user.PaymentRecordsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentrecord.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

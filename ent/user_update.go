@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"projecttemp/ent/article"
+	"projecttemp/ent/paymentrecord"
 	"projecttemp/ent/predicate"
 	"projecttemp/ent/user"
 	"time"
@@ -205,9 +207,81 @@ func (_u *UserUpdate) SetNillableIsDelete(v *bool) *UserUpdate {
 	return _u
 }
 
+// AddArticleIDs adds the "articles" edge to the Article entity by IDs.
+func (_u *UserUpdate) AddArticleIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddArticleIDs(ids...)
+	return _u
+}
+
+// AddArticles adds the "articles" edges to the Article entity.
+func (_u *UserUpdate) AddArticles(v ...*Article) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddArticleIDs(ids...)
+}
+
+// AddPaymentRecordIDs adds the "payment_records" edge to the PaymentRecord entity by IDs.
+func (_u *UserUpdate) AddPaymentRecordIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddPaymentRecordIDs(ids...)
+	return _u
+}
+
+// AddPaymentRecords adds the "payment_records" edges to the PaymentRecord entity.
+func (_u *UserUpdate) AddPaymentRecords(v ...*PaymentRecord) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddPaymentRecordIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdate) Mutation() *UserMutation {
 	return _u.mutation
+}
+
+// ClearArticles clears all "articles" edges to the Article entity.
+func (_u *UserUpdate) ClearArticles() *UserUpdate {
+	_u.mutation.ClearArticles()
+	return _u
+}
+
+// RemoveArticleIDs removes the "articles" edge to Article entities by IDs.
+func (_u *UserUpdate) RemoveArticleIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveArticleIDs(ids...)
+	return _u
+}
+
+// RemoveArticles removes "articles" edges to Article entities.
+func (_u *UserUpdate) RemoveArticles(v ...*Article) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveArticleIDs(ids...)
+}
+
+// ClearPaymentRecords clears all "payment_records" edges to the PaymentRecord entity.
+func (_u *UserUpdate) ClearPaymentRecords() *UserUpdate {
+	_u.mutation.ClearPaymentRecords()
+	return _u
+}
+
+// RemovePaymentRecordIDs removes the "payment_records" edge to PaymentRecord entities by IDs.
+func (_u *UserUpdate) RemovePaymentRecordIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemovePaymentRecordIDs(ids...)
+	return _u
+}
+
+// RemovePaymentRecords removes "payment_records" edges to PaymentRecord entities.
+func (_u *UserUpdate) RemovePaymentRecords(v ...*PaymentRecord) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemovePaymentRecordIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -345,6 +419,96 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.IsDelete(); ok {
 		_spec.SetField(user.FieldIsDelete, field.TypeBool, value)
+	}
+	if _u.mutation.ArticlesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ArticlesTable,
+			Columns: []string{user.ArticlesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(article.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedArticlesIDs(); len(nodes) > 0 && !_u.mutation.ArticlesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ArticlesTable,
+			Columns: []string{user.ArticlesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(article.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ArticlesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ArticlesTable,
+			Columns: []string{user.ArticlesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(article.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PaymentRecordsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentRecordsTable,
+			Columns: []string{user.PaymentRecordsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentrecord.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedPaymentRecordsIDs(); len(nodes) > 0 && !_u.mutation.PaymentRecordsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentRecordsTable,
+			Columns: []string{user.PaymentRecordsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentrecord.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PaymentRecordsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentRecordsTable,
+			Columns: []string{user.PaymentRecordsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentrecord.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -543,9 +707,81 @@ func (_u *UserUpdateOne) SetNillableIsDelete(v *bool) *UserUpdateOne {
 	return _u
 }
 
+// AddArticleIDs adds the "articles" edge to the Article entity by IDs.
+func (_u *UserUpdateOne) AddArticleIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddArticleIDs(ids...)
+	return _u
+}
+
+// AddArticles adds the "articles" edges to the Article entity.
+func (_u *UserUpdateOne) AddArticles(v ...*Article) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddArticleIDs(ids...)
+}
+
+// AddPaymentRecordIDs adds the "payment_records" edge to the PaymentRecord entity by IDs.
+func (_u *UserUpdateOne) AddPaymentRecordIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddPaymentRecordIDs(ids...)
+	return _u
+}
+
+// AddPaymentRecords adds the "payment_records" edges to the PaymentRecord entity.
+func (_u *UserUpdateOne) AddPaymentRecords(v ...*PaymentRecord) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddPaymentRecordIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdateOne) Mutation() *UserMutation {
 	return _u.mutation
+}
+
+// ClearArticles clears all "articles" edges to the Article entity.
+func (_u *UserUpdateOne) ClearArticles() *UserUpdateOne {
+	_u.mutation.ClearArticles()
+	return _u
+}
+
+// RemoveArticleIDs removes the "articles" edge to Article entities by IDs.
+func (_u *UserUpdateOne) RemoveArticleIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveArticleIDs(ids...)
+	return _u
+}
+
+// RemoveArticles removes "articles" edges to Article entities.
+func (_u *UserUpdateOne) RemoveArticles(v ...*Article) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveArticleIDs(ids...)
+}
+
+// ClearPaymentRecords clears all "payment_records" edges to the PaymentRecord entity.
+func (_u *UserUpdateOne) ClearPaymentRecords() *UserUpdateOne {
+	_u.mutation.ClearPaymentRecords()
+	return _u
+}
+
+// RemovePaymentRecordIDs removes the "payment_records" edge to PaymentRecord entities by IDs.
+func (_u *UserUpdateOne) RemovePaymentRecordIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemovePaymentRecordIDs(ids...)
+	return _u
+}
+
+// RemovePaymentRecords removes "payment_records" edges to PaymentRecord entities.
+func (_u *UserUpdateOne) RemovePaymentRecords(v ...*PaymentRecord) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemovePaymentRecordIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -713,6 +949,96 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if value, ok := _u.mutation.IsDelete(); ok {
 		_spec.SetField(user.FieldIsDelete, field.TypeBool, value)
+	}
+	if _u.mutation.ArticlesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ArticlesTable,
+			Columns: []string{user.ArticlesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(article.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedArticlesIDs(); len(nodes) > 0 && !_u.mutation.ArticlesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ArticlesTable,
+			Columns: []string{user.ArticlesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(article.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ArticlesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ArticlesTable,
+			Columns: []string{user.ArticlesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(article.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PaymentRecordsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentRecordsTable,
+			Columns: []string{user.PaymentRecordsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentrecord.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedPaymentRecordsIDs(); len(nodes) > 0 && !_u.mutation.PaymentRecordsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentRecordsTable,
+			Columns: []string{user.PaymentRecordsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentrecord.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PaymentRecordsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentRecordsTable,
+			Columns: []string{user.PaymentRecordsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentrecord.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &User{config: _u.config}
 	_spec.Assign = _node.assignValues

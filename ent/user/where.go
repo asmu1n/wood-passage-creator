@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 // ID filters vertices based on their ID field.
@@ -702,6 +703,52 @@ func IsDeleteEQ(v bool) predicate.User {
 // IsDeleteNEQ applies the NEQ predicate on the "is_delete" field.
 func IsDeleteNEQ(v bool) predicate.User {
 	return predicate.User(sql.FieldNEQ(FieldIsDelete, v))
+}
+
+// HasArticles applies the HasEdge predicate on the "articles" edge.
+func HasArticles() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ArticlesTable, ArticlesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasArticlesWith applies the HasEdge predicate on the "articles" edge with a given conditions (other predicates).
+func HasArticlesWith(preds ...predicate.Article) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newArticlesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasPaymentRecords applies the HasEdge predicate on the "payment_records" edge.
+func HasPaymentRecords() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, PaymentRecordsTable, PaymentRecordsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPaymentRecordsWith applies the HasEdge predicate on the "payment_records" edge with a given conditions (other predicates).
+func HasPaymentRecordsWith(preds ...predicate.PaymentRecord) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newPaymentRecordsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // And groups predicates with the AND operator between them.

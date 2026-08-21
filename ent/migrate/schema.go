@@ -9,6 +9,182 @@ import (
 )
 
 var (
+	// AgentLogsColumns holds the columns for the "agent_logs" table.
+	AgentLogsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "task_id", Type: field.TypeString, Size: 64},
+		{Name: "agent_name", Type: field.TypeString, Size: 64},
+		{Name: "start_time", Type: field.TypeTime},
+		{Name: "end_time", Type: field.TypeTime, Nullable: true},
+		{Name: "duration_ms", Type: field.TypeInt, Nullable: true},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"RUNNING", "SUCCESS", "FAILED"}},
+		{Name: "error_message", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "prompt", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "input_data", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "output_data", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "create_time", Type: field.TypeTime},
+		{Name: "update_time", Type: field.TypeTime},
+		{Name: "is_delete", Type: field.TypeBool, Default: false},
+		{Name: "article_id", Type: field.TypeInt64},
+	}
+	// AgentLogsTable holds the schema information for the "agent_logs" table.
+	AgentLogsTable = &schema.Table{
+		Name:       "agent_logs",
+		Columns:    AgentLogsColumns,
+		PrimaryKey: []*schema.Column{AgentLogsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "agent_logs_articles_agent_logs",
+				Columns:    []*schema.Column{AgentLogsColumns[14]},
+				RefColumns: []*schema.Column{ArticlesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "agentlog_article_id",
+				Unique:  false,
+				Columns: []*schema.Column{AgentLogsColumns[14]},
+			},
+			{
+				Name:    "agentlog_task_id",
+				Unique:  false,
+				Columns: []*schema.Column{AgentLogsColumns[1]},
+			},
+			{
+				Name:    "agentlog_status",
+				Unique:  false,
+				Columns: []*schema.Column{AgentLogsColumns[6]},
+			},
+			{
+				Name:    "agentlog_create_time",
+				Unique:  false,
+				Columns: []*schema.Column{AgentLogsColumns[11]},
+			},
+			{
+				Name:    "agentlog_is_delete",
+				Unique:  false,
+				Columns: []*schema.Column{AgentLogsColumns[13]},
+			},
+		},
+	}
+	// ArticlesColumns holds the columns for the "articles" table.
+	ArticlesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "task_id", Type: field.TypeString, Unique: true},
+		{Name: "topic", Type: field.TypeString},
+		{Name: "user_description", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "main_title", Type: field.TypeString, Nullable: true},
+		{Name: "sub_title", Type: field.TypeString, Nullable: true},
+		{Name: "title_options", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "outline", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "content", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "full_content", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "images", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"PENDING", "PROCESSING", "COMPLETED", "FAILED"}, Default: "PENDING"},
+		{Name: "phase", Type: field.TypeEnum, Enums: []string{"PENDING", "TITLE_GENERATING", "TITLE_SELECTING", "OUTLINE_GENERATING", "OUTLINE_EDITING", "CONTENT_GENERATING"}, Default: "PENDING"},
+		{Name: "error_message", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "style", Type: field.TypeString, Default: ""},
+		{Name: "enabled_image_methods", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "create_time", Type: field.TypeTime},
+		{Name: "completed_time", Type: field.TypeTime, Nullable: true},
+		{Name: "update_time", Type: field.TypeTime},
+		{Name: "is_delete", Type: field.TypeBool, Default: false},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// ArticlesTable holds the schema information for the "articles" table.
+	ArticlesTable = &schema.Table{
+		Name:       "articles",
+		Columns:    ArticlesColumns,
+		PrimaryKey: []*schema.Column{ArticlesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "articles_users_articles",
+				Columns:    []*schema.Column{ArticlesColumns[20]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "article_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{ArticlesColumns[20]},
+			},
+			{
+				Name:    "article_status",
+				Unique:  false,
+				Columns: []*schema.Column{ArticlesColumns[11]},
+			},
+			{
+				Name:    "article_create_time",
+				Unique:  false,
+				Columns: []*schema.Column{ArticlesColumns[16]},
+			},
+			{
+				Name:    "article_is_delete",
+				Unique:  false,
+				Columns: []*schema.Column{ArticlesColumns[19]},
+			},
+		},
+	}
+	// PaymentRecordsColumns holds the columns for the "payment_records" table.
+	PaymentRecordsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "stripe_session_id", Type: field.TypeString, Size: 128},
+		{Name: "stripe_payment_intent_id", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "amount", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(10,2)"}},
+		{Name: "currency", Type: field.TypeString, Size: 8, Default: "usd"},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"PENDING", "SUCCEEDED", "FAILED", "REFUNDED"}, Default: "PENDING"},
+		{Name: "product_type", Type: field.TypeString, Size: 32},
+		{Name: "description", Type: field.TypeString, Nullable: true, Size: 256},
+		{Name: "refund_time", Type: field.TypeTime, Nullable: true},
+		{Name: "refund_reason", Type: field.TypeString, Nullable: true, Size: 512},
+		{Name: "create_time", Type: field.TypeTime},
+		{Name: "update_time", Type: field.TypeTime},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// PaymentRecordsTable holds the schema information for the "payment_records" table.
+	PaymentRecordsTable = &schema.Table{
+		Name:       "payment_records",
+		Columns:    PaymentRecordsColumns,
+		PrimaryKey: []*schema.Column{PaymentRecordsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "payment_records_users_payment_records",
+				Columns:    []*schema.Column{PaymentRecordsColumns[12]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "paymentrecord_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentRecordsColumns[12]},
+			},
+			{
+				Name:    "paymentrecord_stripe_session_id",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentRecordsColumns[1]},
+			},
+			{
+				Name:    "paymentrecord_status",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentRecordsColumns[5]},
+			},
+			{
+				Name:    "paymentrecord_product_type",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentRecordsColumns[6]},
+			},
+			{
+				Name:    "paymentrecord_create_time",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentRecordsColumns[10]},
+			},
+		},
+	}
 	// UsersColumns holds the columns for the "users" table.
 	UsersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -45,11 +221,26 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		AgentLogsTable,
+		ArticlesTable,
+		PaymentRecordsTable,
 		UsersTable,
 	}
 )
 
 func init() {
+	AgentLogsTable.ForeignKeys[0].RefTable = ArticlesTable
+	AgentLogsTable.Annotation = &entsql.Annotation{
+		Table: "agent_logs",
+	}
+	ArticlesTable.ForeignKeys[0].RefTable = UsersTable
+	ArticlesTable.Annotation = &entsql.Annotation{
+		Table: "articles",
+	}
+	PaymentRecordsTable.ForeignKeys[0].RefTable = UsersTable
+	PaymentRecordsTable.Annotation = &entsql.Annotation{
+		Table: "payment_records",
+	}
 	UsersTable.Annotation = &entsql.Annotation{
 		Table: "users",
 	}

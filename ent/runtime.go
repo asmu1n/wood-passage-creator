@@ -3,6 +3,9 @@
 package ent
 
 import (
+	"projecttemp/ent/agentlog"
+	"projecttemp/ent/article"
+	"projecttemp/ent/paymentrecord"
 	"projecttemp/ent/schema"
 	"projecttemp/ent/user"
 	"time"
@@ -12,6 +15,176 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	agentlogFields := schema.AgentLog{}.Fields()
+	_ = agentlogFields
+	// agentlogDescArticleID is the schema descriptor for article_id field.
+	agentlogDescArticleID := agentlogFields[1].Descriptor()
+	// agentlog.ArticleIDValidator is a validator for the "article_id" field. It is called by the builders before save.
+	agentlog.ArticleIDValidator = agentlogDescArticleID.Validators[0].(func(int64) error)
+	// agentlogDescTaskID is the schema descriptor for task_id field.
+	agentlogDescTaskID := agentlogFields[2].Descriptor()
+	// agentlog.TaskIDValidator is a validator for the "task_id" field. It is called by the builders before save.
+	agentlog.TaskIDValidator = func() func(string) error {
+		validators := agentlogDescTaskID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(task_id string) error {
+			for _, fn := range fns {
+				if err := fn(task_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// agentlogDescAgentName is the schema descriptor for agent_name field.
+	agentlogDescAgentName := agentlogFields[3].Descriptor()
+	// agentlog.AgentNameValidator is a validator for the "agent_name" field. It is called by the builders before save.
+	agentlog.AgentNameValidator = func() func(string) error {
+		validators := agentlogDescAgentName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(agent_name string) error {
+			for _, fn := range fns {
+				if err := fn(agent_name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// agentlogDescDurationMs is the schema descriptor for duration_ms field.
+	agentlogDescDurationMs := agentlogFields[6].Descriptor()
+	// agentlog.DurationMsValidator is a validator for the "duration_ms" field. It is called by the builders before save.
+	agentlog.DurationMsValidator = agentlogDescDurationMs.Validators[0].(func(int) error)
+	// agentlogDescCreateTime is the schema descriptor for create_time field.
+	agentlogDescCreateTime := agentlogFields[12].Descriptor()
+	// agentlog.DefaultCreateTime holds the default value on creation for the create_time field.
+	agentlog.DefaultCreateTime = agentlogDescCreateTime.Default.(func() time.Time)
+	// agentlogDescUpdateTime is the schema descriptor for update_time field.
+	agentlogDescUpdateTime := agentlogFields[13].Descriptor()
+	// agentlog.DefaultUpdateTime holds the default value on creation for the update_time field.
+	agentlog.DefaultUpdateTime = agentlogDescUpdateTime.Default.(func() time.Time)
+	// agentlog.UpdateDefaultUpdateTime holds the default value on update for the update_time field.
+	agentlog.UpdateDefaultUpdateTime = agentlogDescUpdateTime.UpdateDefault.(func() time.Time)
+	// agentlogDescIsDelete is the schema descriptor for is_delete field.
+	agentlogDescIsDelete := agentlogFields[14].Descriptor()
+	// agentlog.DefaultIsDelete holds the default value on creation for the is_delete field.
+	agentlog.DefaultIsDelete = agentlogDescIsDelete.Default.(bool)
+	// agentlogDescID is the schema descriptor for id field.
+	agentlogDescID := agentlogFields[0].Descriptor()
+	// agentlog.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	agentlog.IDValidator = agentlogDescID.Validators[0].(func(int64) error)
+	articleFields := schema.Article{}.Fields()
+	_ = articleFields
+	// articleDescTaskID is the schema descriptor for task_id field.
+	articleDescTaskID := articleFields[1].Descriptor()
+	// article.TaskIDValidator is a validator for the "task_id" field. It is called by the builders before save.
+	article.TaskIDValidator = articleDescTaskID.Validators[0].(func(string) error)
+	// articleDescTopic is the schema descriptor for topic field.
+	articleDescTopic := articleFields[3].Descriptor()
+	// article.TopicValidator is a validator for the "topic" field. It is called by the builders before save.
+	article.TopicValidator = articleDescTopic.Validators[0].(func(string) error)
+	// articleDescStyle is the schema descriptor for style field.
+	articleDescStyle := articleFields[15].Descriptor()
+	// article.DefaultStyle holds the default value on creation for the style field.
+	article.DefaultStyle = articleDescStyle.Default.(string)
+	// articleDescCreateTime is the schema descriptor for create_time field.
+	articleDescCreateTime := articleFields[17].Descriptor()
+	// article.DefaultCreateTime holds the default value on creation for the create_time field.
+	article.DefaultCreateTime = articleDescCreateTime.Default.(func() time.Time)
+	// articleDescUpdateTime is the schema descriptor for update_time field.
+	articleDescUpdateTime := articleFields[19].Descriptor()
+	// article.DefaultUpdateTime holds the default value on creation for the update_time field.
+	article.DefaultUpdateTime = articleDescUpdateTime.Default.(func() time.Time)
+	// article.UpdateDefaultUpdateTime holds the default value on update for the update_time field.
+	article.UpdateDefaultUpdateTime = articleDescUpdateTime.UpdateDefault.(func() time.Time)
+	// articleDescIsDelete is the schema descriptor for is_delete field.
+	articleDescIsDelete := articleFields[20].Descriptor()
+	// article.DefaultIsDelete holds the default value on creation for the is_delete field.
+	article.DefaultIsDelete = articleDescIsDelete.Default.(bool)
+	// articleDescID is the schema descriptor for id field.
+	articleDescID := articleFields[0].Descriptor()
+	// article.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	article.IDValidator = articleDescID.Validators[0].(func(int64) error)
+	paymentrecordFields := schema.PaymentRecord{}.Fields()
+	_ = paymentrecordFields
+	// paymentrecordDescUserID is the schema descriptor for user_id field.
+	paymentrecordDescUserID := paymentrecordFields[1].Descriptor()
+	// paymentrecord.UserIDValidator is a validator for the "user_id" field. It is called by the builders before save.
+	paymentrecord.UserIDValidator = paymentrecordDescUserID.Validators[0].(func(int64) error)
+	// paymentrecordDescStripeSessionID is the schema descriptor for stripe_session_id field.
+	paymentrecordDescStripeSessionID := paymentrecordFields[2].Descriptor()
+	// paymentrecord.StripeSessionIDValidator is a validator for the "stripe_session_id" field. It is called by the builders before save.
+	paymentrecord.StripeSessionIDValidator = func() func(string) error {
+		validators := paymentrecordDescStripeSessionID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(stripe_session_id string) error {
+			for _, fn := range fns {
+				if err := fn(stripe_session_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// paymentrecordDescStripePaymentIntentID is the schema descriptor for stripe_payment_intent_id field.
+	paymentrecordDescStripePaymentIntentID := paymentrecordFields[3].Descriptor()
+	// paymentrecord.StripePaymentIntentIDValidator is a validator for the "stripe_payment_intent_id" field. It is called by the builders before save.
+	paymentrecord.StripePaymentIntentIDValidator = paymentrecordDescStripePaymentIntentID.Validators[0].(func(string) error)
+	// paymentrecordDescCurrency is the schema descriptor for currency field.
+	paymentrecordDescCurrency := paymentrecordFields[5].Descriptor()
+	// paymentrecord.DefaultCurrency holds the default value on creation for the currency field.
+	paymentrecord.DefaultCurrency = paymentrecordDescCurrency.Default.(string)
+	// paymentrecord.CurrencyValidator is a validator for the "currency" field. It is called by the builders before save.
+	paymentrecord.CurrencyValidator = paymentrecordDescCurrency.Validators[0].(func(string) error)
+	// paymentrecordDescProductType is the schema descriptor for product_type field.
+	paymentrecordDescProductType := paymentrecordFields[7].Descriptor()
+	// paymentrecord.ProductTypeValidator is a validator for the "product_type" field. It is called by the builders before save.
+	paymentrecord.ProductTypeValidator = func() func(string) error {
+		validators := paymentrecordDescProductType.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(product_type string) error {
+			for _, fn := range fns {
+				if err := fn(product_type); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// paymentrecordDescDescription is the schema descriptor for description field.
+	paymentrecordDescDescription := paymentrecordFields[8].Descriptor()
+	// paymentrecord.DescriptionValidator is a validator for the "description" field. It is called by the builders before save.
+	paymentrecord.DescriptionValidator = paymentrecordDescDescription.Validators[0].(func(string) error)
+	// paymentrecordDescRefundReason is the schema descriptor for refund_reason field.
+	paymentrecordDescRefundReason := paymentrecordFields[10].Descriptor()
+	// paymentrecord.RefundReasonValidator is a validator for the "refund_reason" field. It is called by the builders before save.
+	paymentrecord.RefundReasonValidator = paymentrecordDescRefundReason.Validators[0].(func(string) error)
+	// paymentrecordDescCreateTime is the schema descriptor for create_time field.
+	paymentrecordDescCreateTime := paymentrecordFields[11].Descriptor()
+	// paymentrecord.DefaultCreateTime holds the default value on creation for the create_time field.
+	paymentrecord.DefaultCreateTime = paymentrecordDescCreateTime.Default.(func() time.Time)
+	// paymentrecordDescUpdateTime is the schema descriptor for update_time field.
+	paymentrecordDescUpdateTime := paymentrecordFields[12].Descriptor()
+	// paymentrecord.DefaultUpdateTime holds the default value on creation for the update_time field.
+	paymentrecord.DefaultUpdateTime = paymentrecordDescUpdateTime.Default.(func() time.Time)
+	// paymentrecord.UpdateDefaultUpdateTime holds the default value on update for the update_time field.
+	paymentrecord.UpdateDefaultUpdateTime = paymentrecordDescUpdateTime.UpdateDefault.(func() time.Time)
+	// paymentrecordDescID is the schema descriptor for id field.
+	paymentrecordDescID := paymentrecordFields[0].Descriptor()
+	// paymentrecord.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	paymentrecord.IDValidator = paymentrecordDescID.Validators[0].(func(int64) error)
 	userFields := schema.User{}.Fields()
 	_ = userFields
 	// userDescUserAccount is the schema descriptor for user_account field.

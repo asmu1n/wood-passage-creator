@@ -6,5 +6,14 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// AgentLog is the predicate function for agentlog builders.
+type AgentLog func(*sql.Selector)
+
+// Article is the predicate function for article builders.
+type Article func(*sql.Selector)
+
+// PaymentRecord is the predicate function for paymentrecord builders.
+type PaymentRecord func(*sql.Selector)
+
 // User is the predicate function for user builders.
 type User func(*sql.Selector)
