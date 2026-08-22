@@ -49,7 +49,7 @@ type Article struct {
 	// 失败错误信息
 	ErrorMessage *string `json:"error_message,omitempty"`
 	// 文章风格：tech/emotional/educational/humorous
-	Style string `json:"style,omitempty"`
+	Style article.Style `json:"style,omitempty"`
 	// 允许的配图方式列表（JSON）
 	EnabledImageMethods []string `json:"enabled_image_methods,omitempty"`
 	// 创建时间
@@ -233,7 +233,7 @@ func (_m *Article) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field style", values[i])
 			} else if value.Valid {
-				_m.Style = value.String
+				_m.Style = article.Style(value.String)
 			}
 		case article.FieldEnabledImageMethods:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -369,7 +369,7 @@ func (_m *Article) String() string {
 	}
 	builder.WriteString(", ")
 	builder.WriteString("style=")
-	builder.WriteString(_m.Style)
+	builder.WriteString(fmt.Sprintf("%v", _m.Style))
 	builder.WriteString(", ")
 	builder.WriteString("enabled_image_methods=")
 	builder.WriteString(fmt.Sprintf("%v", _m.EnabledImageMethods))

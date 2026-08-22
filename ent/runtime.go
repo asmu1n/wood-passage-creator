@@ -89,10 +89,6 @@ func init() {
 	articleDescTopic := articleFields[3].Descriptor()
 	// article.TopicValidator is a validator for the "topic" field. It is called by the builders before save.
 	article.TopicValidator = articleDescTopic.Validators[0].(func(string) error)
-	// articleDescStyle is the schema descriptor for style field.
-	articleDescStyle := articleFields[15].Descriptor()
-	// article.DefaultStyle holds the default value on creation for the style field.
-	article.DefaultStyle = articleDescStyle.Default.(string)
 	// articleDescCreateTime is the schema descriptor for create_time field.
 	articleDescCreateTime := articleFields[17].Descriptor()
 	// article.DefaultCreateTime holds the default value on creation for the create_time field.

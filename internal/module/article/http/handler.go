@@ -132,7 +132,15 @@ func (h *Handler) GetByTaskID(c *echo.Context) error {
 	if taskID == "" {
 		return response.NewBizErrorWithDetail(response.ParamsError, "任务ID不能为空")
 	}
-	u, err := h.svc.GetByTaskID(c.Request().Context(), taskID)
+	actorID, err := middleware.GetLoginUserID(c)
+	if err != nil {
+		return err
+	}
+	actorRole, err := middleware.GetLoginUserRole(c)
+	if err != nil {
+		return err
+	}
+	u, err := h.svc.GetByTaskID(c.Request().Context(), taskID, actorID, actorRole == user.RoleAdmin)
 	if err != nil {
 		return err
 	}

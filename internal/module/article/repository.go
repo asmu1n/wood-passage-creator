@@ -33,7 +33,7 @@ type CreateArticleParams struct {
 	Topic               string
 	Status              ArticleStatus
 	Phase               ArticlePhase
-	Style               string
+	Style               *ArticleStyle
 	EnabledImageMethods []string
 }
 
@@ -46,7 +46,7 @@ type UpdateArticleParams struct {
 	Status          *ArticleStatus
 	Phase           *ArticlePhase
 	ErrorMessage    *string
-	Style           *string
+	Style           *ArticleStyle
 	CompletedTime   *time.Time
 
 	// JSON / 列表类：nil = 不改；非 nil = 整体覆盖

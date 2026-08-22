@@ -1298,7 +1298,7 @@ type ArticleMutation struct {
 	status                      *article.Status
 	phase                       *article.Phase
 	error_message               *string
-	style                       *string
+	style                       *article.Style
 	enabled_image_methods       *[]string
 	appendenabled_image_methods []string
 	create_time                 *time.Time
@@ -2090,12 +2090,12 @@ func (m *ArticleMutation) ResetErrorMessage() {
 }
 
 // SetStyle sets the "style" field.
-func (m *ArticleMutation) SetStyle(s string) {
-	m.style = &s
+func (m *ArticleMutation) SetStyle(a article.Style) {
+	m.style = &a
 }
 
 // Style returns the value of the "style" field in the mutation.
-func (m *ArticleMutation) Style() (r string, exists bool) {
+func (m *ArticleMutation) Style() (r article.Style, exists bool) {
 	v := m.style
 	if v == nil {
 		return
@@ -2106,7 +2106,7 @@ func (m *ArticleMutation) Style() (r string, exists bool) {
 // OldStyle returns the old "style" field's value of the Article entity.
 // If the Article object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ArticleMutation) OldStyle(ctx context.Context) (v string, err error) {
+func (m *ArticleMutation) OldStyle(ctx context.Context) (v article.Style, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldStyle is only allowed on UpdateOne operations")
 	}
@@ -2120,9 +2120,22 @@ func (m *ArticleMutation) OldStyle(ctx context.Context) (v string, err error) {
 	return oldValue.Style, nil
 }
 
+// ClearStyle clears the value of the "style" field.
+func (m *ArticleMutation) ClearStyle() {
+	m.style = nil
+	m.clearedFields[article.FieldStyle] = struct{}{}
+}
+
+// StyleCleared returns if the "style" field was cleared in this mutation.
+func (m *ArticleMutation) StyleCleared() bool {
+	_, ok := m.clearedFields[article.FieldStyle]
+	return ok
+}
+
 // ResetStyle resets all changes to the "style" field.
 func (m *ArticleMutation) ResetStyle() {
 	m.style = nil
+	delete(m.clearedFields, article.FieldStyle)
 }
 
 // SetEnabledImageMethods sets the "enabled_image_methods" field.
@@ -2728,7 +2741,7 @@ func (m *ArticleMutation) SetField(name string, value ent.Value) error {
 		m.SetErrorMessage(v)
 		return nil
 	case article.FieldStyle:
-		v, ok := value.(string)
+		v, ok := value.(article.Style)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
@@ -2829,6 +2842,9 @@ func (m *ArticleMutation) ClearedFields() []string {
 	if m.FieldCleared(article.FieldErrorMessage) {
 		fields = append(fields, article.FieldErrorMessage)
 	}
+	if m.FieldCleared(article.FieldStyle) {
+		fields = append(fields, article.FieldStyle)
+	}
 	if m.FieldCleared(article.FieldEnabledImageMethods) {
 		fields = append(fields, article.FieldEnabledImageMethods)
 	}
@@ -2875,6 +2891,9 @@ func (m *ArticleMutation) ClearField(name string) error {
 		return nil
 	case article.FieldErrorMessage:
 		m.ClearErrorMessage()
+		return nil
+	case article.FieldStyle:
+		m.ClearStyle()
 		return nil
 	case article.FieldEnabledImageMethods:
 		m.ClearEnabledImageMethods()

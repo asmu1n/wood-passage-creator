@@ -89,6 +89,7 @@ func (s *Service) Create(ctx context.Context, params CreateArticleRequest) (*Art
 	taskID := uuid.NewString()
 
 	return s.repo.Create(ctx, CreateArticleParams{
+		TaskID:              taskID,
 		Topic:               params.Topic,
 		Style:               params.Style,
 		EnabledImageMethods: params.EnabledImageMethods,

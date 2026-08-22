@@ -16,7 +16,7 @@ type Message struct {
 }
 
 type ChatOptions struct {
-	Temperature *float64
+	Temperature *float32
 }
 
 // StreamHandler 每收到一片增量文本回调一次；返回 error 可中断流。

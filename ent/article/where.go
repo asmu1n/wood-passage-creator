@@ -100,11 +100,6 @@ func ErrorMessage(v string) predicate.Article {
 	return predicate.Article(sql.FieldEQ(FieldErrorMessage, v))
 }
 
-// Style applies equality check predicate on the "style" field. It's identical to StyleEQ.
-func Style(v string) predicate.Article {
-	return predicate.Article(sql.FieldEQ(FieldStyle, v))
-}
-
 // CreateTime applies equality check predicate on the "create_time" field. It's identical to CreateTimeEQ.
 func CreateTime(v time.Time) predicate.Article {
 	return predicate.Article(sql.FieldEQ(FieldCreateTime, v))
@@ -796,68 +791,33 @@ func ErrorMessageContainsFold(v string) predicate.Article {
 }
 
 // StyleEQ applies the EQ predicate on the "style" field.
-func StyleEQ(v string) predicate.Article {
+func StyleEQ(v Style) predicate.Article {
 	return predicate.Article(sql.FieldEQ(FieldStyle, v))
 }
 
 // StyleNEQ applies the NEQ predicate on the "style" field.
-func StyleNEQ(v string) predicate.Article {
+func StyleNEQ(v Style) predicate.Article {
 	return predicate.Article(sql.FieldNEQ(FieldStyle, v))
 }
 
 // StyleIn applies the In predicate on the "style" field.
-func StyleIn(vs ...string) predicate.Article {
+func StyleIn(vs ...Style) predicate.Article {
 	return predicate.Article(sql.FieldIn(FieldStyle, vs...))
 }
 
 // StyleNotIn applies the NotIn predicate on the "style" field.
-func StyleNotIn(vs ...string) predicate.Article {
+func StyleNotIn(vs ...Style) predicate.Article {
 	return predicate.Article(sql.FieldNotIn(FieldStyle, vs...))
 }
 
-// StyleGT applies the GT predicate on the "style" field.
-func StyleGT(v string) predicate.Article {
-	return predicate.Article(sql.FieldGT(FieldStyle, v))
+// StyleIsNil applies the IsNil predicate on the "style" field.
+func StyleIsNil() predicate.Article {
+	return predicate.Article(sql.FieldIsNull(FieldStyle))
 }
 
-// StyleGTE applies the GTE predicate on the "style" field.
-func StyleGTE(v string) predicate.Article {
-	return predicate.Article(sql.FieldGTE(FieldStyle, v))
-}
-
-// StyleLT applies the LT predicate on the "style" field.
-func StyleLT(v string) predicate.Article {
-	return predicate.Article(sql.FieldLT(FieldStyle, v))
-}
-
-// StyleLTE applies the LTE predicate on the "style" field.
-func StyleLTE(v string) predicate.Article {
-	return predicate.Article(sql.FieldLTE(FieldStyle, v))
-}
-
-// StyleContains applies the Contains predicate on the "style" field.
-func StyleContains(v string) predicate.Article {
-	return predicate.Article(sql.FieldContains(FieldStyle, v))
-}
-
-// StyleHasPrefix applies the HasPrefix predicate on the "style" field.
-func StyleHasPrefix(v string) predicate.Article {
-	return predicate.Article(sql.FieldHasPrefix(FieldStyle, v))
-}
-
-// StyleHasSuffix applies the HasSuffix predicate on the "style" field.
-func StyleHasSuffix(v string) predicate.Article {
-	return predicate.Article(sql.FieldHasSuffix(FieldStyle, v))
-}
-
-// StyleEqualFold applies the EqualFold predicate on the "style" field.
-func StyleEqualFold(v string) predicate.Article {
-	return predicate.Article(sql.FieldEqualFold(FieldStyle, v))
-}
-
-// StyleContainsFold applies the ContainsFold predicate on the "style" field.
-func StyleContainsFold(v string) predicate.Article {
-	return predicate.Article(sql.FieldContainsFold(FieldStyle, v))
+// StyleNotNil applies the NotNil predicate on the "style" field.
+func StyleNotNil() predicate.Article {
+	return predicate.Article(sql.FieldNotNull(FieldStyle))
 }
 
 // EnabledImageMethodsIsNil applies the IsNil predicate on the "enabled_image_methods" field.

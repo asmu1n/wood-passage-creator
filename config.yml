@@ -19,8 +19,8 @@ redis:
   password: ""
   db: 0
 
-agent:
-  api_url: "http://localhost:8080"
+llm:
+  base_url: "http://localhost:8080"
   api_key: "your-api-key"
   model: "deepseek-v4"
 

@@ -25,8 +25,8 @@ func (r *ArticleRepo) Create(ctx context.Context, params article.CreateArticlePa
 		SetTopic(params.Topic).
 		SetStatus(entm.Status(params.Status)).
 		SetPhase(entm.Phase(params.Phase)).
-		SetStyle(params.Style).
 		SetEnabledImageMethods(params.EnabledImageMethods).
+		SetNillableStyle((*entm.Style)(params.Style)).
 		Save(ctx)
 	if err != nil {
 		return nil, err
@@ -155,7 +155,7 @@ func applyUpdate(b *ent.ArticleUpdateOne, in article.UpdateArticleParams) error 
 	b.SetNillableFullContent(in.FullContent)
 	b.SetNillableErrorMessage(in.ErrorMessage)
 	b.SetNillableCompletedTime(in.CompletedTime)
-	b.SetNillableStyle(in.Style)
+	b.SetNillableStyle((*entm.Style)(in.Style))
 	if in.Status != nil {
 		b.SetStatus(entm.Status(*in.Status))
 	}
@@ -209,7 +209,7 @@ func toDomain(row *ent.Article) *article.Article {
 		Status:              article.ArticleStatus(row.Status),
 		Phase:               article.ArticlePhase(row.Phase),
 		ErrorMessage:        row.ErrorMessage,
-		Style:               row.Style,
+		Style:               (*article.ArticleStyle)(&row.Style),
 		EnabledImageMethods: row.EnabledImageMethods,
 		CreateTime:          row.CreateTime,
 		CompletedTime:       row.CompletedTime,

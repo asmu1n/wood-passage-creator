@@ -172,13 +172,13 @@ func (_c *ArticleCreate) SetNillableErrorMessage(v *string) *ArticleCreate {
 }
 
 // SetStyle sets the "style" field.
-func (_c *ArticleCreate) SetStyle(v string) *ArticleCreate {
+func (_c *ArticleCreate) SetStyle(v article.Style) *ArticleCreate {
 	_c.mutation.SetStyle(v)
 	return _c
 }
 
 // SetNillableStyle sets the "style" field if the given value is not nil.
-func (_c *ArticleCreate) SetNillableStyle(v *string) *ArticleCreate {
+func (_c *ArticleCreate) SetNillableStyle(v *article.Style) *ArticleCreate {
 	if v != nil {
 		_c.SetStyle(*v)
 	}
@@ -316,10 +316,6 @@ func (_c *ArticleCreate) defaults() {
 		v := article.DefaultPhase
 		_c.mutation.SetPhase(v)
 	}
-	if _, ok := _c.mutation.Style(); !ok {
-		v := article.DefaultStyle
-		_c.mutation.SetStyle(v)
-	}
 	if _, ok := _c.mutation.CreateTime(); !ok {
 		v := article.DefaultCreateTime()
 		_c.mutation.SetCreateTime(v)
@@ -371,8 +367,10 @@ func (_c *ArticleCreate) check() error {
 			return &ValidationError{Name: "phase", err: fmt.Errorf(`ent: validator failed for field "Article.phase": %w`, err)}
 		}
 	}
-	if _, ok := _c.mutation.Style(); !ok {
-		return &ValidationError{Name: "style", err: errors.New(`ent: missing required field "Article.style"`)}
+	if v, ok := _c.mutation.Style(); ok {
+		if err := article.StyleValidator(v); err != nil {
+			return &ValidationError{Name: "style", err: fmt.Errorf(`ent: validator failed for field "Article.style": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.CreateTime(); !ok {
 		return &ValidationError{Name: "create_time", err: errors.New(`ent: missing required field "Article.create_time"`)}
@@ -476,7 +474,7 @@ func (_c *ArticleCreate) createSpec() (*Article, *sqlgraph.CreateSpec) {
 		_node.ErrorMessage = &value
 	}
 	if value, ok := _c.mutation.Style(); ok {
-		_spec.SetField(article.FieldStyle, field.TypeString, value)
+		_spec.SetField(article.FieldStyle, field.TypeEnum, value)
 		_node.Style = value
 	}
 	if value, ok := _c.mutation.EnabledImageMethods(); ok {

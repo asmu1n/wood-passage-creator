@@ -98,8 +98,9 @@ func (Article) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			Comment("失败错误信息"),
-		field.String("style").
-			Default("").
+		field.Enum("style").
+			Values("tech", "emotional", "educational", "humorous").
+			Optional().
 			Comment("文章风格：tech/emotional/educational/humorous"),
 		field.JSON("enabled_image_methods", []string{}).
 			Optional().

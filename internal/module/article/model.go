@@ -1,8 +1,8 @@
 package article
 
 import (
-	"wood-passage-creator/internal/pkg/page"
 	"time"
+	"wood-passage-creator/internal/pkg/page"
 )
 
 type Article struct {
@@ -21,7 +21,7 @@ type Article struct {
 	Status              ArticleStatus    `json:"status"`
 	Phase               ArticlePhase     `json:"phase"` // 当前阶段
 	ErrorMessage        *string          `json:"errorMessage"`
-	Style               string           `json:"style"`               // 文章风格
+	Style               *ArticleStyle    `json:"style"`               // 文章风格
 	EnabledImageMethods []string         `json:"enabledImageMethods"` // 允许的配图方式列表
 	CreateTime          time.Time        `json:"createTime"`
 	CompletedTime       *time.Time       `json:"completedTime"`
@@ -47,6 +47,16 @@ const (
 	PhaseOutlineGenerating ArticlePhase = "OUTLINE_GENERATING" // 生成大纲中
 	PhaseOutlineEditing    ArticlePhase = "OUTLINE_EDITING"    // 等待编辑大纲
 	PhaseContentGenerating ArticlePhase = "CONTENT_GENERATING" // 生成正文中
+)
+
+type ArticleStyle string
+
+// ArticleStyle 文章风格
+const (
+	StyleTech        ArticleStyle = "tech"
+	StyleEmotional   ArticleStyle = "emotional"
+	StyleEducational ArticleStyle = "educational"
+	StyleHumorous    ArticleStyle = "humorous"
 )
 
 // TitleOption 标题方案
@@ -100,7 +110,7 @@ type ArticleState struct {
 	TaskID                  string             `json:"taskId"`
 	Topic                   string             `json:"topic"`
 	UserDescription         string             `json:"userDescription"`     // 用户补充描述
-	Style                   string             `json:"style"`               // 文章风格
+	Style                   *ArticleStyle      `json:"style"`               // 文章风格
 	Phase                   string             `json:"phase"`               // 当前阶段
 	EnabledImageMethods     []string           `json:"enabledImageMethods"` // 允许的配图方式列表
 	TitleOptions            []TitleOption      `json:"titleOptions"`        // 标题方案列表
@@ -128,9 +138,9 @@ type ArticleListData struct {
 
 // CreateArticleRequest 创建文章入参（JSON body）。
 type CreateArticleRequest struct {
-	Topic               string   `json:"topic" validate:"required,min=1,max=512"`
-	Style               string   `json:"style" validate:"omitempty,max=64"`                   // tech/emotional/educational/humorous，可为空
-	EnabledImageMethods []string `json:"enabledImageMethods" validate:"omitempty,dive,min=1"` // 空/nil 表示支持所有方式
+	Topic               string        `json:"topic" validate:"required,min=1,max=512"`
+	Style               *ArticleStyle `json:"style" validate:"omitempty"`
+	EnabledImageMethods []string      `json:"enabledImageMethods" validate:"omitempty,dive,min=1"` // 空/nil 表示支持所有方式
 }
 
 // QueryArticleRequest 查询文章入参（query；分页字段来自嵌入的 PageRequest）。

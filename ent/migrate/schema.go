@@ -84,7 +84,7 @@ var (
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"PENDING", "PROCESSING", "COMPLETED", "FAILED"}, Default: "PENDING"},
 		{Name: "phase", Type: field.TypeEnum, Enums: []string{"PENDING", "TITLE_GENERATING", "TITLE_SELECTING", "OUTLINE_GENERATING", "OUTLINE_EDITING", "CONTENT_GENERATING"}, Default: "PENDING"},
 		{Name: "error_message", Type: field.TypeString, Nullable: true, Size: 2147483647},
-		{Name: "style", Type: field.TypeString, Default: ""},
+		{Name: "style", Type: field.TypeEnum, Nullable: true, Enums: []string{"tech", "emotional", "educational", "humorous"}},
 		{Name: "enabled_image_methods", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "create_time", Type: field.TypeTime},
 		{Name: "completed_time", Type: field.TypeTime, Nullable: true},

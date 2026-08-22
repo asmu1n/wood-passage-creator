@@ -117,8 +117,6 @@ var (
 	TaskIDValidator func(string) error
 	// TopicValidator is a validator for the "topic" field. It is called by the builders before save.
 	TopicValidator func(string) error
-	// DefaultStyle holds the default value on creation for the "style" field.
-	DefaultStyle string
 	// DefaultCreateTime holds the default value on creation for the "create_time" field.
 	DefaultCreateTime func() time.Time
 	// DefaultUpdateTime holds the default value on creation for the "update_time" field.
@@ -186,6 +184,31 @@ func PhaseValidator(ph Phase) error {
 		return nil
 	default:
 		return fmt.Errorf("article: invalid enum value for phase field: %q", ph)
+	}
+}
+
+// Style defines the type for the "style" enum field.
+type Style string
+
+// Style values.
+const (
+	StyleTech        Style = "tech"
+	StyleEmotional   Style = "emotional"
+	StyleEducational Style = "educational"
+	StyleHumorous    Style = "humorous"
+)
+
+func (s Style) String() string {
+	return string(s)
+}
+
+// StyleValidator is a validator for the "style" field enum values. It is called by the builders before save.
+func StyleValidator(s Style) error {
+	switch s {
+	case StyleTech, StyleEmotional, StyleEducational, StyleHumorous:
+		return nil
+	default:
+		return fmt.Errorf("article: invalid enum value for style field: %q", s)
 	}
 }
 

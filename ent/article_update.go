@@ -277,16 +277,22 @@ func (_u *ArticleUpdate) ClearErrorMessage() *ArticleUpdate {
 }
 
 // SetStyle sets the "style" field.
-func (_u *ArticleUpdate) SetStyle(v string) *ArticleUpdate {
+func (_u *ArticleUpdate) SetStyle(v article.Style) *ArticleUpdate {
 	_u.mutation.SetStyle(v)
 	return _u
 }
 
 // SetNillableStyle sets the "style" field if the given value is not nil.
-func (_u *ArticleUpdate) SetNillableStyle(v *string) *ArticleUpdate {
+func (_u *ArticleUpdate) SetNillableStyle(v *article.Style) *ArticleUpdate {
 	if v != nil {
 		_u.SetStyle(*v)
 	}
+	return _u
+}
+
+// ClearStyle clears the value of the "style" field.
+func (_u *ArticleUpdate) ClearStyle() *ArticleUpdate {
+	_u.mutation.ClearStyle()
 	return _u
 }
 
@@ -458,6 +464,11 @@ func (_u *ArticleUpdate) check() error {
 			return &ValidationError{Name: "phase", err: fmt.Errorf(`ent: validator failed for field "Article.phase": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Style(); ok {
+		if err := article.StyleValidator(v); err != nil {
+			return &ValidationError{Name: "style", err: fmt.Errorf(`ent: validator failed for field "Article.style": %w`, err)}
+		}
+	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Article.user"`)
 	}
@@ -558,7 +569,10 @@ func (_u *ArticleUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		_spec.ClearField(article.FieldErrorMessage, field.TypeString)
 	}
 	if value, ok := _u.mutation.Style(); ok {
-		_spec.SetField(article.FieldStyle, field.TypeString, value)
+		_spec.SetField(article.FieldStyle, field.TypeEnum, value)
+	}
+	if _u.mutation.StyleCleared() {
+		_spec.ClearField(article.FieldStyle, field.TypeEnum)
 	}
 	if value, ok := _u.mutation.EnabledImageMethods(); ok {
 		_spec.SetField(article.FieldEnabledImageMethods, field.TypeJSON, value)
@@ -922,16 +936,22 @@ func (_u *ArticleUpdateOne) ClearErrorMessage() *ArticleUpdateOne {
 }
 
 // SetStyle sets the "style" field.
-func (_u *ArticleUpdateOne) SetStyle(v string) *ArticleUpdateOne {
+func (_u *ArticleUpdateOne) SetStyle(v article.Style) *ArticleUpdateOne {
 	_u.mutation.SetStyle(v)
 	return _u
 }
 
 // SetNillableStyle sets the "style" field if the given value is not nil.
-func (_u *ArticleUpdateOne) SetNillableStyle(v *string) *ArticleUpdateOne {
+func (_u *ArticleUpdateOne) SetNillableStyle(v *article.Style) *ArticleUpdateOne {
 	if v != nil {
 		_u.SetStyle(*v)
 	}
+	return _u
+}
+
+// ClearStyle clears the value of the "style" field.
+func (_u *ArticleUpdateOne) ClearStyle() *ArticleUpdateOne {
+	_u.mutation.ClearStyle()
 	return _u
 }
 
@@ -1116,6 +1136,11 @@ func (_u *ArticleUpdateOne) check() error {
 			return &ValidationError{Name: "phase", err: fmt.Errorf(`ent: validator failed for field "Article.phase": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Style(); ok {
+		if err := article.StyleValidator(v); err != nil {
+			return &ValidationError{Name: "style", err: fmt.Errorf(`ent: validator failed for field "Article.style": %w`, err)}
+		}
+	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Article.user"`)
 	}
@@ -1233,7 +1258,10 @@ func (_u *ArticleUpdateOne) sqlSave(ctx context.Context) (_node *Article, err er
 		_spec.ClearField(article.FieldErrorMessage, field.TypeString)
 	}
 	if value, ok := _u.mutation.Style(); ok {
-		_spec.SetField(article.FieldStyle, field.TypeString, value)
+		_spec.SetField(article.FieldStyle, field.TypeEnum, value)
+	}
+	if _u.mutation.StyleCleared() {
+		_spec.ClearField(article.FieldStyle, field.TypeEnum)
 	}
 	if value, ok := _u.mutation.EnabledImageMethods(); ok {
 		_spec.SetField(article.FieldEnabledImageMethods, field.TypeJSON, value)

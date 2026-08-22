@@ -40,6 +40,12 @@ type RedisConfig struct {
 	DB       int    `mapstructure:"db"`
 }
 
+type LLMConfig struct {
+	APIKey  string `mapstructure:"api_key"`
+	BaseURL string `mapstructure:"base_url"`
+	Model   string `mapstructure:"model"`
+}
+
 // SessionConfig Cookie Session（Redis 后端）相关配置。
 type SessionConfig struct {
 	// Secret 用于签名 session cookie，生产必须通过环境变量覆盖。
