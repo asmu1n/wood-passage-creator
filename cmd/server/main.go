@@ -8,24 +8,24 @@ import (
 	"os/signal"
 	"syscall"
 
-	"projecttemp/internal/config"
-	"projecttemp/internal/httpapi"
-	"projecttemp/internal/httpapi/binding"
-	httpmw "projecttemp/internal/httpapi/middleware"
-	"projecttemp/internal/infra/database"
-	"projecttemp/internal/infra/redis"
-	"projecttemp/internal/module/article"
-	articlerepo "projecttemp/internal/module/article/repo"
-	"projecttemp/internal/module/user"
-	userrepo "projecttemp/internal/module/user/repo"
-	"projecttemp/internal/pkg/logger"
+	"wood-passage-creator/internal/config"
+	"wood-passage-creator/internal/httpapi"
+	"wood-passage-creator/internal/httpapi/binding"
+	httpmw "wood-passage-creator/internal/httpapi/middleware"
+	"wood-passage-creator/internal/infra/database"
+	"wood-passage-creator/internal/infra/redis"
+	"wood-passage-creator/internal/module/article"
+	articlerepo "wood-passage-creator/internal/module/article/repo"
+	"wood-passage-creator/internal/module/user"
+	userrepo "wood-passage-creator/internal/module/user/repo"
+	"wood-passage-creator/internal/pkg/logger"
 
 	"github.com/labstack/echo-contrib/v5/session"
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
-	_ "projecttemp/docs/api/swagger"
+	_ "wood-passage-creator/docs/api/swagger"
 )
 
 // @title           Go Web API Template

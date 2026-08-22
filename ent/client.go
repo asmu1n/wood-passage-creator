@@ -9,12 +9,12 @@ import (
 	"log"
 	"reflect"
 
-	"projecttemp/ent/migrate"
+	"wood-passage-creator/ent/migrate"
 
-	"projecttemp/ent/agentlog"
-	"projecttemp/ent/article"
-	"projecttemp/ent/paymentrecord"
-	"projecttemp/ent/user"
+	"wood-passage-creator/ent/agentlog"
+	"wood-passage-creator/ent/article"
+	"wood-passage-creator/ent/paymentrecord"
+	"wood-passage-creator/ent/user"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"

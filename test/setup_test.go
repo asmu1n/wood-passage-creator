@@ -6,9 +6,9 @@ import (
 	"os"
 	"testing"
 
-	"projecttemp/ent"
-	"projecttemp/internal/config"
-	"projecttemp/internal/infra/database"
+	"wood-passage-creator/ent"
+	"wood-passage-creator/internal/config"
+	"wood-passage-creator/internal/infra/database"
 )
 
 var testDB *database.DB

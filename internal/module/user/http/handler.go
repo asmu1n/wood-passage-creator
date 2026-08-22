@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"strconv"
 
-	"projecttemp/internal/httpapi/binding"
-	"projecttemp/internal/httpapi/middleware"
-	"projecttemp/internal/module/user"
-	"projecttemp/internal/pkg/page"
-	"projecttemp/internal/pkg/response"
+	"wood-passage-creator/internal/httpapi/binding"
+	"wood-passage-creator/internal/httpapi/middleware"
+	"wood-passage-creator/internal/module/user"
+	"wood-passage-creator/internal/pkg/page"
+	"wood-passage-creator/internal/pkg/response"
 
 	"github.com/labstack/echo/v5"
 )

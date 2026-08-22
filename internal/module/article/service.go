@@ -3,23 +3,29 @@ package article
 import (
 	"context"
 	"log/slog"
-	"projecttemp/internal/pkg/logger"
-	"projecttemp/internal/pkg/page"
-	"projecttemp/internal/pkg/response"
+	"wood-passage-creator/internal/module/user"
+	"wood-passage-creator/internal/pkg/logger"
+	"wood-passage-creator/internal/pkg/page"
+	"wood-passage-creator/internal/pkg/response"
+
+	"github.com/google/uuid"
 )
 
 type Service struct {
-	repo Repository
-	log  *slog.Logger
+	repo        Repository
+	userService user.Service
+	log         *slog.Logger
 }
 
-func NewService(repo Repository) *Service {
+func NewService(repo Repository, userService user.Service) *Service {
 	return &Service{
-		repo: repo,
-		log:  logger.Module("article"),
+		repo:        repo,
+		userService: userService,
+		log:         logger.Module("article"),
 	}
 }
 
+// agent 大纲生成完毕，确认更新文章大纲
 func (s *Service) ConfirmOutline(ctx context.Context, taskID string, actorID int64, isAdmin bool, outline []OutlineSection) error {
 	article, err := s.repo.GetByTaskID(ctx, taskID)
 	if err != nil {
@@ -47,6 +53,7 @@ func (s *Service) ConfirmOutline(ctx context.Context, taskID string, actorID int
 	return nil
 }
 
+// agent 标题生成完毕，确认更新文章标题和副标题
 func (s *Service) ConfirmTitle(ctx context.Context, actorID int64, isAdmin bool, params ConfirmTitleRequest) error {
 	article, err := s.repo.GetByTaskID(ctx, params.TaskID)
 	if err != nil {
@@ -73,7 +80,14 @@ func (s *Service) ConfirmTitle(ctx context.Context, actorID int64, isAdmin bool,
 	return nil
 }
 
+// 创建文章任务
 func (s *Service) Create(ctx context.Context, params CreateArticleRequest) (*Article, error) {
+
+	// TODO 检查用户配额-> 写入基础文章任务状态 -> 开始执行异步生成任务
+
+	// 生成任务 ID
+	taskID := uuid.NewString()
+
 	return s.repo.Create(ctx, CreateArticleParams{
 		Topic:               params.Topic,
 		Style:               params.Style,
@@ -81,8 +95,21 @@ func (s *Service) Create(ctx context.Context, params CreateArticleRequest) (*Art
 	})
 }
 
-func (s *Service) GetByTaskID(ctx context.Context, taskID string) (*Article, error) {
-	return s.repo.GetByTaskID(ctx, taskID)
+func (s *Service) GetByTaskID(ctx context.Context, taskID string, actorID int64, isAdmin bool) (*Article, error) {
+	article, err := s.repo.GetByTaskID(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+
+	if article == nil {
+		return nil, response.NewBizErrorWithDetail(response.NotFound, "文章不存在")
+	}
+
+	if !isAdmin && article.UserID != actorID {
+		return nil, response.NewBizErrorWithDetail(response.NoAuth, "无权限")
+	}
+
+	return article, nil
 }
 
 func (s *Service) GetByID(ctx context.Context, id int64) (*Article, error) {

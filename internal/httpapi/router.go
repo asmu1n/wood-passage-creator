@@ -1,10 +1,10 @@
 package httpapi
 
 import (
-	"projecttemp/internal/module/article"
-	articlehttp "projecttemp/internal/module/article/http"
-	"projecttemp/internal/module/user"
-	userhttp "projecttemp/internal/module/user/http"
+	"wood-passage-creator/internal/module/article"
+	articlehttp "wood-passage-creator/internal/module/article/http"
+	"wood-passage-creator/internal/module/user"
+	userhttp "wood-passage-creator/internal/module/user/http"
 
 	"github.com/labstack/echo/v5"
 )

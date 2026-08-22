@@ -5,10 +5,10 @@ package ent
 import (
 	"encoding/json"
 	"fmt"
-	"projecttemp/ent/article"
-	"projecttemp/ent/user"
 	"strings"
 	"time"
+	"wood-passage-creator/ent/article"
+	"wood-passage-creator/ent/user"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"

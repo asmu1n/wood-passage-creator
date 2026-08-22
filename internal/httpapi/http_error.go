@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"projecttemp/internal/pkg/logger"
-	"projecttemp/internal/pkg/response"
+	"wood-passage-creator/internal/pkg/logger"
+	"wood-passage-creator/internal/pkg/response"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v5"

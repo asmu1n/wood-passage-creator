@@ -1,7 +1,7 @@
 package article
 
 import (
-	"projecttemp/internal/pkg/page"
+	"wood-passage-creator/internal/pkg/page"
 	"time"
 )
 

@@ -4,12 +4,12 @@
 
 ## 初始化与环境变量
 
-| 变量 | 默认 | 说明 |
-|------|------|------|
-| `SERVICE_NAME` | `projecttemp` | 每条日志附带的 `service` 字段 |
-| `LOG_LEVEL` | `info` | `debug` / `info` / `warn` / `error` |
-| `LOG_FORMAT` | 见右 | `text` 或 `json`；未设置时 `ENV=prod|production` → json，否则 text |
-| `ENV` | — | 影响默认 format |
+| 变量           | 默认                   | 说明                                 |
+| -------------- | ---------------------- | ------------------------------------ |
+| `SERVICE_NAME` | `wood-passage-creator` | 每条日志附带的 `service` 字段        |
+| `LOG_LEVEL`    | `info`                 | `debug` / `info` / `warn` / `error`  |
+| `LOG_FORMAT`   | 见右                   | `text` 或 `json`；未设置时 `ENV=prod | production` → json，否则 text |
+| `ENV`          | —                      | 影响默认 format                      |
 
 `cmd/server` 启动时调用 `logger.Init()`（读 `.env` / 环境变量）。未 Init 前也有默认 text/info logger。
 
@@ -17,24 +17,24 @@
 
 ## 字段约定
 
-| 字段常量 | JSON key | 含义 |
-|----------|----------|------|
-| `FieldModule` | `module` | 模块名：业务名 / `http` / `scheduler` 等 |
-| `FieldPurpose` | `purpose` | 用途（与 Level 正交），见下表 |
-| `FieldEvent` | `event` | 稳定事件名，便于检索与告警 |
-| `FieldErr` | `err` | 错误对象 |
+| 字段常量       | JSON key  | 含义                                     |
+| -------------- | --------- | ---------------------------------------- |
+| `FieldModule`  | `module`  | 模块名：业务名 / `http` / `scheduler` 等 |
+| `FieldPurpose` | `purpose` | 用途（与 Level 正交），见下表            |
+| `FieldEvent`   | `event`   | 稳定事件名，便于检索与告警               |
+| `FieldErr`     | `err`     | 错误对象                                 |
 
 ### Purpose
 
-| 值 | 用途 |
-|----|------|
-| `http` | 请求边界、未处理的系统错误 |
-| `biz` | 领域写操作结果、可观察的业务状态 |
+| 值      | 用途                              |
+| ------- | --------------------------------- |
+| `http`  | 请求边界、未处理的系统错误        |
+| `biz`   | 领域写操作结果、可观察的业务状态  |
 | `audit` | 登录注册、权限变更等安全/审计相关 |
-| `job` | 定时任务 / cron |
-| `cache` | 缓存 miss / 失效失败等 |
-| `infra` | 进程监听、依赖就绪类 |
-| `alert` | 需关注的失败（可单独配告警规则） |
+| `job`   | 定时任务 / cron                   |
+| `cache` | 缓存 miss / 失效失败等            |
+| `infra` | 进程监听、依赖就绪类              |
+| `alert` | 需关注的失败（可单独配告警规则）  |
 
 ### 推荐写法
 
@@ -68,21 +68,21 @@ var jobLog = logger.Module("order").With(logger.FieldPurpose, logger.PurposeJob)
 
 ## 框架内主要 event（速查）
 
-| event | module | purpose | 说明 |
-|-------|--------|---------|------|
-| `http.listen` | — | infra | 服务监听 |
-| `http.access` | http | http | 每个请求的 access 日志 |
-| `http.system_error` | http | http | 非业务错误写出响应时 |
-| `cron.registered` / `cron.started` / `cron.stop_error` | scheduler | job | 调度器 |
+| event                                                  | module    | purpose | 说明                   |
+| ------------------------------------------------------ | --------- | ------- | ---------------------- |
+| `http.listen`                                          | —         | infra   | 服务监听               |
+| `http.access`                                          | http      | http    | 每个请求的 access 日志 |
+| `http.system_error`                                    | http      | http    | 非业务错误写出响应时   |
+| `cron.registered` / `cron.started` / `cron.stop_error` | scheduler | job     | 调度器                 |
 
 业务 event 由各 module 自行命名，建议保持 `领域.动作` 风格（如 `order.created`）。完整列表以代码中 `FieldEvent` 为准。
 
 ## 相关代码
 
-| 路径 | 内容 |
-|------|------|
-| `logger.go` | Init、Level/Format/Purpose、Module/With、Debug～Fatal |
-| `cron.go` | Cron Logger 适配 |
-| `internal/httpapi/middleware/access_log.go` | access 日志 |
-| `internal/httpapi/http_error.go` | 系统错误边界日志（HTTPErrorHandler） |
-| `cmd/server/main.go` | Init + 启动/Fatal |
+| 路径                                        | 内容                                                  |
+| ------------------------------------------- | ----------------------------------------------------- |
+| `logger.go`                                 | Init、Level/Format/Purpose、Module/With、Debug～Fatal |
+| `cron.go`                                   | Cron Logger 适配                                      |
+| `internal/httpapi/middleware/access_log.go` | access 日志                                           |
+| `internal/httpapi/http_error.go`            | 系统错误边界日志（HTTPErrorHandler）                  |
+| `cmd/server/main.go`                        | Init + 启动/Fatal                                     |

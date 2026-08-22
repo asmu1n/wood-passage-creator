@@ -1,4 +1,4 @@
-module projecttemp
+module wood-passage-creator
 
 go 1.26.4
 

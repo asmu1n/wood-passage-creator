@@ -3,12 +3,12 @@
 package ent
 
 import (
-	"projecttemp/ent/agentlog"
-	"projecttemp/ent/article"
-	"projecttemp/ent/paymentrecord"
-	"projecttemp/ent/schema"
-	"projecttemp/ent/user"
 	"time"
+	"wood-passage-creator/ent/agentlog"
+	"wood-passage-creator/ent/article"
+	"wood-passage-creator/ent/paymentrecord"
+	"wood-passage-creator/ent/schema"
+	"wood-passage-creator/ent/user"
 )
 
 // The init function reads all schema descriptors with runtime code

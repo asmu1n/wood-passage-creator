@@ -5,11 +5,11 @@ package enttest
 import (
 	"context"
 
-	"projecttemp/ent"
+	"wood-passage-creator/ent"
 	// required by schema hooks.
-	_ "projecttemp/ent/runtime"
+	_ "wood-passage-creator/ent/runtime"
 
-	"projecttemp/ent/migrate"
+	"wood-passage-creator/ent/migrate"
 
 	"entgo.io/ent/dialect/sql/schema"
 )

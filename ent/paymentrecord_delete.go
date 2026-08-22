@@ -4,8 +4,8 @@ package ent
 
 import (
 	"context"
-	"projecttemp/ent/paymentrecord"
-	"projecttemp/ent/predicate"
+	"wood-passage-creator/ent/paymentrecord"
+	"wood-passage-creator/ent/predicate"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"

@@ -5,7 +5,7 @@ package hook
 import (
 	"context"
 	"fmt"
-	"projecttemp/ent"
+	"wood-passage-creator/ent"
 )
 
 // The AgentLogFunc type is an adapter to allow the use of ordinary

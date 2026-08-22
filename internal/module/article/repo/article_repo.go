@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 
-	"projecttemp/ent"
-	entm "projecttemp/ent/article"
-	"projecttemp/internal/module/article"
-	"projecttemp/internal/pkg/page"
+	"wood-passage-creator/ent"
+	entm "wood-passage-creator/ent/article"
+	"wood-passage-creator/internal/module/article"
+	"wood-passage-creator/internal/pkg/page"
 )
 
 type ArticleRepo struct {

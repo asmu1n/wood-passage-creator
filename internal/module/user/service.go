@@ -5,9 +5,9 @@ import (
 	"errors"
 	"log/slog"
 
-	"projecttemp/internal/pkg/logger"
-	"projecttemp/internal/pkg/page"
-	"projecttemp/internal/pkg/response"
+	"wood-passage-creator/internal/pkg/logger"
+	"wood-passage-creator/internal/pkg/page"
+	"wood-passage-creator/internal/pkg/response"
 
 	"golang.org/x/crypto/bcrypt"
 )

@@ -6,10 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"projecttemp/ent/paymentrecord"
-	"projecttemp/ent/predicate"
-	"projecttemp/ent/user"
 	"time"
+	"wood-passage-creator/ent/paymentrecord"
+	"wood-passage-creator/ent/predicate"
+	"wood-passage-creator/ent/user"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"

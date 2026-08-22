@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"projecttemp/ent"
-	"projecttemp/internal/config"
+	"wood-passage-creator/ent"
+	"wood-passage-creator/internal/config"
 
 	_ "github.com/lib/pq"
 )

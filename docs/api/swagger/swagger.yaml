@@ -1,6 +1,6 @@
 basePath: /api
 definitions:
-  projecttemp_internal_module_article.Article:
+  wood-passage-creator_internal_module_article.Article:
     properties:
       completedTime:
         type: string
@@ -21,20 +21,20 @@ definitions:
         type: integer
       images:
         items:
-          $ref: '#/definitions/projecttemp_internal_module_article.ImageResult'
+          $ref: "#/definitions/wood-passage-creator_internal_module_article.ImageResult"
         type: array
       mainTitle:
         type: string
       outline:
         items:
-          $ref: '#/definitions/projecttemp_internal_module_article.OutlineSection'
+          $ref: "#/definitions/wood-passage-creator_internal_module_article.OutlineSection"
         type: array
       phase:
         allOf:
-        - $ref: '#/definitions/projecttemp_internal_module_article.ArticlePhase'
+          - $ref: "#/definitions/wood-passage-creator_internal_module_article.ArticlePhase"
         description: 当前阶段
       status:
-        $ref: '#/definitions/projecttemp_internal_module_article.ArticleStatus'
+        $ref: "#/definitions/wood-passage-creator_internal_module_article.ArticleStatus"
       style:
         description: 文章风格
         type: string
@@ -45,7 +45,7 @@ definitions:
       titleOptions:
         description: 标题方案列表
         items:
-          $ref: '#/definitions/projecttemp_internal_module_article.TitleOption'
+          $ref: "#/definitions/wood-passage-creator_internal_module_article.TitleOption"
         type: array
       topic:
         type: string
@@ -55,7 +55,7 @@ definitions:
       userId:
         type: integer
     type: object
-  projecttemp_internal_module_article.ArticleListData:
+  wood-passage-creator_internal_module_article.ArticleListData:
     properties:
       pageNum:
         type: integer
@@ -63,19 +63,19 @@ definitions:
         type: integer
       records:
         items:
-          $ref: '#/definitions/projecttemp_internal_module_article.Article'
+          $ref: "#/definitions/wood-passage-creator_internal_module_article.Article"
         type: array
       total:
         type: integer
     type: object
-  projecttemp_internal_module_article.ArticlePhase:
+  wood-passage-creator_internal_module_article.ArticlePhase:
     enum:
-    - PENDING
-    - TITLE_GENERATING
-    - TITLE_SELECTING
-    - OUTLINE_GENERATING
-    - OUTLINE_EDITING
-    - CONTENT_GENERATING
+      - PENDING
+      - TITLE_GENERATING
+      - TITLE_SELECTING
+      - OUTLINE_GENERATING
+      - OUTLINE_EDITING
+      - CONTENT_GENERATING
     type: string
     x-enum-comments:
       PhaseContentGenerating: 生成正文中
@@ -85,36 +85,36 @@ definitions:
       PhaseTitleGenerating: 生成标题中
       PhaseTitleSelecting: 等待选择标题
     x-enum-descriptions:
-    - 等待处理
-    - 生成标题中
-    - 等待选择标题
-    - 生成大纲中
-    - 等待编辑大纲
-    - 生成正文中
+      - 等待处理
+      - 生成标题中
+      - 等待选择标题
+      - 生成大纲中
+      - 等待编辑大纲
+      - 生成正文中
     x-enum-varnames:
-    - PhasePending
-    - PhaseTitleGenerating
-    - PhaseTitleSelecting
-    - PhaseOutlineGenerating
-    - PhaseOutlineEditing
-    - PhaseContentGenerating
-  projecttemp_internal_module_article.ArticleStatus:
+      - PhasePending
+      - PhaseTitleGenerating
+      - PhaseTitleSelecting
+      - PhaseOutlineGenerating
+      - PhaseOutlineEditing
+      - PhaseContentGenerating
+  wood-passage-creator_internal_module_article.ArticleStatus:
     enum:
-    - PENDING
-    - PROCESSING
-    - COMPLETED
-    - FAILED
+      - PENDING
+      - PROCESSING
+      - COMPLETED
+      - FAILED
     type: string
     x-enum-varnames:
-    - StatusPending
-    - StatusProcessing
-    - StatusCompleted
-    - StatusFailed
-  projecttemp_internal_module_article.ConfirmOutlineRequest:
+      - StatusPending
+      - StatusProcessing
+      - StatusCompleted
+      - StatusFailed
+  wood-passage-creator_internal_module_article.ConfirmOutlineRequest:
     properties:
       outline:
         items:
-          $ref: '#/definitions/projecttemp_internal_module_article.OutlineSection'
+          $ref: "#/definitions/wood-passage-creator_internal_module_article.OutlineSection"
         minItems: 1
         type: array
       taskId:
@@ -122,10 +122,10 @@ definitions:
         minLength: 1
         type: string
     required:
-    - outline
-    - taskId
+      - outline
+      - taskId
     type: object
-  projecttemp_internal_module_article.ConfirmTitleRequest:
+  wood-passage-creator_internal_module_article.ConfirmTitleRequest:
     properties:
       selectedMainTitle:
         maxLength: 512
@@ -144,11 +144,11 @@ definitions:
         maxLength: 4000
         type: string
     required:
-    - selectedMainTitle
-    - selectedSubTitle
-    - taskId
+      - selectedMainTitle
+      - selectedSubTitle
+      - taskId
     type: object
-  projecttemp_internal_module_article.CreateArticleRequest:
+  wood-passage-creator_internal_module_article.CreateArticleRequest:
     properties:
       enabledImageMethods:
         description: 空/nil 表示支持所有方式
@@ -164,9 +164,9 @@ definitions:
         minLength: 1
         type: string
     required:
-    - topic
+      - topic
     type: object
-  projecttemp_internal_module_article.ImageResult:
+  wood-passage-creator_internal_module_article.ImageResult:
     properties:
       description:
         type: string
@@ -175,7 +175,7 @@ definitions:
       method:
         type: string
       placeholderId:
-        description: '{{IMAGE_PLACEHOLDER_N}}'
+        description: "{{IMAGE_PLACEHOLDER_N}}"
         type: string
       position:
         type: integer
@@ -184,7 +184,7 @@ definitions:
       url:
         type: string
     type: object
-  projecttemp_internal_module_article.OutlineSection:
+  wood-passage-creator_internal_module_article.OutlineSection:
     properties:
       points:
         items:
@@ -195,7 +195,7 @@ definitions:
       title:
         type: string
     type: object
-  projecttemp_internal_module_article.QueryArticleRequest:
+  wood-passage-creator_internal_module_article.QueryArticleRequest:
     properties:
       pageNum:
         type: integer
@@ -203,20 +203,20 @@ definitions:
         type: integer
       status:
         enum:
-        - PENDING
-        - PROCESSING
-        - COMPLETED
-        - FAILED
+          - PENDING
+          - PROCESSING
+          - COMPLETED
+          - FAILED
         type: string
     type: object
-  projecttemp_internal_module_article.TitleOption:
+  wood-passage-creator_internal_module_article.TitleOption:
     properties:
       mainTitle:
         type: string
       subTitle:
         type: string
     type: object
-  projecttemp_internal_module_user.LoginRequest:
+  wood-passage-creator_internal_module_user.LoginRequest:
     properties:
       userAccount:
         maxLength: 20
@@ -227,10 +227,10 @@ definitions:
         minLength: 6
         type: string
     required:
-    - userAccount
-    - userPassword
+      - userAccount
+      - userPassword
     type: object
-  projecttemp_internal_module_user.RegisterRequest:
+  wood-passage-creator_internal_module_user.RegisterRequest:
     properties:
       userAccount:
         description: 字母开头，后仅字母数字下划线；长度 3–20
@@ -252,10 +252,10 @@ definitions:
         maxLength: 512
         type: string
     required:
-    - userAccount
-    - userPassword
+      - userAccount
+      - userPassword
     type: object
-  projecttemp_internal_module_user.UpdateRequest:
+  wood-passage-creator_internal_module_user.UpdateRequest:
     properties:
       userAvatar:
         maxLength: 1024
@@ -272,7 +272,7 @@ definitions:
         maxLength: 512
         type: string
     type: object
-  projecttemp_internal_module_user.User:
+  wood-passage-creator_internal_module_user.User:
     properties:
       createTime:
         type: string
@@ -293,11 +293,11 @@ definitions:
       userProfile:
         type: string
       userRole:
-        $ref: '#/definitions/projecttemp_internal_module_user.UserRole'
+        $ref: "#/definitions/wood-passage-creator_internal_module_user.UserRole"
       vipTime:
         type: string
     type: object
-  projecttemp_internal_module_user.UserListData:
+  wood-passage-creator_internal_module_user.UserListData:
     properties:
       pageNum:
         type: integer
@@ -305,22 +305,22 @@ definitions:
         type: integer
       records:
         items:
-          $ref: '#/definitions/projecttemp_internal_module_user.User'
+          $ref: "#/definitions/wood-passage-creator_internal_module_user.User"
         type: array
       total:
         type: integer
     type: object
-  projecttemp_internal_module_user.UserRole:
+  wood-passage-creator_internal_module_user.UserRole:
     enum:
-    - user
-    - admin
-    - vip
+      - user
+      - admin
+      - vip
     type: string
     x-enum-varnames:
-    - RoleUser
-    - RoleAdmin
-    - RoleVIP
-  projecttemp_internal_pkg_response.Response:
+      - RoleUser
+      - RoleAdmin
+      - RoleVIP
+  wood-passage-creator_internal_pkg_response.Response:
     properties:
       code:
         type: integer
@@ -339,466 +339,466 @@ paths:
     get:
       description: 使用创建任务时的 taskId 查询文章详情。
       parameters:
-      - description: 任务 ID（taskId）
-        in: path
-        name: taskId
-        required: true
-        type: string
+        - description: 任务 ID（taskId）
+          in: path
+          name: taskId
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: 成功
           schema:
             allOf:
-            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/projecttemp_internal_module_article.Article'
-              type: object
+              - $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/wood-passage-creator_internal_module_article.Article"
+                type: object
         "400":
           description: 参数错误
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "401":
           description: 未登录
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "404":
           description: 文章不存在
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
       security:
-      - SessionAuth: []
+        - SessionAuth: []
       summary: 按任务 ID 查询文章
       tags:
-      - article
+        - article
   /article/confirm-outline:
     post:
       consumes:
-      - application/json
+        - application/json
       description: 在 OUTLINE_EDITING 阶段确认大纲；仅文章作者或管理员可操作。
       parameters:
-      - description: 确认大纲参数
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/projecttemp_internal_module_article.ConfirmOutlineRequest'
+        - description: 确认大纲参数
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/wood-passage-creator_internal_module_article.ConfirmOutlineRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: 成功（data 一般为 null）
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "400":
           description: 参数错误/阶段不允许
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "401":
           description: 未登录
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "403":
           description: 无权限
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "404":
           description: 文章不存在
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
       security:
-      - SessionAuth: []
+        - SessionAuth: []
       summary: 确认文章大纲
       tags:
-      - article
+        - article
   /article/confirm-title:
     post:
       consumes:
-      - application/json
+        - application/json
       description: 在 TITLE_SELECTING 阶段确认主/副标题；仅文章作者或管理员可操作。
       parameters:
-      - description: 确认标题参数
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/projecttemp_internal_module_article.ConfirmTitleRequest'
+        - description: 确认标题参数
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/wood-passage-creator_internal_module_article.ConfirmTitleRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: 成功（data 一般为 null）
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "400":
           description: 参数错误/阶段不允许
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "401":
           description: 未登录
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "403":
           description: 无权限
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "404":
           description: 文章不存在
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
       security:
-      - SessionAuth: []
+        - SessionAuth: []
       summary: 确认文章标题
       tags:
-      - article
+        - article
   /article/create:
     post:
       consumes:
-      - application/json
+        - application/json
       description: 登录用户创建一篇文章任务，进入生成流水线（具体异步逻辑由服务层处理）。
       parameters:
-      - description: 创建参数
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/projecttemp_internal_module_article.CreateArticleRequest'
+        - description: 创建参数
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/wood-passage-creator_internal_module_article.CreateArticleRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: 成功
           schema:
             allOf:
-            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/projecttemp_internal_module_article.Article'
-              type: object
+              - $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/wood-passage-creator_internal_module_article.Article"
+                type: object
         "400":
           description: 参数错误
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "401":
           description: 未登录
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
       security:
-      - SessionAuth: []
+        - SessionAuth: []
       summary: 创建文章生成任务
       tags:
-      - article
+        - article
   /article/delete:
     post:
       description: 按主键软删除文章。
       parameters:
-      - description: 文章主键 ID
-        in: query
-        name: id
-        required: true
-        type: integer
+        - description: 文章主键 ID
+          in: query
+          name: id
+          required: true
+          type: integer
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: 成功（data 一般为 null）
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "400":
           description: 参数错误
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "401":
           description: 未登录
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "404":
           description: 文章不存在
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
       security:
-      - SessionAuth: []
+        - SessionAuth: []
       summary: 删除文章（软删除）
       tags:
-      - article
+        - article
   /article/list:
     post:
       consumes:
-      - application/json
+        - application/json
       description: 管理端/全量列表；具体权限由路由中间件控制。
       parameters:
-      - description: 分页与筛选（pageNum/pageSize/status）
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/projecttemp_internal_module_article.QueryArticleRequest'
+        - description: 分页与筛选（pageNum/pageSize/status）
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/wood-passage-creator_internal_module_article.QueryArticleRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: 成功
           schema:
             allOf:
-            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/projecttemp_internal_module_article.ArticleListData'
-              type: object
+              - $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/wood-passage-creator_internal_module_article.ArticleListData"
+                type: object
         "400":
           description: 参数错误
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "401":
           description: 未登录
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "403":
           description: 无权限
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
       security:
-      - SessionAuth: []
+        - SessionAuth: []
       summary: 分页查询全部文章
       tags:
-      - article
+        - article
   /auth/login:
     post:
       consumes:
-      - application/json
+        - application/json
       parameters:
-      - description: 登录信息
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/projecttemp_internal_module_user.LoginRequest'
+        - description: 登录信息
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/wood-passage-creator_internal_module_user.LoginRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: 成功
           schema:
             allOf:
-            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/projecttemp_internal_module_user.User'
-              type: object
+              - $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/wood-passage-creator_internal_module_user.User"
+                type: object
         "400":
           description: 参数错误/账号或密码错误
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
       summary: 登录
       tags:
-      - auth
+        - auth
   /auth/logout:
     post:
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: 成功（data 一般为 null）
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "401":
           description: 未登录
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
       security:
-      - SessionAuth: []
+        - SessionAuth: []
       summary: 登出
       tags:
-      - auth
+        - auth
   /auth/register:
     post:
       consumes:
-      - application/json
+        - application/json
       parameters:
-      - description: 注册信息
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/projecttemp_internal_module_user.RegisterRequest'
+        - description: 注册信息
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/wood-passage-creator_internal_module_user.RegisterRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: 成功
           schema:
             allOf:
-            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/projecttemp_internal_module_user.User'
-              type: object
+              - $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/wood-passage-creator_internal_module_user.User"
+                type: object
         "400":
           description: 参数错误/账号冲突
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
       summary: 注册
       tags:
-      - auth
+        - auth
   /users/{id}:
     delete:
       parameters:
-      - description: 用户 ID
-        in: path
-        name: id
-        required: true
-        type: integer
+        - description: 用户 ID
+          in: path
+          name: id
+          required: true
+          type: integer
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: 成功（data 一般为 null）
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "400":
           description: 参数错误
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "401":
           description: 未登录
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "403":
           description: 无权限
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "404":
           description: 用户不存在
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
       security:
-      - SessionAuth: []
+        - SessionAuth: []
       summary: 删除用户（软删除，管理员）
       tags:
-      - users
+        - users
     get:
       parameters:
-      - description: 用户 ID
-        in: path
-        name: id
-        required: true
-        type: integer
+        - description: 用户 ID
+          in: path
+          name: id
+          required: true
+          type: integer
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: 成功
           schema:
             allOf:
-            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/projecttemp_internal_module_user.User'
-              type: object
+              - $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/wood-passage-creator_internal_module_user.User"
+                type: object
         "400":
           description: 参数错误
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "404":
           description: 用户不存在
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
       summary: 按 ID 查询用户
       tags:
-      - users
+        - users
     patch:
       consumes:
-      - application/json
+        - application/json
       parameters:
-      - description: 用户 ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: 更新字段
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/projecttemp_internal_module_user.UpdateRequest'
+        - description: 用户 ID
+          in: path
+          name: id
+          required: true
+          type: integer
+        - description: 更新字段
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/wood-passage-creator_internal_module_user.UpdateRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: 成功
           schema:
             allOf:
-            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/projecttemp_internal_module_user.User'
-              type: object
+              - $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/wood-passage-creator_internal_module_user.User"
+                type: object
         "400":
           description: 参数错误
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "401":
           description: 未登录
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "403":
           description: 无权限
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "404":
           description: 用户不存在
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
       security:
-      - SessionAuth: []
+        - SessionAuth: []
       summary: 部分更新用户（仅本人）
       tags:
-      - users
+        - users
   /users/list:
     get:
       parameters:
-      - description: 页码，默认 1
-        in: query
-        name: pageNum
-        type: integer
-      - description: 每页条数，默认 10，最大 100
-        in: query
-        name: pageSize
-        type: integer
+        - description: 页码，默认 1
+          in: query
+          name: pageNum
+          type: integer
+        - description: 每页条数，默认 10，最大 100
+          in: query
+          name: pageSize
+          type: integer
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: 成功
           schema:
             allOf:
-            - $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/projecttemp_internal_module_user.UserListData'
-              type: object
+              - $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/wood-passage-creator_internal_module_user.UserListData"
+                type: object
         "400":
           description: 参数错误
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "401":
           description: 未登录
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
         "403":
           description: 无权限
           schema:
-            $ref: '#/definitions/projecttemp_internal_pkg_response.Response'
+            $ref: "#/definitions/wood-passage-creator_internal_pkg_response.Response"
       security:
-      - SessionAuth: []
+        - SessionAuth: []
       summary: 分页查询用户列表（管理员）
       tags:
-      - users
+        - users
 securityDefinitions:
   SessionAuth:
-    description: 'Session cookie authentication. Example: session=your-session-id'
+    description: "Session cookie authentication. Example: session=your-session-id"
     in: header
     name: Cookie
     type: apiKey

@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"projecttemp/ent"
-	entgen "projecttemp/ent/user"
-	"projecttemp/internal/module/user"
-	"projecttemp/internal/pkg/page"
+	"wood-passage-creator/ent"
+	entgen "wood-passage-creator/ent/user"
+	"wood-passage-creator/internal/module/user"
+	"wood-passage-creator/internal/pkg/page"
 )
 
 type UserRepo struct {

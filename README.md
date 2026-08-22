@@ -45,15 +45,15 @@
 
 ### 各层职责
 
-| 路径                | 职责                                  | 典型改动                       |
-| ------------------- | ------------------------------------- | ------------------------------ |
-| `cmd/server`        | 组装依赖、启停 HTTP/cron、`logger.Init` | 新模块注入、新定时任务       |
-| `internal/module/*` | 领域模型、用例、该业务的 API 与持久化 | **日常业务开发主战场**         |
-| `internal/httpapi`  | 挂路由、全局鉴权、健康检查            | 注册新 module 的路由           |
-| `internal/port`     | Cache / Locker 等抽象                 | 新增跨模块技术能力时扩接口     |
-| `internal/infra`    | 上述端口的 Redis/DB/cron 实现         | 换客户端、调连接与中间件配置   |
-| `internal/pkg`      | logger、分页、错误码与响应体          | 真正跨业务复用时才加          |
-| `ent/schema`        | 表结构与字段约束                      | 加字段、改索引后 `go generate` |
+| 路径                | 职责                                    | 典型改动                       |
+| ------------------- | --------------------------------------- | ------------------------------ |
+| `cmd/server`        | 组装依赖、启停 HTTP/cron、`logger.Init` | 新模块注入、新定时任务         |
+| `internal/module/*` | 领域模型、用例、该业务的 API 与持久化   | **日常业务开发主战场**         |
+| `internal/httpapi`  | 挂路由、全局鉴权、健康检查              | 注册新 module 的路由           |
+| `internal/port`     | Cache / Locker 等抽象                   | 新增跨模块技术能力时扩接口     |
+| `internal/infra`    | 上述端口的 Redis/DB/cron 实现           | 换客户端、调连接与中间件配置   |
+| `internal/pkg`      | logger、分页、错误码与响应体            | 真正跨业务复用时才加           |
+| `ent/schema`        | 表结构与字段约束                        | 加字段、改索引后 `go generate` |
 
 更细的模块约定见：[`internal/module/README.md`](internal/module/README.md)  
 公共库约定见：[`internal/pkg/README.md`](internal/pkg/README.md)  
@@ -131,11 +131,11 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
 **环境变量分层：**
 
-| 场景 | 需要什么 |
-| ---- | -------- |
-| 本机 `go run` + compose 依赖 | 通常 **不用** `.env`（默认 `DB_HOST/REDIS_HOST=localhost`） |
-| compose 内 `app` | compose **写死** `DB_HOST=postgres`、`REDIS_HOST=redis`；账号等来自 env / `.env` |
-| 生产 / 预发 | 注入 `.env.example` 中的运行时项（库账号、主机、Redis、日志等） |
+| 场景                         | 需要什么                                                                         |
+| ---------------------------- | -------------------------------------------------------------------------------- |
+| 本机 `go run` + compose 依赖 | 通常 **不用** `.env`（默认 `DB_HOST/REDIS_HOST=localhost`）                      |
+| compose 内 `app`             | compose **写死** `DB_HOST=postgres`、`REDIS_HOST=redis`；账号等来自 env / `.env` |
+| 生产 / 预发                  | 注入 `.env.example` 中的运行时项（库账号、主机、Redis、日志等）                  |
 
 开发期几乎不改的宿主端口映射已写死在 `docker-compose.dev.yml`，不再做成 `*_HOST_PORT` 配置项。
 
@@ -147,7 +147,7 @@ go run ./cmd/server
 # 默认 :8080
 # 健康检查：http://localhost:8080/health
 # Swagger UI：http://localhost:8080/swagger/index.html
-# 生成物目录：docs/api/swagger（import: projecttemp/docs/api/swagger）
+# 生成物目录：docs/api/swagger（import: wood-passage-creator/docs/api/swagger）
 ```
 
 访问日志来自 **`httpapi/middleware.AccessLog`**（Echo RequestLogger → `pkg/logger`，event=`http.access`）；业务 / 任务 / 审计同样走 `internal/pkg/logger`（stderr）。HTTP 错误经 **`httpapi.HTTPErrorHandler`** 统一写 JSON。详见 [logger README](internal/pkg/logger/README.md)。
@@ -194,16 +194,16 @@ swag init -g cmd/server/main.go -o docs/api/swagger --parseDependency --parseInt
 
 ## 7. 放哪里？快速判定
 
-| 你要加的内容                         | 放哪里                        |
-| ------------------------------------ | ----------------------------- |
-| 某业务的用例、模型、该业务 API       | `module/<name>/`              |
-| 全局路由挂载、登录态中间件           | `httpapi`                     |
-| 「我需要锁/缓存，不关心 Redis」      | `port` 接口 + `infra` 实现    |
-| 分页、统一 JSON 响应、跨模块基础类型 | `pkg`                         |
+| 你要加的内容                         | 放哪里                           |
+| ------------------------------------ | -------------------------------- |
+| 某业务的用例、模型、该业务 API       | `module/<name>/`                 |
+| 全局路由挂载、登录态中间件           | `httpapi`                        |
+| 「我需要锁/缓存，不关心 Redis」      | `port` 接口 + `infra` 实现       |
+| 分页、统一 JSON 响应、跨模块基础类型 | `pkg`                            |
 | 结构化业务/任务/审计日志             | `pkg/logger`（Service/Job 打点） |
-| 仅某一业务用的算法                   | 留在该 `module`，不要进 `pkg` |
-| 表结构                               | `ent/schema`                  |
-| 进程启动参数、组装顺序               | `cmd/*`                       |
+| 仅某一业务用的算法                   | 留在该 `module`，不要进 `pkg`    |
+| 表结构                               | `ent/schema`                     |
+| 进程启动参数、组装顺序               | `cmd/*`                          |
 
 ---
 

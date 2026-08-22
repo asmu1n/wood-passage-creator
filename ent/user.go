@@ -4,9 +4,9 @@ package ent
 
 import (
 	"fmt"
-	"projecttemp/ent/user"
 	"strings"
 	"time"
+	"wood-passage-creator/ent/user"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"

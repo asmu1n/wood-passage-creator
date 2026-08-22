@@ -6,9 +6,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"projecttemp/ent/agentlog"
-	"projecttemp/ent/article"
 	"time"
+	"wood-passage-creator/ent/agentlog"
+	"wood-passage-creator/ent/article"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"

@@ -4,10 +4,10 @@ package ent
 
 import (
 	"fmt"
-	"projecttemp/ent/agentlog"
-	"projecttemp/ent/article"
 	"strings"
 	"time"
+	"wood-passage-creator/ent/agentlog"
+	"wood-passage-creator/ent/article"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"

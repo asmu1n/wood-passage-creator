@@ -1,5 +1,5 @@
 # 默认本地开发环境参数，具体参数由 env 注入覆盖（APP 前缀）
-name: "projecttemp"
+name: "wood-passage-creator"
 env: "local" # local | production
 log_level: "debug" # debug | info | warn | error
 log_format: "text" # text | json
@@ -9,7 +9,7 @@ database:
   port: 5432
   user: "postgres"
   password: "postgres"
-  db_name: "projecttemp_db"
+  db_name: "wood-passage-creator_db"
   max_idle_conns: 10
   max_open_conns: 100
 
@@ -20,6 +20,12 @@ redis:
   db: 0
 
 agent:
+  api_url: "http://localhost:8080"
+  api_key: "your-api-key"
+  model: "deepseek-v4"
+
+pexels:
+  api_key: "your-api-key"
 
 session:
   secret: "change-me-session-secret"

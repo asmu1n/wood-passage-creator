@@ -6,14 +6,14 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-projecttemp_db}
+      POSTGRES_DB: ${POSTGRES_DB:-wood-passage-creator_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-projecttemp_db}",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-wood-passage-creator_db}",
         ]
       interval: 5s
       timeout: 5s
@@ -36,7 +36,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ${APP_IMAGE:-projecttemp:local}
+    image: ${APP_IMAGE:-wood-passage-creator:local}
     environment:
       # 1. 覆盖基础属性 (对应 config.yml 根节点)
       APP_ENV: ${ENV:-production}
@@ -46,7 +46,7 @@ services:
       APP_DATABASE_HOST: postgres
       APP_DATABASE_USER: ${POSTGRES_USER:-postgres}
       APP_DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      APP_DATABASE_DB_NAME: ${POSTGRES_DB:-projecttemp_db}
+      APP_DATABASE_DB_NAME: ${POSTGRES_DB:-wood-passage-creator_db}
 
       # 3. 覆盖 Redis 属性
       APP_REDIS_HOST: redis

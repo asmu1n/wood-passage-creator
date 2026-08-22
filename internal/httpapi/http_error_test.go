@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"projecttemp/internal/pkg/response"
+	"wood-passage-creator/internal/pkg/response"
 	"testing"
 
 	"github.com/go-playground/validator/v10"

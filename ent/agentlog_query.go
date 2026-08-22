@@ -6,9 +6,9 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"projecttemp/ent/agentlog"
-	"projecttemp/ent/article"
-	"projecttemp/ent/predicate"
+	"wood-passage-creator/ent/agentlog"
+	"wood-passage-creator/ent/article"
+	"wood-passage-creator/ent/predicate"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"

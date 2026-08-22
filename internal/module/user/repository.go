@@ -3,7 +3,7 @@ package user
 import (
 	"context"
 	"errors"
-	"projecttemp/internal/pkg/page"
+	"wood-passage-creator/internal/pkg/page"
 )
 
 // ErrAccountConflict 账号唯一约束冲突（并发注册等）。

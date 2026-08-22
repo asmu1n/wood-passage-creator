@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"projecttemp/internal/pkg/logger"
-	"projecttemp/internal/pkg/response"
+	"wood-passage-creator/internal/pkg/logger"
+	"wood-passage-creator/internal/pkg/response"
 
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"

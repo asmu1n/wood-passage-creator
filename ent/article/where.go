@@ -3,8 +3,8 @@
 package article
 
 import (
-	"projecttemp/ent/predicate"
 	"time"
+	"wood-passage-creator/ent/predicate"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"

@@ -1,8 +1,8 @@
 package http
 
 import (
-	"projecttemp/internal/httpapi/middleware"
-	"projecttemp/internal/module/user"
+	"wood-passage-creator/internal/httpapi/middleware"
+	"wood-passage-creator/internal/module/user"
 
 	"github.com/labstack/echo/v5"
 )

@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"projecttemp/ent/agentlog"
-	"projecttemp/ent/article"
-	"projecttemp/ent/user"
 	"time"
+	"wood-passage-creator/ent/agentlog"
+	"wood-passage-creator/ent/article"
+	"wood-passage-creator/ent/user"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
