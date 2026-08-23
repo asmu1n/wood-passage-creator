@@ -32,8 +32,6 @@ type CreateArticleParams struct {
 	UserID              int64
 	TaskID              string
 	Topic               string
-	Status              ArticleStatus
-	Phase               ArticlePhase
 	Style               *ArticleStyle
 	EnabledImageMethods []string
 }

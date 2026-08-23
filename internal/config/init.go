@@ -14,6 +14,7 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	Redis    RedisConfig    `mapstructure:"redis"`
 	Session  SessionConfig  `mapstructure:"session"`
+	LLM      LLMConfig      `mapstructure:"llm"`
 }
 
 type AppConfig struct {

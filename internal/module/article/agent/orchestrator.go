@@ -29,22 +29,15 @@ type Orchestrator struct {
 	images  ImageGenerator // 可选；nil 则跳过真实出图
 }
 
-// Deps 装配依赖。
-type Deps struct {
-	LLM            port.ChatModel
-	ImageMethods   []ImageMethodGuide // 配图分析可用方式；可空
-	ImageGenerator ImageGenerator     // 可选
-}
-
-func NewOrchestrator(d Deps) article.AgentOrchestrator {
+func NewOrchestrator(llm port.ChatModel, imageGenerator ImageGenerator, imageMethods []ImageMethodGuide) article.AgentOrchestrator {
 	return &Orchestrator{
 		log:     logger.Module("article.orchestrator"),
-		title:   NewTitleGenerator(d.LLM),
-		outline: NewOutlineGenerator(d.LLM),
-		content: NewContentGenerator(d.LLM),
-		image:   NewImageAnalyzer(d.LLM, d.ImageMethods),
+		title:   NewTitleGenerator(llm),
+		outline: NewOutlineGenerator(llm),
+		content: NewContentGenerator(llm),
+		image:   NewImageAnalyzer(llm, imageMethods),
 		merge:   NewContentMerger(),
-		images:  d.ImageGenerator,
+		images:  imageGenerator,
 	}
 }
 

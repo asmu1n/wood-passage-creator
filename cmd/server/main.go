@@ -13,8 +13,10 @@ import (
 	"wood-passage-creator/internal/httpapi/binding"
 	httpmw "wood-passage-creator/internal/httpapi/middleware"
 	"wood-passage-creator/internal/infra/database"
+	"wood-passage-creator/internal/infra/llm"
 	"wood-passage-creator/internal/infra/redis"
 	"wood-passage-creator/internal/module/article"
+	articleagent "wood-passage-creator/internal/module/article/agent"
 	articlerepo "wood-passage-creator/internal/module/article/repo"
 	"wood-passage-creator/internal/module/user"
 	userrepo "wood-passage-creator/internal/module/user/repo"
@@ -74,12 +76,21 @@ func main() {
 	}
 	defer redisClient.Close()
 
+	chatModal, err := llm.NewChatModel(ctx, cfg.LLM)
+	if err != nil {
+		logger.Fatal("init chat model failed", logger.FieldErr, err)
+	}
+
 	// 业务装配：user 模块（可按需再注入 cache/lock）
 	// locker := lock.New(redisClient)
 	// cacheClient := cache.New(redisClient)
-	_ = redisClient
+	// _ = redisClient
 	userSvc := user.NewService(userrepo.New(db.Client))
-	articleSvc := article.NewService(articlerepo.NewArticleRepo(db.Client))
+	articleSvc := article.NewService(articlerepo.NewArticleRepo(db.Client), userSvc, articleagent.NewOrchestrator(
+		chatModal,
+		nil,
+		nil,
+	))
 
 	e.Use(session.Middleware(store))
 

@@ -23,8 +23,6 @@ func (r *ArticleRepo) Create(ctx context.Context, params article.CreateArticlePa
 		SetUserID(params.UserID).
 		SetTaskID(params.TaskID).
 		SetTopic(params.Topic).
-		SetStatus(entm.Status(params.Status)).
-		SetPhase(entm.Phase(params.Phase)).
 		SetEnabledImageMethods(params.EnabledImageMethods).
 		SetNillableStyle((*entm.Style)(params.Style)).
 		Save(ctx)

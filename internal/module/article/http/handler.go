@@ -2,13 +2,13 @@ package http
 
 import (
 	"net/http"
+	"strconv"
 	"wood-passage-creator/internal/httpapi/binding"
 	"wood-passage-creator/internal/httpapi/middleware"
 	"wood-passage-creator/internal/module/article"
 	"wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/pkg/response"
-	"strconv"
 
 	"github.com/labstack/echo/v5"
 )
@@ -41,7 +41,11 @@ func (h *Handler) Create(c *echo.Context) error {
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
-	u, err := h.svc.Create(c.Request().Context(), req)
+	actorID, err := middleware.GetLoginUserID(c)
+	if err != nil {
+		return err
+	}
+	u, err := h.svc.Create(c.Request().Context(), actorID, req)
 	if err != nil {
 		return err
 	}

@@ -111,7 +111,7 @@ type ArticleState struct {
 	Topic                   string             `json:"topic"`
 	UserDescription         string             `json:"userDescription"`     // 用户补充描述
 	Style                   *ArticleStyle      `json:"style"`               // 文章风格
-	Phase                   string             `json:"phase"`               // 当前阶段
+	Phase                   ArticlePhase       `json:"phase"`               // 当前阶段
 	EnabledImageMethods     []string           `json:"enabledImageMethods"` // 允许的配图方式列表
 	TitleOptions            []TitleOption      `json:"titleOptions"`        // 标题方案列表
 	Title                   *TitleResult       `json:"title"`

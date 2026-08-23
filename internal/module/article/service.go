@@ -2,7 +2,10 @@ package article
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"time"
+
 	"wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/pkg/page"
@@ -13,20 +16,21 @@ import (
 
 type Service struct {
 	repo         Repository
-	userService  user.Service
+	userService  *user.Service
 	orchestrator AgentOrchestrator
 	log          *slog.Logger
 }
 
-func NewService(repo Repository, userService user.Service) *Service {
+func NewService(repo Repository, userService *user.Service, orch AgentOrchestrator) *Service {
 	return &Service{
-		repo:        repo,
-		userService: userService,
-		log:         logger.Module("article"),
+		repo:         repo,
+		userService:  userService,
+		orchestrator: orch,
+		log:          logger.Module("article"),
 	}
 }
 
-// agent 大纲生成完毕，确认更新文章大纲
+// ConfirmOutline agent 大纲生成完毕后，确认并更新文章大纲。
 func (s *Service) ConfirmOutline(ctx context.Context, taskID string, actorID int64, isAdmin bool, outline []OutlineSection) error {
 	article, err := s.repo.GetByTaskID(ctx, taskID)
 	if err != nil {
@@ -35,11 +39,9 @@ func (s *Service) ConfirmOutline(ctx context.Context, taskID string, actorID int
 	if article == nil {
 		return response.NewBizErrorWithDetail(response.NotFound, "文章不存在")
 	}
-
 	if !isAdmin && article.UserID != actorID {
 		return response.NewBizErrorWithDetail(response.NoAuth, "无权限")
 	}
-
 	if article.Phase != PhaseOutlineEditing {
 		return response.NewBizErrorWithDetail(response.ParamsError, "当前阶段不允许确认大纲")
 	}
@@ -47,14 +49,29 @@ func (s *Service) ConfirmOutline(ctx context.Context, taskID string, actorID int
 	if _, err := s.repo.Update(ctx, article.ID, UpdateArticleParams{
 		Outline: outline,
 	}); err != nil {
+		s.log.Error("confirm outline update failed",
+			logger.FieldPurpose, logger.PurposeBiz,
+			logger.FieldEvent, "article.confirm_outline.failed",
+			logger.FieldErr, err,
+			"task_id", taskID,
+			"user_id", actorID,
+		)
 		return err
 	}
+
+	s.log.Info("outline confirmed",
+		logger.FieldPurpose, logger.PurposeBiz,
+		logger.FieldEvent, "article.confirm_outline.ok",
+		"task_id", taskID,
+		"user_id", actorID,
+		"sections", len(outline),
+	)
 
 	// TODO: agent async generate content
 	return nil
 }
 
-// agent 标题生成完毕，确认更新文章标题和副标题
+// ConfirmTitle agent 标题生成完毕后，确认主/副标题。
 func (s *Service) ConfirmTitle(ctx context.Context, actorID int64, isAdmin bool, params ConfirmTitleRequest) error {
 	article, err := s.repo.GetByTaskID(ctx, params.TaskID)
 	if err != nil {
@@ -69,40 +86,69 @@ func (s *Service) ConfirmTitle(ctx context.Context, actorID int64, isAdmin bool,
 	if article.Phase != PhaseTitleSelecting {
 		return response.NewBizErrorWithDetail(response.Forbidden, "当前阶段不允许确认标题")
 	}
+
 	if _, err = s.repo.Update(ctx, article.ID, UpdateArticleParams{
 		MainTitle:       &params.SelectedMainTitle,
 		SubTitle:        &params.SelectedSubTitle,
 		UserDescription: params.UserDescription,
 	}); err != nil {
+		s.log.Error("confirm title update failed",
+			logger.FieldPurpose, logger.PurposeBiz,
+			logger.FieldEvent, "article.confirm_title.failed",
+			logger.FieldErr, err,
+			"task_id", params.TaskID,
+			"user_id", actorID,
+		)
 		return err
 	}
 
-	// TODO: agent async generate content
+	s.log.Info("title confirmed",
+		logger.FieldPurpose, logger.PurposeBiz,
+		logger.FieldEvent, "article.confirm_title.ok",
+		"task_id", params.TaskID,
+		"user_id", actorID,
+	)
+
+	// TODO: agent async generate outline
 	return nil
 }
 
-// 创建文章任务
-func (s *Service) Create(ctx context.Context, actorID int64, params CreateArticleRequest) (*Article, error) {
-
-	// TODO 检查用户配额-> 写入基础文章任务状态 -> 开始执行异步生成任务
-
+// Create 创建文章任务并异步启动 Phase1（生成标题方案）。
+func (s *Service) Create(ctx context.Context, actorID int64, params CreateArticleRequest) (string, error) {
 	if err := s.userService.CheckAndConsumeQuota(ctx, actorID); err != nil {
-		return nil, err
+		return "", err
 	}
 
-	// 生成任务 ID
 	taskID := uuid.NewString()
 
 	if _, err := s.repo.Create(ctx, CreateArticleParams{
+		UserID:              actorID,
 		TaskID:              taskID,
 		Topic:               params.Topic,
 		Style:               params.Style,
 		EnabledImageMethods: params.EnabledImageMethods,
 	}); err != nil {
-		return nil, err
+		s.log.Error("create article failed",
+			logger.FieldPurpose, logger.PurposeBiz,
+			logger.FieldEvent, "article.create.failed",
+			logger.FieldErr, err,
+			"user_id", actorID,
+			"topic", params.Topic,
+		)
+		return "", err
 	}
 
-	return nil, nil
+	s.log.Info("article task created",
+		logger.FieldPurpose, logger.PurposeBiz,
+		logger.FieldEvent, "article.create.ok",
+		"task_id", taskID,
+		"user_id", actorID,
+		"topic", params.Topic,
+	)
+
+	go s.runPhase1Async(taskID, params.Topic, params.Style)
+
+	return taskID, nil
 }
 
 func (s *Service) GetByTaskID(ctx context.Context, taskID string, actorID int64, isAdmin bool) (*Article, error) {
@@ -110,15 +156,12 @@ func (s *Service) GetByTaskID(ctx context.Context, taskID string, actorID int64,
 	if err != nil {
 		return nil, err
 	}
-
 	if article == nil {
 		return nil, response.NewBizErrorWithDetail(response.NotFound, "文章不存在")
 	}
-
 	if !isAdmin && article.UserID != actorID {
 		return nil, response.NewBizErrorWithDetail(response.NoAuth, "无权限")
 	}
-
 	return article, nil
 }
 
@@ -156,4 +199,105 @@ func (s *Service) ListAll(ctx context.Context, params page.PageRequest) ([]*Arti
 
 func (s *Service) Delete(ctx context.Context, id int64) error {
 	return s.repo.Delete(ctx, id)
+}
+
+// runPhase1Async 异步执行阶段 1：生成标题方案。
+// 成功：TitleOptions + phase=TITLE_SELECTING。
+// 失败/panic：status=FAILED + errorMessage；成功路径不会标记失败。
+func (s *Service) runPhase1Async(taskID string, topic string, style *ArticleStyle) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			s.failPhase1(ctx, taskID, fmt.Errorf("panic: %v", r))
+		}
+	}()
+
+	s.log.Info("phase1 started",
+		logger.FieldPurpose, logger.PurposeJob,
+		logger.FieldEvent, "article.phase1.start",
+		"task_id", taskID,
+		"topic", topic,
+	)
+
+	if err := s.repo.UpdateStatus(ctx, taskID, StatusProcessing); err != nil {
+		s.failPhase1(ctx, taskID, fmt.Errorf("update status to processing: %w", err))
+		return
+	}
+	if err := s.repo.UpdatePhase(ctx, taskID, PhaseTitleGenerating); err != nil {
+		s.failPhase1(ctx, taskID, fmt.Errorf("update phase to title_generating: %w", err))
+		return
+	}
+
+	state := &ArticleState{
+		TaskID: taskID,
+		Topic:  topic,
+		Style:  style,
+		Phase:  PhaseTitleGenerating,
+	}
+
+	if err := s.orchestrator.RunPhase1(ctx, state); err != nil {
+		s.failPhase1(ctx, taskID, fmt.Errorf("run phase1: %w", err))
+		return
+	}
+	if len(state.TitleOptions) == 0 {
+		s.failPhase1(ctx, taskID, fmt.Errorf("run phase1: empty title options"))
+		return
+	}
+
+	if err := s.repo.UpdateTitleOptions(ctx, taskID, state.TitleOptions); err != nil {
+		s.failPhase1(ctx, taskID, fmt.Errorf("save title options: %w", err))
+		return
+	}
+	if err := s.repo.UpdatePhase(ctx, taskID, PhaseTitleSelecting); err != nil {
+		s.failPhase1(ctx, taskID, fmt.Errorf("update phase to title_selecting: %w", err))
+		return
+	}
+
+	s.log.Info("phase1 completed",
+		logger.FieldPurpose, logger.PurposeJob,
+		logger.FieldEvent, "article.phase1.done",
+		"task_id", taskID,
+		"options", len(state.TitleOptions),
+	)
+}
+
+// failPhase1 将任务标为失败并写入错误信息；仅用于异步 Phase1 的失败/panic 路径。
+func (s *Service) failPhase1(ctx context.Context, taskID string, err error) {
+	if err == nil {
+		return
+	}
+
+	s.log.Error("phase1 failed",
+		logger.FieldPurpose, logger.PurposeJob,
+		logger.FieldEvent, "article.phase1.failed",
+		logger.FieldErr, err,
+		"task_id", taskID,
+	)
+
+	msg := truncateErr(err, 1000)
+	status := StatusFailed
+	if _, uerr := s.repo.UpdateByTaskID(ctx, taskID, UpdateArticleParams{
+		Status:       &status,
+		ErrorMessage: &msg,
+	}); uerr != nil {
+		s.log.Error("phase1 persist failure state failed",
+			logger.FieldPurpose, logger.PurposeJob,
+			logger.FieldEvent, "article.phase1.fail_persist_error",
+			logger.FieldErr, uerr,
+			"task_id", taskID,
+		)
+	}
+}
+
+func truncateErr(err error, max int) string {
+	if err == nil {
+		return ""
+	}
+	msg := err.Error()
+	if max <= 0 || len(msg) <= max {
+		return msg
+	}
+	return msg[:max] + "..."
 }
