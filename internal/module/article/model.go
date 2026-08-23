@@ -65,17 +65,6 @@ type TitleOption struct {
 	SubTitle  string `json:"subTitle"`
 }
 
-// TitleResult 标题结果
-type TitleResult struct {
-	MainTitle string `json:"mainTitle"`
-	SubTitle  string `json:"subTitle"`
-}
-
-// OutlineResult 大纲结果
-type OutlineResult struct {
-	Sections []OutlineSection `json:"sections"`
-}
-
 // OutlineSection 大纲章节
 type OutlineSection struct {
 	Section int      `json:"section"`
@@ -114,8 +103,9 @@ type ArticleState struct {
 	Phase                   ArticlePhase       `json:"phase"`               // 当前阶段
 	EnabledImageMethods     []string           `json:"enabledImageMethods"` // 允许的配图方式列表
 	TitleOptions            []TitleOption      `json:"titleOptions"`        // 标题方案列表
-	Title                   *TitleResult       `json:"title"`
-	Outline                 *OutlineResult     `json:"outline"`
+	MainTitle               *string            `json:"mainTitle"`
+	SubTitle                *string            `json:"subTitle"`
+	Outline                 []OutlineSection   `json:"outline"`
 	Content                 string             `json:"content"`
 	ContentWithPlaceholders string             `json:"contentWithPlaceholders"` // 包含占位符的正文
 	FullContent             string             `json:"fullContent"`

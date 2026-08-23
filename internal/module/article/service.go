@@ -10,6 +10,7 @@ import (
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/pkg/response"
+	"wood-passage-creator/internal/port"
 
 	"github.com/google/uuid"
 )
@@ -110,6 +111,8 @@ func (s *Service) ConfirmTitle(ctx context.Context, actorID int64, isAdmin bool,
 	)
 
 	// TODO: agent async generate outline
+
+	go s.runPhase2Async(article, nil)
 	return nil
 }
 
@@ -285,6 +288,74 @@ func (s *Service) failPhase1(ctx context.Context, taskID string, err error) {
 		s.log.Error("phase1 persist failure state failed",
 			logger.FieldPurpose, logger.PurposeJob,
 			logger.FieldEvent, "article.phase1.fail_persist_error",
+			logger.FieldErr, uerr,
+			"task_id", taskID,
+		)
+	}
+}
+
+func (s *Service) runPhase2Async(article *Article, onDelta port.StreamHandler) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			s.failPhase2(ctx, article.TaskID, fmt.Errorf("panic: %v", r))
+		}
+	}()
+
+	if err := s.repo.UpdatePhase(ctx, article.TaskID, PhaseOutlineGenerating); err != nil {
+		s.failPhase2(ctx, article.TaskID, fmt.Errorf("update phase to outline_generating: %w", err))
+		return
+	}
+
+	state := &ArticleState{
+		TaskID:    article.TaskID,
+		Style:     article.Style,
+		Phase:     PhaseOutlineGenerating,
+		MainTitle: article.MainTitle,
+		SubTitle:  article.SubTitle,
+	}
+
+	if err := s.orchestrator.RunPhase2(ctx, state, onDelta); err != nil {
+		s.failPhase2(ctx, article.TaskID, err)
+		return
+	}
+
+	if err := s.repo.UpdateOutline(ctx, article.TaskID, state.Outline); err != nil {
+		s.failPhase2(ctx, article.TaskID, err)
+		return
+	}
+
+	if err := s.repo.UpdatePhase(ctx, article.TaskID, PhaseOutlineEditing); err != nil {
+		s.failPhase2(ctx, article.TaskID, err)
+		return
+	}
+
+}
+
+// failPhase1 将任务标为失败并写入错误信息；仅用于异步 Phase2 的失败/panic 路径。
+func (s *Service) failPhase2(ctx context.Context, taskID string, err error) {
+	if err == nil {
+		return
+	}
+
+	s.log.Error("phase1 failed",
+		logger.FieldPurpose, logger.PurposeJob,
+		logger.FieldEvent, "article.phase2.failed",
+		logger.FieldErr, err,
+		"task_id", taskID,
+	)
+
+	msg := truncateErr(err, 1000)
+	status := StatusFailed
+	if _, uerr := s.repo.UpdateByTaskID(ctx, taskID, UpdateArticleParams{
+		Status:       &status,
+		ErrorMessage: &msg,
+	}); uerr != nil {
+		s.log.Error("phase2 persist failure state failed",
+			logger.FieldPurpose, logger.PurposeJob,
+			logger.FieldEvent, "article.phase2.fail_persist_error",
 			logger.FieldErr, uerr,
 			"task_id", taskID,
 		)

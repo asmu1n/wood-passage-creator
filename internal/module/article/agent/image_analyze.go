@@ -60,7 +60,7 @@ func (a *ImageAnalyzer) Execute(ctx context.Context, state *article.ArticleState
 	}
 
 	p := prompt.ImageRequirements(
-		state.Title.MainTitle,
+		*state.MainTitle,
 		state.Content,
 		formatAvailableMethods(guides),
 		formatMethodUsage(guides),

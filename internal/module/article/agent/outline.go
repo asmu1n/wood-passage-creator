@@ -27,9 +27,14 @@ func (a *outlineGenerator) Execute(ctx context.Context, state *article.ArticleSt
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
 
+	subTitle := ""
+	if state.SubTitle != nil {
+		subTitle = *state.SubTitle
+	}
+
 	p := prompt.Outline(
-		state.Title.MainTitle,
-		state.Title.SubTitle,
+		*state.MainTitle,
+		subTitle,
 		state.UserDescription,
 		state.Style,
 	)
@@ -45,20 +50,21 @@ func (a *outlineGenerator) Execute(ctx context.Context, state *article.ArticleSt
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
 
-	var outline article.OutlineResult
-	if err := llmkit.UnmarshalJSON(raw, &outline); err != nil {
+	// 与 prompt 约定一致：顶层 JSON 数组
+	var sections []article.OutlineSection
+	if err := llmkit.UnmarshalJSON(raw, &sections); err != nil {
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
-	if len(outline.Sections) == 0 {
-		return fmt.Errorf("%s: empty outline sections", a.Name())
+	if len(sections) == 0 {
+		return fmt.Errorf("%s: empty outline", a.Name())
 	}
 
-	state.Outline = &outline
+	state.Outline = sections
 	a.Log.Info("agent done",
 		logger.FieldPurpose, logger.PurposeBiz,
 		logger.FieldEvent, "agent.outline.done",
 		"task_id", state.TaskID,
-		"sections", len(outline.Sections),
+		"sections", len(sections),
 	)
 	return nil
 }

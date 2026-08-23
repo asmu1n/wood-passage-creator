@@ -19,6 +19,7 @@ type Repository interface {
 	UpdateStatus(ctx context.Context, taskID string, status ArticleStatus) error
 	UpdatePhase(ctx context.Context, taskID string, phase ArticlePhase) error
 	UpdateTitleOptions(ctx context.Context, taskID string, titleOptions []TitleOption) error
+	UpdateOutline(ctx context.Context, taskID string, outline []OutlineSection) error
 
 	// ListByUser / ListAll 返回当前页数据与符合条件的总数（供 Service 组装 PageResponse）。
 	ListByUser(ctx context.Context, userID int64, params page.PageRequest) (items []*Article, total int, err error)

@@ -45,16 +45,14 @@ const outlineTpl = `你是一位专业的文章策划师,擅长设计文章结�
 3. 每个章节要有明确的标题和核心要点(2-3个)
 4. 适合2000字左右的文章
 
-请直接返回 JSON 格式,不要有其他内容:
-{
-  "sections": [
-    {
-      "section": 1,
-      "title": "章节标题",
-      "points": ["要点1", "要点2"]
-    }
-  ]
-}`
+请直接返回 JSON 数组,不要有其他内容:
+[
+  {
+    "section": 1,
+    "title": "章节标题",
+    "points": ["要点1", "要点2"]
+  }
+]`
 
 const descriptionSectionTpl = `
 用户补充要求：{{userDescription}}
@@ -132,13 +130,11 @@ const modifyOutlineTpl = `你是一位专业的文章策划师,擅长根据用�
 2. 保持大纲结构清晰、逻辑连贯
 3. 每个章节包含标题与 2-3 个要点
 
-请直接返回 JSON 格式,不要有其他内容:
-{
-  "sections": [
-    {
-      "section": 1,
-      "title": "章节标题",
-      "points": ["要点1", "要点2"]
-    }
-  ]
-}`
+请直接返回 JSON 数组,不要有其他内容:
+[
+  {
+    "section": 1,
+    "title": "章节标题",
+    "points": ["要点1", "要点2"]
+  }
+]`

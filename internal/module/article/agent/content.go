@@ -27,15 +27,15 @@ func (a *contentGenerator) Execute(ctx context.Context, state *article.ArticleSt
 	if err := requireTitle(state); err != nil {
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
-	if state.Outline == nil || len(state.Outline.Sections) == 0 {
+	if len(state.Outline) == 0 {
 		return fmt.Errorf("%s: state.outline is required", a.Name())
 	}
 
-	outlineJSON, err := json.Marshal(state.Outline.Sections)
+	outlineJSON, err := json.Marshal(state.Outline)
 	if err != nil {
 		return fmt.Errorf("%s: marshal outline: %w", a.Name(), err)
 	}
-	p := prompt.Content(state.Title.MainTitle, state.Title.SubTitle, string(outlineJSON), state.Style)
+	p := prompt.Content(*state.MainTitle, *state.SubTitle, string(outlineJSON), state.Style)
 
 	a.Log.Info("agent start",
 		logger.FieldPurpose, logger.PurposeBiz,

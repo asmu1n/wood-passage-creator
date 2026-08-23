@@ -116,6 +116,20 @@ func (r *ArticleRepo) UpdateTitleOptions(ctx context.Context, taskID string, tit
 	return err
 }
 
+func (r *ArticleRepo) UpdateOutline(ctx context.Context, taskID string, outline []article.OutlineSection) error {
+	_, err := r.UpdateByTaskID(ctx, taskID, article.UpdateArticleParams{
+		Outline: outline,
+	})
+	return err
+}
+
+func (r *ArticleRepo) UpdateSubTitle(ctx context.Context, taskID string, subTitle string) error {
+	_, err := r.UpdateByTaskID(ctx, taskID, article.UpdateArticleParams{
+		SubTitle: &subTitle,
+	})
+	return err
+}
+
 func (r *ArticleRepo) ListByUser(ctx context.Context, userID int64, params page.PageRequest) ([]*article.Article, int, error) {
 	// 基础查询只放过滤条件；Count 与分页列表必须分开，避免 Limit/Offset 污染 total。
 	base := r.client.Article.Query().

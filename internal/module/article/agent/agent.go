@@ -26,11 +26,11 @@ type agent interface {
 }
 
 func requireTitle(state *article.ArticleState) error {
-	if state == nil || state.Title == nil {
-		return fmt.Errorf("state.title is required")
+	if state == nil || state.MainTitle == nil || *state.MainTitle == "" {
+		return fmt.Errorf("state.mainTitle is required")
 	}
-	if state.Title.MainTitle == "" {
-		return fmt.Errorf("state.title.mainTitle is required")
+	if state.SubTitle == nil || *state.SubTitle == "" {
+		return fmt.Errorf("state.subTitle is required")
 	}
 	return nil
 }
