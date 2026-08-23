@@ -7,17 +7,18 @@ import (
 
 	"wood-passage-creator/internal/module/article"
 	"wood-passage-creator/internal/module/article/prompt"
+	"wood-passage-creator/internal/pkg/llmkit"
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/port"
 )
 
 // contentGenerator 阶段 3a：按大纲流式生成 Markdown 正文。
 type contentGenerator struct {
-	base
+	llmkit.Helper
 }
 
-func NewContentGenerator(llm port.ChatModel) Agent {
-	return &contentGenerator{base: newBase(llm)}
+func NewContentGenerator(llm port.ChatModel) agent {
+	return &contentGenerator{llmkit.NewHelper(llm, "article.agent")}
 }
 
 func (a *contentGenerator) Name() Name { return NameContentGenerator }
@@ -36,13 +37,13 @@ func (a *contentGenerator) Execute(ctx context.Context, state *article.ArticleSt
 	}
 	p := prompt.Content(state.Title.MainTitle, state.Title.SubTitle, string(outlineJSON), state.Style)
 
-	a.log.Info("agent start",
+	a.Log.Info("agent start",
 		logger.FieldPurpose, logger.PurposeBiz,
 		logger.FieldEvent, "agent.content.start",
 		"task_id", state.TaskID,
 	)
 
-	text, err := a.stream(ctx, p, nil)
+	text, err := a.StreamWithContext(ctx, p, nil)
 	if err != nil {
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
@@ -51,7 +52,7 @@ func (a *contentGenerator) Execute(ctx context.Context, state *article.ArticleSt
 	}
 
 	state.Content = text
-	a.log.Info("agent done",
+	a.Log.Info("agent done",
 		logger.FieldPurpose, logger.PurposeBiz,
 		logger.FieldEvent, "agent.content.done",
 		"task_id", state.TaskID,

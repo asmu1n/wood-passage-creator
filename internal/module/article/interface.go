@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"wood-passage-creator/internal/pkg/page"
+	"wood-passage-creator/internal/port"
 )
 
 // Repository 文章持久化端口。
@@ -54,4 +55,10 @@ type UpdateArticleParams struct {
 	Outline             []OutlineSection
 	Images              []ImageResult
 	EnabledImageMethods []string
+}
+
+type AgentOrchestrator interface {
+	RunPhase1(ctx context.Context, state *ArticleState) error
+	RunPhase2(ctx context.Context, state *ArticleState, streamHandler port.StreamHandler) error
+	RunPhase3(ctx context.Context, state *ArticleState, streamHandler port.StreamHandler) error
 }

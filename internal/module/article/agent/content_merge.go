@@ -15,7 +15,7 @@ type ContentMerger struct {
 	log *slog.Logger
 }
 
-func NewContentMerger() *ContentMerger {
+func NewContentMerger() agent {
 	return &ContentMerger{log: logger.Module("article.agent")}
 }
 

@@ -6,17 +6,18 @@ import (
 
 	"wood-passage-creator/internal/module/article"
 	"wood-passage-creator/internal/module/article/prompt"
+	"wood-passage-creator/internal/pkg/llmkit"
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/port"
 )
 
 // outlineGenerator 阶段 2：根据已选标题生成大纲（可流式）。
 type outlineGenerator struct {
-	base
+	llmkit.Helper
 }
 
-func NewOutlineGenerator(llm port.ChatModel) Agent {
-	return &outlineGenerator{base: newBase(llm)}
+func NewOutlineGenerator(llm port.ChatModel) agent {
+	return &outlineGenerator{llmkit.NewHelper(llm, "article.agent")}
 }
 
 func (a *outlineGenerator) Name() Name { return NameOutlineGenerator }
@@ -33,19 +34,19 @@ func (a *outlineGenerator) Execute(ctx context.Context, state *article.ArticleSt
 		state.Style,
 	)
 
-	a.log.Info("agent start",
+	a.Log.Info("agent start",
 		logger.FieldPurpose, logger.PurposeBiz,
 		logger.FieldEvent, "agent.outline.start",
 		"task_id", state.TaskID,
 	)
 
-	raw, err := a.stream(ctx, p, nil)
+	raw, err := a.StreamWithContext(ctx, p, nil)
 	if err != nil {
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
 
 	var outline article.OutlineResult
-	if err := unmarshalJSON(raw, &outline); err != nil {
+	if err := llmkit.UnmarshalJSON(raw, &outline); err != nil {
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
 	if len(outline.Sections) == 0 {
@@ -53,7 +54,7 @@ func (a *outlineGenerator) Execute(ctx context.Context, state *article.ArticleSt
 	}
 
 	state.Outline = &outline
-	a.log.Info("agent done",
+	a.Log.Info("agent done",
 		logger.FieldPurpose, logger.PurposeBiz,
 		logger.FieldEvent, "agent.outline.done",
 		"task_id", state.TaskID,

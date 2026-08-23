@@ -7,6 +7,7 @@ import (
 
 	"wood-passage-creator/internal/module/article"
 	"wood-passage-creator/internal/module/article/prompt"
+	"wood-passage-creator/internal/pkg/llmkit"
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/port"
 )
@@ -20,18 +21,18 @@ type ImageMethodGuide struct {
 
 // ImageAnalyzer 阶段 3b：分析配图需求并在正文插入占位符。
 type ImageAnalyzer struct {
-	base
 	methods []ImageMethodGuide
+	llmkit.Helper
 }
 
 func NewImageAnalyzer(llm port.ChatModel, methods []ImageMethodGuide) *ImageAnalyzer {
-	return &ImageAnalyzer{base: newBase(llm), methods: methods}
+	return &ImageAnalyzer{methods: methods, Helper: llmkit.NewHelper(llm, "article.agent")}
 }
 
 func (a *ImageAnalyzer) Name() Name { return NameImageAnalyzer }
 
 type imageAnalyzeResult struct {
-	ContentWithPlaceholders string                    `json:"contentWithPlaceholders"`
+	ContentWithPlaceholders string                     `json:"contentWithPlaceholders"`
 	ImageRequirements       []article.ImageRequirement `json:"imageRequirements"`
 }
 
@@ -49,7 +50,7 @@ func (a *ImageAnalyzer) Execute(ctx context.Context, state *article.ArticleState
 		// 无可用配图方式：跳过，占位正文=原正文
 		state.ContentWithPlaceholders = state.Content
 		state.ImageRequirements = nil
-		a.log.Info("agent skip",
+		a.Log.Info("agent skip",
 			logger.FieldPurpose, logger.PurposeBiz,
 			logger.FieldEvent, "agent.image_analyze.skip",
 			"task_id", state.TaskID,
@@ -65,20 +66,20 @@ func (a *ImageAnalyzer) Execute(ctx context.Context, state *article.ArticleState
 		formatMethodUsage(guides),
 	)
 
-	a.log.Info("agent start",
+	a.Log.Info("agent start",
 		logger.FieldPurpose, logger.PurposeBiz,
 		logger.FieldEvent, "agent.image_analyze.start",
 		"task_id", state.TaskID,
 		"methods", enabled,
 	)
 
-	raw, err := a.generate(ctx, p, nil)
+	raw, err := a.Generate(ctx, p, nil)
 	if err != nil {
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
 
 	var result imageAnalyzeResult
-	if err := unmarshalJSON(raw, &result); err != nil {
+	if err := llmkit.UnmarshalJSON(raw, &result); err != nil {
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
 
@@ -101,7 +102,7 @@ func (a *ImageAnalyzer) Execute(ctx context.Context, state *article.ArticleState
 	}
 	state.ImageRequirements = filtered
 
-	a.log.Info("agent done",
+	a.Log.Info("agent done",
 		logger.FieldPurpose, logger.PurposeBiz,
 		logger.FieldEvent, "agent.image_analyze.done",
 		"task_id", state.TaskID,

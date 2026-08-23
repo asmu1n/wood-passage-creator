@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"wood-passage-creator/internal/module/article"
+	"wood-passage-creator/internal/pkg/llmkit"
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/port"
 )
@@ -20,22 +21,22 @@ type ImageGenerator interface {
 type Orchestrator struct {
 	log *slog.Logger
 
-	title    Agent
-	outline  Agent
-	content  Agent
-	image    Agent
-	merge    Agent
-	images   ImageGenerator // 可选；nil 则跳过真实出图
+	title   agent
+	outline agent
+	content agent
+	image   agent
+	merge   agent
+	images  ImageGenerator // 可选；nil 则跳过真实出图
 }
 
 // Deps 装配依赖。
 type Deps struct {
-	LLM           port.ChatModel
-	ImageMethods  []ImageMethodGuide // 配图分析可用方式；可空
-	ImageGenerator ImageGenerator    // 可选
+	LLM            port.ChatModel
+	ImageMethods   []ImageMethodGuide // 配图分析可用方式；可空
+	ImageGenerator ImageGenerator     // 可选
 }
 
-func NewOrchestrator(d Deps) *Orchestrator {
+func NewOrchestrator(d Deps) article.AgentOrchestrator {
 	return &Orchestrator{
 		log:     logger.Module("article.orchestrator"),
 		title:   NewTitleGenerator(d.LLM),
@@ -67,7 +68,7 @@ func (o *Orchestrator) RunPhase2(ctx context.Context, state *article.ArticleStat
 		logger.FieldEvent, "phase2.start",
 		"task_id", state.TaskID,
 	)
-	ctx = WithStreamHandler(ctx, onDelta)
+	ctx = llmkit.WithStreamHandler(ctx, onDelta)
 	if err := o.outline.Execute(ctx, state); err != nil {
 		return fmt.Errorf("phase2: %w", err)
 	}
@@ -81,7 +82,7 @@ func (o *Orchestrator) RunPhase3(ctx context.Context, state *article.ArticleStat
 		logger.FieldEvent, "phase3.start",
 		"task_id", state.TaskID,
 	)
-	ctx = WithStreamHandler(ctx, onDelta)
+	ctx = llmkit.WithStreamHandler(ctx, onDelta)
 
 	if err := o.content.Execute(ctx, state); err != nil {
 		return fmt.Errorf("phase3 content: %w", err)

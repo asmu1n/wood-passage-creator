@@ -12,9 +12,10 @@ import (
 )
 
 type Service struct {
-	repo        Repository
-	userService user.Service
-	log         *slog.Logger
+	repo         Repository
+	userService  user.Service
+	orchestrator AgentOrchestrator
+	log          *slog.Logger
 }
 
 func NewService(repo Repository, userService user.Service) *Service {
@@ -81,19 +82,27 @@ func (s *Service) ConfirmTitle(ctx context.Context, actorID int64, isAdmin bool,
 }
 
 // 创建文章任务
-func (s *Service) Create(ctx context.Context, params CreateArticleRequest) (*Article, error) {
+func (s *Service) Create(ctx context.Context, actorID int64, params CreateArticleRequest) (*Article, error) {
 
 	// TODO 检查用户配额-> 写入基础文章任务状态 -> 开始执行异步生成任务
+
+	if err := s.userService.CheckAndConsumeQuota(ctx, actorID); err != nil {
+		return nil, err
+	}
 
 	// 生成任务 ID
 	taskID := uuid.NewString()
 
-	return s.repo.Create(ctx, CreateArticleParams{
+	if _, err := s.repo.Create(ctx, CreateArticleParams{
 		TaskID:              taskID,
 		Topic:               params.Topic,
 		Style:               params.Style,
 		EnabledImageMethods: params.EnabledImageMethods,
-	})
+	}); err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }
 
 func (s *Service) GetByTaskID(ctx context.Context, taskID string, actorID int64, isAdmin bool) (*Article, error) {
