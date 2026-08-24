@@ -19,29 +19,78 @@ type Service struct {
 	repo         Repository
 	userService  *user.Service
 	orchestrator AgentOrchestrator
+	sse          port.SSEHub
 	log          *slog.Logger
 }
 
-func NewService(repo Repository, userService *user.Service, orch AgentOrchestrator) *Service {
+func NewService(repo Repository, userService *user.Service, orch AgentOrchestrator, sse port.SSEHub) *Service {
 	return &Service{
 		repo:         repo,
 		userService:  userService,
 		orchestrator: orch,
+		sse:          sse,
 		log:          logger.Module("article"),
 	}
 }
 
-// ConfirmOutline agent 大纲生成完毕后，确认并更新文章大纲。
-func (s *Service) ConfirmOutline(ctx context.Context, taskID string, actorID int64, isAdmin bool, outline []OutlineSection) error {
-	article, err := s.repo.GetByTaskID(ctx, taskID)
-	if err != nil {
-		return err
-	}
+
+// ensureArticleAccess 校验登录用户是否可访问文章（管理员或作者）。
+func (s *Service) ensureArticleAccess(article *Article, actorID int64, role user.UserRole) error {
 	if article == nil {
 		return response.NewBizErrorWithDetail(response.NotFound, "文章不存在")
 	}
-	if !isAdmin && article.UserID != actorID {
-		return response.NewBizErrorWithDetail(response.NoAuth, "无权限")
+	if role == user.RoleAdmin || article.UserID == actorID {
+		return nil
+	}
+	return response.NewBizErrorWithDetail(response.NoAuth, "无权限")
+}
+
+// loadAccessibleByTaskID 按 taskID 加载文章并校验访问权。
+// 不存在 → NotFound；非管理员且非作者 → NoAuth。
+func (s *Service) loadAccessibleByTaskID(ctx context.Context, taskID string, actorID int64, role user.UserRole) (*Article, error) {
+	if taskID == "" {
+		return nil, response.NewBizErrorWithDetail(response.ParamsError, "任务ID不能为空")
+	}
+	article, err := s.repo.GetByTaskID(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+	if article == nil {
+		return nil, response.NewBizErrorWithDetail(response.NotFound, "文章不存在")
+	}
+	if err := s.ensureArticleAccess(article, actorID, role); err != nil {
+		return nil, err
+	}
+	return article, nil
+}
+
+// SubscribeProgress 校验访问权并订阅 task 进度事件。
+// 调用方负责 cancel（通常 defer），并将 ch 中的 JSON 写成 HTTP SSE 帧。
+// err != nil 时未建立订阅（或已保证无泄漏），cancel 为 nil。
+func (s *Service) SubscribeProgress(
+	ctx context.Context,
+	taskID string,
+	actorID int64,
+	role user.UserRole,
+) (ch <-chan []byte, cancel func(), err error) {
+	art, err := s.loadAccessibleByTaskID(ctx, taskID, actorID, role)
+	if err != nil {
+		return nil, nil, err
+	}
+	if s.sse == nil {
+		return nil, nil, response.NewBizErrorWithDetail(response.SystemError, "sse unavailable")
+	}
+
+	ch, unsub := s.sse.Subscribe(taskID)
+	s.PublishConnected(taskID, art.Phase, art.Status)
+	return ch, unsub, nil
+}
+
+// ConfirmOutline agent 大纲生成完毕后，确认并更新文章大纲。
+func (s *Service) ConfirmOutline(ctx context.Context, taskID string, actorID int64, role user.UserRole, outline []OutlineSection) error {
+	article, err := s.loadAccessibleByTaskID(ctx, taskID, actorID, role)
+	if err != nil {
+		return err
 	}
 	if article.Phase != PhaseOutlineEditing {
 		return response.NewBizErrorWithDetail(response.ParamsError, "当前阶段不允许确认大纲")
@@ -73,26 +122,21 @@ func (s *Service) ConfirmOutline(ctx context.Context, taskID string, actorID int
 }
 
 // ConfirmTitle agent 标题生成完毕后，确认主/副标题。
-func (s *Service) ConfirmTitle(ctx context.Context, actorID int64, isAdmin bool, params ConfirmTitleRequest) error {
-	article, err := s.repo.GetByTaskID(ctx, params.TaskID)
+func (s *Service) ConfirmTitle(ctx context.Context, actorID int64, role user.UserRole, params ConfirmTitleRequest) error {
+	article, err := s.loadAccessibleByTaskID(ctx, params.TaskID, actorID, role)
 	if err != nil {
 		return err
-	}
-	if article == nil {
-		return response.NewBizErrorWithDetail(response.NotFound, "文章不存在")
-	}
-	if !isAdmin && article.UserID != actorID {
-		return response.NewBizErrorWithDetail(response.NoAuth, "无权限")
 	}
 	if article.Phase != PhaseTitleSelecting {
 		return response.NewBizErrorWithDetail(response.Forbidden, "当前阶段不允许确认标题")
 	}
 
-	if _, err = s.repo.Update(ctx, article.ID, UpdateArticleParams{
+	article, err = s.repo.Update(ctx, article.ID, UpdateArticleParams{
 		MainTitle:       &params.SelectedMainTitle,
 		SubTitle:        &params.SelectedSubTitle,
 		UserDescription: params.UserDescription,
-	}); err != nil {
+	})
+	if err != nil {
 		s.log.Error("confirm title update failed",
 			logger.FieldPurpose, logger.PurposeBiz,
 			logger.FieldEvent, "article.confirm_title.failed",
@@ -110,9 +154,15 @@ func (s *Service) ConfirmTitle(ctx context.Context, actorID int64, isAdmin bool,
 		"user_id", actorID,
 	)
 
-	// TODO: agent async generate outline
+	onDelta := func(ctx context.Context, delta string) error {
+		if delta == "" {
+			return nil
+		}
+		s.publishOutlineDelta(article.TaskID, delta)
+		return nil
+	}
 
-	go s.runPhase2Async(article, nil)
+	go s.runPhase2Async(article, onDelta)
 	return nil
 }
 
@@ -154,18 +204,8 @@ func (s *Service) Create(ctx context.Context, actorID int64, params CreateArticl
 	return taskID, nil
 }
 
-func (s *Service) GetByTaskID(ctx context.Context, taskID string, actorID int64, isAdmin bool) (*Article, error) {
-	article, err := s.repo.GetByTaskID(ctx, taskID)
-	if err != nil {
-		return nil, err
-	}
-	if article == nil {
-		return nil, response.NewBizErrorWithDetail(response.NotFound, "文章不存在")
-	}
-	if !isAdmin && article.UserID != actorID {
-		return nil, response.NewBizErrorWithDetail(response.NoAuth, "无权限")
-	}
-	return article, nil
+func (s *Service) GetByTaskID(ctx context.Context, taskID string, actorID int64, role user.UserRole) (*Article, error) {
+	return s.loadAccessibleByTaskID(ctx, taskID, actorID, role)
 }
 
 func (s *Service) GetByID(ctx context.Context, id int64) (*Article, error) {
@@ -203,6 +243,7 @@ func (s *Service) ListAll(ctx context.Context, params page.PageRequest) ([]*Arti
 func (s *Service) Delete(ctx context.Context, id int64) error {
 	return s.repo.Delete(ctx, id)
 }
+
 
 // runPhase1Async 异步执行阶段 1：生成标题方案。
 // 成功：TitleOptions + phase=TITLE_SELECTING。
@@ -317,6 +358,10 @@ func (s *Service) runPhase2Async(article *Article, onDelta port.StreamHandler) {
 		SubTitle:  article.SubTitle,
 	}
 
+	if article.UserDescription != nil {
+		state.UserDescription = *article.UserDescription
+	}
+
 	if err := s.orchestrator.RunPhase2(ctx, state, onDelta); err != nil {
 		s.failPhase2(ctx, article.TaskID, err)
 		return
@@ -332,6 +377,14 @@ func (s *Service) runPhase2Async(article *Article, onDelta port.StreamHandler) {
 		return
 	}
 
+	s.publishOutlineDone(article.TaskID, state.Outline)
+
+	s.log.Info("phase2 done",
+		logger.FieldPurpose, logger.PurposeJob,
+		logger.FieldEvent, "article.phase2.done",
+		"task_id", article.TaskID,
+	)
+
 }
 
 // failPhase1 将任务标为失败并写入错误信息；仅用于异步 Phase2 的失败/panic 路径。
@@ -340,7 +393,7 @@ func (s *Service) failPhase2(ctx context.Context, taskID string, err error) {
 		return
 	}
 
-	s.log.Error("phase1 failed",
+	s.log.Error("phase2 failed",
 		logger.FieldPurpose, logger.PurposeJob,
 		logger.FieldEvent, "article.phase2.failed",
 		logger.FieldErr, err,
@@ -360,6 +413,8 @@ func (s *Service) failPhase2(ctx context.Context, taskID string, err error) {
 			"task_id", taskID,
 		)
 	}
+	s.publishSSEError(taskID, msg)
+
 }
 
 func truncateErr(err error, max int) string {

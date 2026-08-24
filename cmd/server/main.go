@@ -21,6 +21,7 @@ import (
 	"wood-passage-creator/internal/module/user"
 	userrepo "wood-passage-creator/internal/module/user/repo"
 	"wood-passage-creator/internal/pkg/logger"
+	"wood-passage-creator/internal/pkg/sse"
 
 	"github.com/labstack/echo-contrib/v5/session"
 	"github.com/labstack/echo/v5"
@@ -85,12 +86,13 @@ func main() {
 	// locker := lock.New(redisClient)
 	// cacheClient := cache.New(redisClient)
 	// _ = redisClient
+	ssehub := sse.NewHub()
 	userSvc := user.NewService(userrepo.New(db.Client))
 	articleSvc := article.NewService(articlerepo.NewArticleRepo(db.Client), userSvc, articleagent.NewOrchestrator(
 		chatModal,
 		nil,
 		nil,
-	))
+	), ssehub)
 
 	e.Use(session.Middleware(store))
 

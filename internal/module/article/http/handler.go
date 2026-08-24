@@ -1,12 +1,14 @@
 package http
 
 import (
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
+	"time"
 	"wood-passage-creator/internal/httpapi/binding"
 	"wood-passage-creator/internal/httpapi/middleware"
 	"wood-passage-creator/internal/module/article"
-	"wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/pkg/response"
 
@@ -19,9 +21,7 @@ type Handler struct {
 }
 
 func NewHandler(svc *article.Service) *Handler {
-	return &Handler{
-		svc: svc,
-	}
+	return &Handler{svc: svc}
 }
 
 // Create godoc
@@ -79,7 +79,7 @@ func (h *Handler) ConfirmTitle(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := h.svc.ConfirmTitle(c.Request().Context(), actorID, actorRole == user.RoleAdmin, req); err != nil {
+	if err := h.svc.ConfirmTitle(c.Request().Context(), actorID, actorRole, req); err != nil {
 		return err
 	}
 	return c.JSON(http.StatusOK, response.OK(nil))
@@ -112,7 +112,7 @@ func (h *Handler) ConfirmOutline(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := h.svc.ConfirmOutline(c.Request().Context(), req.TaskID, actorID, actorRole == user.RoleAdmin, req.Outline); err != nil {
+	if err := h.svc.ConfirmOutline(c.Request().Context(), req.TaskID, actorID, actorRole, req.Outline); err != nil {
 		return err
 	}
 	return c.JSON(http.StatusOK, response.OK(nil))
@@ -144,7 +144,7 @@ func (h *Handler) GetByTaskID(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
-	u, err := h.svc.GetByTaskID(c.Request().Context(), taskID, actorID, actorRole == user.RoleAdmin)
+	u, err := h.svc.GetByTaskID(c.Request().Context(), taskID, actorID, actorRole)
 	if err != nil {
 		return err
 	}
@@ -231,4 +231,80 @@ func (h *Handler) Delete(c *echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, response.OK(nil))
+}
+
+// GetProgress godoc
+// @Summary      SSE 订阅文章生成进度
+// @Description  按 taskId 建立 text/event-stream；需先登录且有权访问该任务。事件 JSON：CONNECTED / OUTLINE_DELTA / OUTLINE_DONE / ERROR。
+// @Tags         article
+// @Produce      text/event-stream
+// @Param        taskId path string true "任务 ID"
+// @Success      200 {string} string "SSE 流"
+// @Failure      401 {object} response.Response "未登录"
+// @Failure      403 {object} response.Response "无权限"
+// @Failure      404 {object} response.Response "文章不存在"
+// @Security     SessionAuth
+// @Router       /article/progress/{taskId} [get]
+func (h *Handler) GetProgress(c *echo.Context) error {
+	taskID := c.Param("taskId")
+	if taskID == "" {
+		return response.NewBizErrorWithDetail(response.ParamsError, "任务ID不能为空")
+	}
+
+	actorID, err := middleware.GetLoginUserID(c)
+	if err != nil {
+		return err
+	}
+	actorRole, err := middleware.GetLoginUserRole(c)
+	if err != nil {
+		return err
+	}
+
+	// 鉴权 + 订阅在 Service；失败时尚未进入 event-stream
+	ch, cancel, err := h.svc.SubscribeProgress(
+		c.Request().Context(),
+		taskID,
+		actorID,
+		actorRole,
+	)
+	if err != nil {
+		return err
+	}
+	defer cancel()
+
+	w := c.Response()
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		return nil
+	}
+
+	ctx := c.Request().Context()
+	heartbeat := time.NewTicker(15 * time.Second)
+	defer heartbeat.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-heartbeat.C:
+			if _, err := io.WriteString(w, ": ping\n\n"); err != nil {
+				return nil
+			}
+			flusher.Flush()
+		case msg, ok := <-ch:
+			if !ok {
+				return nil
+			}
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", msg); err != nil {
+				return nil
+			}
+			flusher.Flush()
+		}
+	}
 }
