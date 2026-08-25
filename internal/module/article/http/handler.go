@@ -1,8 +1,6 @@
 package http
 
 import (
-	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,6 +9,7 @@ import (
 	"wood-passage-creator/internal/module/article"
 	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/pkg/response"
+	pkgsse "wood-passage-creator/internal/pkg/sse"
 
 	"github.com/labstack/echo/v5"
 )
@@ -235,7 +234,7 @@ func (h *Handler) Delete(c *echo.Context) error {
 
 // GetProgress godoc
 // @Summary      SSE 订阅文章生成进度
-// @Description  按 taskId 建立 text/event-stream；需先登录且有权访问该任务。事件 JSON：CONNECTED / OUTLINE_DELTA / OUTLINE_DONE / ERROR。
+// @Description  按 taskId 建立 text/event-stream；需先登录且有权访问该任务。使用 SSE named events：connected / outline_delta / outline_done / task_error。
 // @Tags         article
 // @Produce      text/event-stream
 // @Param        taskId path string true "任务 ID"
@@ -279,32 +278,39 @@ func (h *Handler) GetProgress(c *echo.Context) error {
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
 
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		return nil
-	}
-
+	rc := http.NewResponseController(w)
 	ctx := c.Request().Context()
 	heartbeat := time.NewTicker(15 * time.Second)
 	defer heartbeat.Stop()
 
+	// 已开始 SSE 流后，写/刷新失败一律视为客户端断开，返回 nil，避免框架再写 JSON 错误体。
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-heartbeat.C:
-			if _, err := io.WriteString(w, ": ping\n\n"); err != nil {
+			if err := pkgsse.WriteComment(w, "ping"); err != nil {
 				return nil
 			}
-			flusher.Flush()
+			if err := pkgsse.Flush(rc); err != nil {
+				return nil
+			}
 		case msg, ok := <-ch:
 			if !ok {
 				return nil
 			}
-			if _, err := fmt.Fprintf(w, "data: %s\n\n", msg); err != nil {
+			if err := pkgsse.WriteEvent(w, msg.Name, msg.Data); err != nil {
 				return nil
 			}
-			flusher.Flush()
+			if err := pkgsse.Flush(rc); err != nil {
+				return nil
+			}
+
+			// 任务完成或者失败，结束流
+			if msg.Name == string(article.EventOutlineDone) || msg.Name == string(article.EventContentDone) || msg.Name == string(article.EventError) {
+				return nil
+			}
+
 		}
 	}
 }

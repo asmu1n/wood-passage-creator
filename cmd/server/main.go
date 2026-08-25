@@ -109,6 +109,11 @@ func main() {
 	sc := echo.StartConfig{
 		Address:    ":8080",
 		HideBanner: true,
+		BeforeServeFunc: func(s *http.Server) error {
+			// SSE 长连接：禁止写超时（0 = 不限制）
+			s.WriteTimeout = 0
+			return nil
+		},
 	}
 	if err := sc.Start(ctx, e); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Fatal("http server stopped", logger.FieldErr, err)

@@ -33,7 +33,6 @@ func NewService(repo Repository, userService *user.Service, orch AgentOrchestrat
 	}
 }
 
-
 // ensureArticleAccess 校验登录用户是否可访问文章（管理员或作者）。
 func (s *Service) ensureArticleAccess(article *Article, actorID int64, role user.UserRole) error {
 	if article == nil {
@@ -62,28 +61,6 @@ func (s *Service) loadAccessibleByTaskID(ctx context.Context, taskID string, act
 		return nil, err
 	}
 	return article, nil
-}
-
-// SubscribeProgress 校验访问权并订阅 task 进度事件。
-// 调用方负责 cancel（通常 defer），并将 ch 中的 JSON 写成 HTTP SSE 帧。
-// err != nil 时未建立订阅（或已保证无泄漏），cancel 为 nil。
-func (s *Service) SubscribeProgress(
-	ctx context.Context,
-	taskID string,
-	actorID int64,
-	role user.UserRole,
-) (ch <-chan []byte, cancel func(), err error) {
-	art, err := s.loadAccessibleByTaskID(ctx, taskID, actorID, role)
-	if err != nil {
-		return nil, nil, err
-	}
-	if s.sse == nil {
-		return nil, nil, response.NewBizErrorWithDetail(response.SystemError, "sse unavailable")
-	}
-
-	ch, unsub := s.sse.Subscribe(taskID)
-	s.PublishConnected(taskID, art.Phase, art.Status)
-	return ch, unsub, nil
 }
 
 // ConfirmOutline agent 大纲生成完毕后，确认并更新文章大纲。
@@ -243,7 +220,6 @@ func (s *Service) ListAll(ctx context.Context, params page.PageRequest) ([]*Arti
 func (s *Service) Delete(ctx context.Context, id int64) error {
 	return s.repo.Delete(ctx, id)
 }
-
 
 // runPhase1Async 异步执行阶段 1：生成标题方案。
 // 成功：TitleOptions + phase=TITLE_SELECTING。
