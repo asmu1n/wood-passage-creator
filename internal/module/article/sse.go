@@ -29,6 +29,15 @@ type OutlineDonePayload struct {
 	Outline []OutlineSection `json:"outline"`
 }
 
+type ContentDeltaPayload struct {
+	Delta string `json:"delta"`
+}
+
+type ContentDonePayload struct {
+	Phase   ArticlePhase `json:"phase"`
+	Content string       `json:"content"`
+}
+
 type ErrorPayload struct {
 	Message string       `json:"message"`
 	Phase   ArticlePhase `json:"phase,omitempty"`
@@ -95,6 +104,19 @@ func (s *Service) publishOutlineDone(taskID string, outline []OutlineSection) {
 	s.publish(taskID, EventOutlineDone, OutlineDonePayload{
 		Phase:   PhaseOutlineEditing,
 		Outline: outline,
+	})
+}
+
+func (s *Service) publishContentDelta(taskID string, delta string) {
+	s.publish(taskID, EventContentDelta, ContentDeltaPayload{
+		Delta: delta,
+	})
+}
+
+func (s *Service) publishContentDone(taskID string, content string) {
+	s.publish(taskID, EventContentDone, ContentDonePayload{
+		Phase:   PhaseCompleted,
+		Content: content,
 	})
 }
 

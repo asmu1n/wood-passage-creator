@@ -73,9 +73,10 @@ func (s *Service) ConfirmOutline(ctx context.Context, taskID string, actorID int
 		return response.NewBizErrorWithDetail(response.ParamsError, "当前阶段不允许确认大纲")
 	}
 
-	if _, err := s.repo.Update(ctx, article.ID, UpdateArticleParams{
+	article, err = s.repo.Update(ctx, article.ID, UpdateArticleParams{
 		Outline: outline,
-	}); err != nil {
+	})
+	if err != nil {
 		s.log.Error("confirm outline update failed",
 			logger.FieldPurpose, logger.PurposeBiz,
 			logger.FieldEvent, "article.confirm_outline.failed",
@@ -94,7 +95,8 @@ func (s *Service) ConfirmOutline(ctx context.Context, taskID string, actorID int
 		"sections", len(outline),
 	)
 
-	// TODO: agent async generate content
+	go s.runPhase3Async(article)
+
 	return nil
 }
 
@@ -131,15 +133,7 @@ func (s *Service) ConfirmTitle(ctx context.Context, actorID int64, role user.Use
 		"user_id", actorID,
 	)
 
-	onDelta := func(ctx context.Context, delta string) error {
-		if delta == "" {
-			return nil
-		}
-		s.publishOutlineDelta(article.TaskID, delta)
-		return nil
-	}
-
-	go s.runPhase2Async(article, onDelta)
+	go s.runPhase2Async(article)
 	return nil
 }
 
@@ -311,7 +305,7 @@ func (s *Service) failPhase1(ctx context.Context, taskID string, err error) {
 	}
 }
 
-func (s *Service) runPhase2Async(article *Article, onDelta port.StreamHandler) {
+func (s *Service) runPhase2Async(article *Article) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
@@ -336,6 +330,14 @@ func (s *Service) runPhase2Async(article *Article, onDelta port.StreamHandler) {
 
 	if article.UserDescription != nil {
 		state.UserDescription = *article.UserDescription
+	}
+
+	onDelta := func(ctx context.Context, delta string) error {
+		if delta == "" {
+			return nil
+		}
+		s.publishOutlineDelta(article.TaskID, delta)
+		return nil
 	}
 
 	if err := s.orchestrator.RunPhase2(ctx, state, onDelta); err != nil {
@@ -363,7 +365,7 @@ func (s *Service) runPhase2Async(article *Article, onDelta port.StreamHandler) {
 
 }
 
-// failPhase1 将任务标为失败并写入错误信息；仅用于异步 Phase2 的失败/panic 路径。
+// failPhase2 将任务标为失败并写入错误信息；仅用于异步 Phase2 的失败/panic 路径。
 func (s *Service) failPhase2(ctx context.Context, taskID string, err error) {
 	if err == nil {
 		return
@@ -390,7 +392,100 @@ func (s *Service) failPhase2(ctx context.Context, taskID string, err error) {
 		)
 	}
 	s.publishSSEError(taskID, msg)
+}
 
+func (s *Service) runPhase3Async(article *Article) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			s.failPhase3(ctx, article.TaskID, fmt.Errorf("panic: %v", r))
+		}
+	}()
+
+	if err := s.UpdatePhase(ctx, article.TaskID, PhaseContentGenerating); err != nil {
+		s.failPhase3(ctx, article.TaskID, err)
+		return
+	}
+
+	state := &ArticleState{
+		TaskID:              article.TaskID,
+		MainTitle:           article.MainTitle,
+		SubTitle:            article.SubTitle,
+		Style:               article.Style,
+		Outline:             article.Outline,
+		Phase:               PhaseContentGenerating,
+		EnabledImageMethods: article.EnabledImageMethods,
+	}
+
+	onDelta := func(ctx context.Context, delta string) error {
+		if delta == "" {
+			return nil
+		}
+		s.publishContentDelta(article.TaskID, delta)
+		return nil
+	}
+
+	if err := s.orchestrator.RunPhase3(ctx, state, onDelta); err != nil {
+		s.failPhase3(ctx, article.TaskID, err)
+		return
+	}
+
+	if _, err := s.Update(ctx, article.ID, UpdateArticleParams{
+		Content:       &state.Content,
+		FullContent:   &state.FullContent,
+		Status:        new(StatusCompleted),
+		Phase:         new(PhaseCompleted),
+		Images:        state.Images,
+		CompletedTime: new(time.Now()),
+	}); err != nil {
+		s.log.Error("phase3 persist content failed",
+			logger.FieldPurpose, logger.PurposeJob,
+			logger.FieldEvent, "article.phase3.content_persist_error",
+			logger.FieldErr, err,
+			"task_id", article.TaskID,
+		)
+		s.failPhase3(ctx, state.TaskID, err)
+		return
+	}
+
+	s.publishContentDone(state.TaskID, state.Content)
+
+	s.log.Info("phase3 completed",
+		logger.FieldPurpose, logger.PurposeJob,
+		logger.FieldEvent, "article.phase3.completed",
+		"task_id", article.TaskID,
+	)
+}
+
+// failPhase3 将任务标为失败并写入错误信息；仅用于异步 Phase3 的失败/panic 路径。
+func (s *Service) failPhase3(ctx context.Context, taskID string, err error) {
+	if err == nil {
+		return
+	}
+
+	s.log.Error("phase3 failed",
+		logger.FieldPurpose, logger.PurposeJob,
+		logger.FieldEvent, "article.phase3.failed",
+		logger.FieldErr, err,
+		"task_id", taskID,
+	)
+
+	msg := truncateErr(err, 1000)
+	status := StatusFailed
+	if _, uerr := s.repo.UpdateByTaskID(ctx, taskID, UpdateArticleParams{
+		Status:       &status,
+		ErrorMessage: &msg,
+	}); uerr != nil {
+		s.log.Error("phase3 persist failure state failed",
+			logger.FieldPurpose, logger.PurposeJob,
+			logger.FieldEvent, "article.phase3.fail_persist_error",
+			logger.FieldErr, uerr,
+			"task_id", taskID,
+		)
+	}
+	s.publishSSEError(taskID, msg)
 }
 
 func truncateErr(err error, max int) string {

@@ -47,6 +47,7 @@ const (
 	PhaseOutlineGenerating ArticlePhase = "OUTLINE_GENERATING" // 生成大纲中
 	PhaseOutlineEditing    ArticlePhase = "OUTLINE_EDITING"    // 等待编辑大纲
 	PhaseContentGenerating ArticlePhase = "CONTENT_GENERATING" // 生成正文中
+	PhaseCompleted         ArticlePhase = "COMPLETED"          // 完成
 )
 
 type ArticleStyle string
