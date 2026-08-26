@@ -13,6 +13,7 @@ import (
 	"wood-passage-creator/internal/httpapi/binding"
 	httpmw "wood-passage-creator/internal/httpapi/middleware"
 	"wood-passage-creator/internal/infra/database"
+	"wood-passage-creator/internal/infra/image"
 	"wood-passage-creator/internal/infra/llm"
 	"wood-passage-creator/internal/infra/redis"
 	"wood-passage-creator/internal/module/article"
@@ -88,10 +89,11 @@ func main() {
 	// _ = redisClient
 	ssehub := sse.NewHub()
 	userSvc := user.NewService(userrepo.New(db.Client))
+	imgGen := image.NewGenerator(cfg.Pexels)
 	articleSvc := article.NewService(articlerepo.NewArticleRepo(db.Client), userSvc, articleagent.NewOrchestrator(
 		chatModal,
-		nil,
-		nil,
+		imgGen,
+		articleagent.DefaultImageMethodGuides(),
 	), ssehub)
 
 	e.Use(session.Middleware(store))

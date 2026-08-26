@@ -15,6 +15,7 @@ type Config struct {
 	Redis    RedisConfig    `mapstructure:"redis"`
 	Session  SessionConfig  `mapstructure:"session"`
 	LLM      LLMConfig      `mapstructure:"llm"`
+	Pexels   PexelsConfig   `mapstructure:"pexels"`
 }
 
 type AppConfig struct {
@@ -45,6 +46,11 @@ type LLMConfig struct {
 	APIKey  string `mapstructure:"api_key"`
 	BaseURL string `mapstructure:"base_url"`
 	Model   string `mapstructure:"model"`
+}
+
+// PexelsConfig Pexels 图库检索。
+type PexelsConfig struct {
+	APIKey string `mapstructure:"api_key"`
 }
 
 // SessionConfig Cookie Session（Redis 后端）相关配置。

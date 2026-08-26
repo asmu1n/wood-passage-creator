@@ -11,12 +11,6 @@ import (
 	"wood-passage-creator/internal/port"
 )
 
-// ImageGenerator 并行/串行拉图能力由上层实现（Pexels/COS 等），agent 包不依赖 infra。
-// 入参为 state.ImageRequirements，写回 state.Images。
-type ImageGenerator interface {
-	Generate(ctx context.Context, state *article.ArticleState) error
-}
-
 // Orchestrator 文章多智能体编排（确定性流水线，非 ReAct）。
 type Orchestrator struct {
 	log *slog.Logger
@@ -26,10 +20,10 @@ type Orchestrator struct {
 	content agent
 	image   agent
 	merge   agent
-	images  ImageGenerator // 可选；nil 则跳过真实出图
+	images  port.ImageGenerator // 可选；nil 则跳过真实出图
 }
 
-func NewOrchestrator(llm port.ChatModel, imageGenerator ImageGenerator, imageMethods []ImageMethodGuide) article.AgentOrchestrator {
+func NewOrchestrator(llm port.ChatModel, imageGenerator port.ImageGenerator, imageMethods []ImageMethodGuide) article.AgentOrchestrator {
 	return &Orchestrator{
 		log:     logger.Module("article.orchestrator"),
 		title:   NewTitleGenerator(llm),
@@ -84,9 +78,11 @@ func (o *Orchestrator) RunPhase3(ctx context.Context, state *article.ArticleStat
 		return fmt.Errorf("phase3 image analyze: %w", err)
 	}
 	if o.images != nil && len(state.ImageRequirements) > 0 {
-		if err := o.images.Generate(ctx, state); err != nil {
+		imgs, err := o.images.Generate(ctx, state.TaskID, state.ImageRequirements)
+		if err != nil {
 			return fmt.Errorf("phase3 image generate: %w", err)
 		}
+		state.Images = imgs
 	}
 	if err := o.merge.Execute(ctx, state); err != nil {
 		return fmt.Errorf("phase3 merge: %w", err)

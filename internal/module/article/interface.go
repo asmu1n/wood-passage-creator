@@ -52,7 +52,7 @@ type UpdateArticleParams struct {
 	// JSON / 列表类：nil = 不改；非 nil = 整体覆盖
 	TitleOptions        []TitleOption
 	Outline             []OutlineSection
-	Images              []ImageResult
+	Images              []port.ImageResult
 	EnabledImageMethods []string
 }
 

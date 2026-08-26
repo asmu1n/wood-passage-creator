@@ -8,6 +8,7 @@ import (
 
 	"wood-passage-creator/internal/module/article"
 	"wood-passage-creator/internal/pkg/logger"
+	"wood-passage-creator/internal/port"
 )
 
 // ContentMerger 阶段 3d：用真实图片 URL 替换占位符（无 LLM）。
@@ -44,7 +45,7 @@ func (a *ContentMerger) Execute(ctx context.Context, state *article.ArticleState
 	return nil
 }
 
-func mergeImages(content string, images []article.ImageResult) string {
+func mergeImages(content string, images []port.ImageResult) string {
 	if len(images) == 0 {
 		return content
 	}
@@ -59,7 +60,7 @@ func mergeImages(content string, images []article.ImageResult) string {
 	return out
 }
 
-func altText(img article.ImageResult) string {
+func altText(img port.ImageResult) string {
 	if img.SectionTitle != "" {
 		return img.SectionTitle
 	}

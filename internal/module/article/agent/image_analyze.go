@@ -32,8 +32,8 @@ func NewImageAnalyzer(llm port.ChatModel, methods []ImageMethodGuide) *ImageAnal
 func (a *ImageAnalyzer) Name() Name { return NameImageAnalyzer }
 
 type imageAnalyzeResult struct {
-	ContentWithPlaceholders string                     `json:"contentWithPlaceholders"`
-	ImageRequirements       []article.ImageRequirement `json:"imageRequirements"`
+	ContentWithPlaceholders string                  `json:"contentWithPlaceholders"`
+	ImageRequirements       []port.ImageRequirement `json:"imageRequirements"`
 }
 
 func (a *ImageAnalyzer) Execute(ctx context.Context, state *article.ArticleState) error {
@@ -87,7 +87,7 @@ func (a *ImageAnalyzer) Execute(ctx context.Context, state *article.ArticleState
 	for _, g := range guides {
 		allowed[g.Code] = struct{}{}
 	}
-	filtered := make([]article.ImageRequirement, 0, len(result.ImageRequirements))
+	filtered := make([]port.ImageRequirement, 0, len(result.ImageRequirements))
 	for _, req := range result.ImageRequirements {
 		if _, ok := allowed[req.ImageSource]; !ok {
 			continue
