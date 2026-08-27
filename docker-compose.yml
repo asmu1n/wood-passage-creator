@@ -1,5 +1,7 @@
 # docker-compose.yml
-# Base stack: postgres + redis + app.
+# 非敏感默认值看镜像内 config.yml；这里只注入：
+#   1) compose 网络拓扑（host 不能是 localhost）
+#   2) 密钥 / 与 postgres 容器必须对齐的口令
 services:
   postgres:
     image: postgres:18.4-alpine
@@ -38,23 +40,20 @@ services:
       dockerfile: Dockerfile
     image: ${APP_IMAGE:-wood-passage-creator:local}
     environment:
-      # 1. 覆盖基础属性 (对应 config.yml 根节点)
-      APP_ENV: ${ENV:-production}
-      APP_LOG_LEVEL: ${LOG_LEVEL:-info}
-
-      # 2. 覆盖 DB 属性 (利用 compose 的内网 DNS 覆盖 localhost)
+      # --- 拓扑（覆盖 config.yml 里的 localhost）---
       APP_DATABASE_HOST: postgres
-      APP_DATABASE_USER: ${POSTGRES_USER:-postgres}
-      APP_DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      APP_DATABASE_DB_NAME: ${POSTGRES_DB:-wood-passage-creator_db}
-
-      # 3. 覆盖 Redis 属性
       APP_REDIS_HOST: redis
-      APP_REDIS_PASSWORD: ${REDIS_PASSWORD:-}
 
-      # 4. Session（生产务必覆盖 secret）
-      APP_SESSION_SECRET: ${SESSION_SECRET:-change-me-session-secret}
-      APP_SESSION_SECURE: ${SESSION_SECURE:-false}
+      # --- 密钥（仅这些走 env；其余读 config.yml）---
+      APP_DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      APP_REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      APP_SESSION_SECRET: ${APP_SESSION_SECRET:-change-me-session-secret}
+      APP_LLM_API_KEY: ${APP_LLM_API_KEY:-}
+      APP_PEXELS_API_KEY: ${APP_PEXELS_API_KEY:-}
+
+      # 若 postgres 用户/库名与 config.yml 不一致，再取消注释并对齐 POSTGRES_*：
+      # APP_DATABASE_USER: ${POSTGRES_USER:-postgres}
+      # APP_DATABASE_DB_NAME: ${POSTGRES_DB:-wood-passage-creator_db}
     ports:
       - "8080:8080"
     depends_on:

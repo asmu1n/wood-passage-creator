@@ -1,4 +1,3 @@
-# 默认本地开发环境参数，具体参数由 env 注入覆盖（APP 前缀）
 name: "wood-passage-creator"
 env: "local" # local | production
 log_level: "debug" # debug | info | warn | error
@@ -8,7 +7,7 @@ database:
   host: "localhost"
   port: 5432
   user: "postgres"
-  password: "postgres"
+  password: "postgres" # 本地默认；部署用 APP_DATABASE_PASSWORD
   db_name: "wood-passage-creator_db"
   max_idle_conns: 10
   max_open_conns: 100
@@ -16,18 +15,20 @@ database:
 redis:
   host: "localhost"
   port: 6379
-  password: ""
+  password: "" # 部署用 APP_REDIS_PASSWORD
   db: 0
 
+# LLM Agent（OpenAI 兼容）。model/base_url 放 yml；api_key 用 env
 llm:
-  base_url: "http://localhost:8080"
-  api_key: "your-api-key"
-  model: "deepseek-v4"
+  base_url: "https://api.deepseek.com/v1"
+  api_key: "" # 勿把真实 key 提交进仓库；用 APP_LLM_API_KEY
+  model: "deepseek-chat"
 
+# Pexels。key 用 env；未配置时 ImageGenerator 降级 Picsum
 pexels:
-  api_key: "your-api-key"
+  api_key: "" # APP_PEXELS_API_KEY
 
 session:
-  secret: "change-me-session-secret"
-  max_age: 604800 # 7d, seconds
-  secure: false # HTTPS 生产环境设 true（或 APP_SESSION_SECURE=true）
+  secret: "" # APP_SESSION_SECRET；空则代码内开发默认值
+  max_age: 604800 # 7d
+  secure: false # 生产 HTTPS 可改为 true

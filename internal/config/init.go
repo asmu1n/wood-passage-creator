@@ -10,7 +10,7 @@ import (
 )
 
 type Config struct {
-	App      AppConfig      `mapstructure:"app"`
+	App      AppConfig      `mapstructure:",squash"` // 与 config.yml 根级 name/env/log_* 及 APP_ENV 等对齐
 	Database DatabaseConfig `mapstructure:"database"`
 	Redis    RedisConfig    `mapstructure:"redis"`
 	Session  SessionConfig  `mapstructure:"session"`
@@ -99,11 +99,13 @@ func LoadConfig() *Config {
 		v.AddConfigPath(".")        // 告诉 viper 在当前目录寻找
 		v.AddConfigPath("./config") // 也可以添加多个查找路径
 
-		// 3. 环境变量覆盖设置
-		// 比如设置了 "APP"，那么 viper 会寻找 "APP_DATABASE_HOST" 来覆盖 database.host
+		// 3. 环境变量覆盖（前缀 APP_，嵌套用 _）
+		// 例: APP_DATABASE_HOST -> database.host
+		//     APP_LLM_API_KEY   -> llm.api_key
+		//     APP_PEXELS_API_KEY -> pexels.api_key
 		v.SetEnvPrefix("APP")
 		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-		v.AutomaticEnv() // 开启自动读取环境变量
+		v.AutomaticEnv()
 
 		// 4. 读取 config.yml
 		if err := v.ReadInConfig(); err != nil {
