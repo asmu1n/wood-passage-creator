@@ -269,6 +269,11 @@ func (s *Service) runPhase1Async(taskID string, topic string, style *ArticleStyl
 		return
 	}
 
+	s.publish(taskID, EventTitlesDone, TitlesDonePayload{
+		Phase:        PhaseTitleSelecting,
+		TitleOptions: state.TitleOptions,
+	})
+
 	s.log.Info("phase1 completed",
 		logger.FieldPurpose, logger.PurposeJob,
 		logger.FieldEvent, "article.phase1.done",
@@ -303,6 +308,7 @@ func (s *Service) failPhase1(ctx context.Context, taskID string, err error) {
 			"task_id", taskID,
 		)
 	}
+	s.publishSSEError(taskID, msg)
 }
 
 func (s *Service) runPhase2Async(article *Article) {
@@ -332,30 +338,29 @@ func (s *Service) runPhase2Async(article *Article) {
 		state.UserDescription = *article.UserDescription
 	}
 
-	onDelta := func(ctx context.Context, delta string) error {
-		if delta == "" {
-			return nil
-		}
-		s.publishOutlineDelta(article.TaskID, delta)
-		return nil
+	taskID := article.TaskID
+	onProgress := func(ctx context.Context, name string, data any) {
+		s.publish(taskID, name, data)
 	}
-
-	if err := s.orchestrator.RunPhase2(ctx, state, onDelta); err != nil {
-		s.failPhase2(ctx, article.TaskID, err)
+	if err := s.orchestrator.RunPhase2(ctx, state, onProgress); err != nil {
+		s.failPhase2(ctx, taskID, err)
 		return
 	}
 
-	if err := s.repo.UpdateOutline(ctx, article.TaskID, state.Outline); err != nil {
-		s.failPhase2(ctx, article.TaskID, err)
+	if err := s.repo.UpdateOutline(ctx, taskID, state.Outline); err != nil {
+		s.failPhase2(ctx, taskID, err)
 		return
 	}
 
-	if err := s.repo.UpdatePhase(ctx, article.TaskID, PhaseOutlineEditing); err != nil {
-		s.failPhase2(ctx, article.TaskID, err)
+	if err := s.repo.UpdatePhase(ctx, taskID, PhaseOutlineEditing); err != nil {
+		s.failPhase2(ctx, taskID, err)
 		return
 	}
 
-	s.publishOutlineDone(article.TaskID, state.Outline)
+	s.publish(taskID, EventOutlineDone, OutlineDonePayload{
+		Phase:   PhaseOutlineEditing,
+		Outline: state.Outline,
+	})
 
 	s.log.Info("phase2 done",
 		logger.FieldPurpose, logger.PurposeJob,
@@ -419,16 +424,12 @@ func (s *Service) runPhase3Async(article *Article) {
 		EnabledImageMethods: article.EnabledImageMethods,
 	}
 
-	onDelta := func(ctx context.Context, delta string) error {
-		if delta == "" {
-			return nil
-		}
-		s.publishContentDelta(article.TaskID, delta)
-		return nil
+	taskID := article.TaskID
+	onProgress := func(ctx context.Context, name string, data any) {
+		s.publish(taskID, name, data)
 	}
-
-	if err := s.orchestrator.RunPhase3(ctx, state, onDelta); err != nil {
-		s.failPhase3(ctx, article.TaskID, err)
+	if err := s.orchestrator.RunPhase3(ctx, state, onProgress); err != nil {
+		s.failPhase3(ctx, taskID, err)
 		return
 	}
 
@@ -450,7 +451,10 @@ func (s *Service) runPhase3Async(article *Article) {
 		return
 	}
 
-	s.publishContentDone(state.TaskID, state.Content)
+	s.publish(taskID, EventContentDone, ContentDonePayload{
+		Phase:  PhaseCompleted,
+		Status: StatusCompleted,
+	})
 
 	s.log.Info("phase3 completed",
 		logger.FieldPurpose, logger.PurposeJob,
@@ -486,6 +490,46 @@ func (s *Service) failPhase3(ctx context.Context, taskID string, err error) {
 		)
 	}
 	s.publishSSEError(taskID, msg)
+}
+
+func (s *Service) ModifyOutline(ctx context.Context, actorID int64, role user.UserRole, req AiModifyOutlineRequest) ([]OutlineSection, error) {
+
+	article, err := s.loadAccessibleByTaskID(ctx, req.TaskID, actorID, role)
+	if err != nil {
+
+		s.log.Error("get article failed",
+			logger.FieldPurpose, logger.PurposeBiz,
+			logger.FieldEvent, "article.modify_outline.get_failed",
+			logger.FieldErr, err,
+			"task_id", req.TaskID,
+		)
+		return nil, err
+	}
+
+	if article.Phase != PhaseOutlineEditing {
+		return nil, response.NewBizErrorWithDetail(response.Forbidden, "only confirmed outline can be modified")
+	}
+
+	state := &ArticleState{
+		TaskID:    article.TaskID,
+		MainTitle: article.MainTitle,
+		SubTitle:  article.SubTitle,
+		Outline:   article.Outline,
+	}
+
+	newOutline, err := s.orchestrator.ModifyOutline(ctx, state, req.ModifySuggestion)
+	if err != nil {
+		s.log.Error("modify outline failed",
+			logger.FieldPurpose, logger.PurposeBiz,
+			logger.FieldEvent, "article.modify_outline.failed",
+			logger.FieldErr, err,
+			"task_id", req.TaskID,
+		)
+		return nil, err
+	}
+
+	return newOutline, nil
+
 }
 
 func truncateErr(err error, max int) string {

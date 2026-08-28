@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"sort"
 	"strings"
+	"sync/atomic"
 
 	"wood-passage-creator/internal/config"
 	"wood-passage-creator/internal/pkg/logger"
@@ -48,18 +49,24 @@ func (g *Generator) Register(p Provider) {
 }
 
 // Generate 按需求并行拉图，返回结果列表（按 position 排序）。
-// 单张失败时尝试 fallback（Picsum）；fallback 仍失败则跳过该张并打日志。
-func (g *Generator) Generate(ctx context.Context, taskID string, reqs []port.ImageRequirement) ([]port.ImageResult, error) {
-
+// onProgress 在每张成功时回调（done 为成功计数，total 为需求总数）；可为 nil。
+func (g *Generator) Generate(ctx context.Context, taskID string, reqs []port.ImageRequirement, onProgress port.ImageProgressFunc) ([]port.ImageResult, error) {
+	if g == nil {
+		return nil, fmt.Errorf("image generator is nil")
+	}
+	if g.log == nil {
+		g.log = slog.Default()
+	}
 	if len(reqs) == 0 {
 		return nil, nil
 	}
 
+	total := len(reqs)
 	g.log.Info("image generate start",
 		logger.FieldPurpose, logger.PurposeJob,
 		logger.FieldEvent, "image.generate.start",
 		"task_id", taskID,
-		"count", len(reqs),
+		"count", total,
 	)
 
 	limit := g.concurrency
@@ -67,12 +74,12 @@ func (g *Generator) Generate(ctx context.Context, taskID string, reqs []port.Ima
 		limit = defaultConcurrency
 	}
 
-	// 并发拉取图片，失败则跳过不直接中断
 	type slot struct {
 		res port.ImageResult
 		ok  bool
 	}
-	slots := make([]slot, len(reqs))
+	slots := make([]slot, total)
+	var doneCount atomic.Int32
 
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.SetLimit(limit)
@@ -94,6 +101,10 @@ func (g *Generator) Generate(ctx context.Context, taskID string, reqs []port.Ima
 				return nil
 			}
 			slots[i] = slot{res: res, ok: true}
+			n := int(doneCount.Add(1))
+			if onProgress != nil {
+				onProgress(ctx, n, total, res)
+			}
 			return nil
 		})
 	}
@@ -102,11 +113,10 @@ func (g *Generator) Generate(ctx context.Context, taskID string, reqs []port.Ima
 		return nil, err
 	}
 
-	out := make([]port.ImageResult, 0, len(reqs))
+	out := make([]port.ImageResult, 0, total)
 	for i := range slots {
-		s := slots[i]
-		if s.ok {
-			out = append(out, s.res)
+		if slots[i].ok {
+			out = append(out, slots[i].res)
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
@@ -117,7 +127,7 @@ func (g *Generator) Generate(ctx context.Context, taskID string, reqs []port.Ima
 		logger.FieldPurpose, logger.PurposeJob,
 		logger.FieldEvent, "image.generate.done",
 		"task_id", taskID,
-		"requested", len(reqs),
+		"requested", total,
 		"generated", len(out),
 	)
 	return out, nil
@@ -130,7 +140,6 @@ func (g *Generator) fetchOne(ctx context.Context, taskID string, req port.ImageR
 	}
 
 	url, method, err := g.tryProvider(ctx, src, req, false)
-	// 如果失败且有降级提供者，则使用降级提供者
 	if err != nil && g.fallback != nil && g.fallback.Available() {
 		g.log.Info("image fallback",
 			logger.FieldPurpose, logger.PurposeJob,
@@ -160,13 +169,11 @@ func (g *Generator) fetchOne(ctx context.Context, taskID string, req port.ImageR
 func (g *Generator) tryProvider(ctx context.Context, method string, req port.ImageRequirement, isFallback bool) (url, usedMethod string, err error) {
 	method = strings.ToUpper(method)
 	var p Provider
-
 	if isFallback {
 		p = g.fallback
-	} else {
+	} else if g.providers != nil {
 		p = g.providers[method]
 	}
-
 	if p == nil || !p.Available() {
 		return "", "", fmt.Errorf("provider unavailable: %s", method)
 	}

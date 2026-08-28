@@ -306,11 +306,34 @@ func (h *Handler) GetProgress(c *echo.Context) error {
 				return nil
 			}
 
-			// 任务完成或者失败，结束流
-			if msg.Name == string(article.EventOutlineDone) || msg.Name == string(article.EventContentDone) || msg.Name == string(article.EventError) {
+			// 本段终态：结束 SSE 连接
+			if article.IsTerminalSSEEvent(msg.Name) {
 				return nil
 			}
 
 		}
 	}
+}
+
+func (h *Handler) ModifyOutline(c *echo.Context) error {
+	var req article.AiModifyOutlineRequest
+	if err := binding.BindAndValidate(c, &req); err != nil {
+		return err
+	}
+
+	actorID, err := middleware.GetLoginUserID(c)
+	if err != nil {
+		return err
+	}
+	actorRole, err := middleware.GetLoginUserRole(c)
+	if err != nil {
+		return err
+	}
+
+	u, err := h.svc.ModifyOutline(c.Request().Context(), actorID, actorRole, req)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, response.OK(u))
 }

@@ -25,6 +25,11 @@ type agent interface {
 	Execute(ctx context.Context, state *article.ArticleState) error
 }
 
+type agentWithModify interface {
+	agent
+	ExecuteWithModify(ctx context.Context, state *article.ArticleState, modifySuggestion string) error
+}
+
 func requireTitle(state *article.ArticleState) error {
 	if state == nil || state.MainTitle == nil || *state.MainTitle == "" {
 		return fmt.Errorf("state.mainTitle is required")

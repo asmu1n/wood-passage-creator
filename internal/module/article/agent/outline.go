@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"wood-passage-creator/internal/module/article"
@@ -16,7 +17,7 @@ type outlineGenerator struct {
 	llmkit.Helper
 }
 
-func NewOutlineGenerator(llm port.ChatModel) agent {
+func NewOutlineGenerator(llm port.ChatModel) agentWithModify {
 	return &outlineGenerator{llmkit.NewHelper(llm, "article.agent")}
 }
 
@@ -63,6 +64,53 @@ func (a *outlineGenerator) Execute(ctx context.Context, state *article.ArticleSt
 	a.Log.Info("agent done",
 		logger.FieldPurpose, logger.PurposeBiz,
 		logger.FieldEvent, "agent.outline.done",
+		"task_id", state.TaskID,
+		"sections", len(sections),
+	)
+	return nil
+}
+
+func (a *outlineGenerator) ExecuteWithModify(ctx context.Context, state *article.ArticleState, modifySuggestion string) error {
+	if err := requireTitle(state); err != nil {
+		return fmt.Errorf("%s: %w", a.Name(), err)
+	}
+
+	outlineJSON, err := json.Marshal(state.Outline)
+	if err != nil {
+		return fmt.Errorf("%s: marshal outline: %w", a.Name(), err)
+	}
+
+	p := prompt.ModifyOutline(
+		*state.MainTitle,
+		*state.SubTitle,
+		string(outlineJSON),
+		modifySuggestion,
+	)
+
+	a.Log.Info("agent start",
+		logger.FieldPurpose, logger.PurposeBiz,
+		logger.FieldEvent, "agent.outline.modify.start",
+		"task_id", state.TaskID,
+	)
+
+	raw, err := a.StreamWithContext(ctx, p, nil)
+	if err != nil {
+		return fmt.Errorf("%s: %w", a.Name(), err)
+	}
+
+	// 与 prompt 约定一致：顶层 JSON 数组
+	var sections []article.OutlineSection
+	if err := llmkit.UnmarshalJSON(raw, &sections); err != nil {
+		return fmt.Errorf("%s: %w", a.Name(), err)
+	}
+	if len(sections) == 0 {
+		return fmt.Errorf("%s: empty outline", a.Name())
+	}
+
+	state.Outline = sections
+	a.Log.Info("agent done",
+		logger.FieldPurpose, logger.PurposeBiz,
+		logger.FieldEvent, "agent.outline.modify.done",
 		"task_id", state.TaskID,
 		"sections", len(sections),
 	)

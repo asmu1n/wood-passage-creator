@@ -9,16 +9,49 @@ import (
 	"wood-passage-creator/internal/port"
 )
 
-type SSEEventType string
-
+// SSE event 名（B 范式：event: + data JSON）。
 const (
-	EventOutlineDelta SSEEventType = "outline_delta"
-	EventOutlineDone  SSEEventType = "outline_done"
-	EventContentDelta SSEEventType = "content_delta"
-	EventContentDone  SSEEventType = "content_done"
-	EventError        SSEEventType = "task_error"
-	EventConnected    SSEEventType = "connected"
+	EventConnected = "connected"
+	EventTaskError = "task_error"
+
+	EventTitlesDone = "titles_done"
+
+	EventOutlineDelta = "outline_delta"
+	EventOutlineDone  = "outline_done"
+
+	EventContentDelta     = "content_delta"
+	EventContentGenerated = "content_generated"
+	EventImagesPlanned    = "images_planned"
+	EventImageComplete    = "image_complete"
+	EventImagesDone       = "images_done"
+	EventMergeDone        = "merge_done"
+	EventContentDone      = "content_done"
 )
+
+// IsTerminalSSEEvent 本段进度流应结束的事件。
+func IsTerminalSSEEvent(name string) bool {
+	switch name {
+	case EventTitlesDone, EventOutlineDone, EventContentDone, EventTaskError:
+		return true
+	default:
+		return false
+	}
+}
+
+type ConnectedPayload struct {
+	Phase  ArticlePhase  `json:"phase"`
+	Status ArticleStatus `json:"status"`
+}
+
+type TaskErrorPayload struct {
+	Message string       `json:"message"`
+	Phase   ArticlePhase `json:"phase,omitempty"`
+}
+
+type TitlesDonePayload struct {
+	Phase        ArticlePhase  `json:"phase"`
+	TitleOptions []TitleOption `json:"titleOptions"`
+}
 
 type OutlineDeltaPayload struct {
 	Delta string `json:"delta"`
@@ -33,24 +66,39 @@ type ContentDeltaPayload struct {
 	Delta string `json:"delta"`
 }
 
+type ContentGeneratedPayload struct {
+	Phase         ArticlePhase `json:"phase"`
+	ContentLength int          `json:"contentLength"`
+}
+
+type ImagesPlannedPayload struct {
+	Phase ArticlePhase `json:"phase"`
+	Count int          `json:"count"`
+}
+
+type ImageCompletePayload struct {
+	Image port.ImageResult `json:"image"`
+	Done  int              `json:"done"`
+	Total int              `json:"total"`
+}
+
+type ImagesDonePayload struct {
+	Phase  ArticlePhase       `json:"phase"`
+	Count  int                `json:"count"`
+	Images []port.ImageResult `json:"images"`
+}
+
+type MergeDonePayload struct {
+	Phase             ArticlePhase `json:"phase"`
+	FullContentLength int          `json:"fullContentLength"`
+}
+
 type ContentDonePayload struct {
-	Phase   ArticlePhase `json:"phase"`
-	Content string       `json:"content"`
-}
-
-type ErrorPayload struct {
-	Message string       `json:"message"`
-	Phase   ArticlePhase `json:"phase,omitempty"`
-}
-
-type ConnectedPayload struct {
 	Phase  ArticlePhase  `json:"phase"`
 	Status ArticleStatus `json:"status"`
 }
 
-// SubscribeProgress 校验访问权并订阅 task 进度事件（Hub fan-out：同 task 多连接互不踢除）。
-// 调用方负责 cancel（通常 defer），并将 ch 中的事件写成 HTTP SSE 帧（event + data）。
-// err != nil 时未建立订阅（或已保证无泄漏），cancel 为 nil。
+// SubscribeProgress 校验访问权并订阅 task 进度事件（Hub fan-out）。
 func (s *Service) SubscribeProgress(
 	ctx context.Context,
 	taskID string,
@@ -66,70 +114,34 @@ func (s *Service) SubscribeProgress(
 	}
 
 	ch, unsub := s.sse.Subscribe(taskID)
-	s.PublishConnected(taskID, art.Phase, art.Status)
+	s.publish(taskID, EventConnected, ConnectedPayload{
+		Phase:  art.Phase,
+		Status: art.Status,
+	})
 	return ch, unsub, nil
 }
 
-func (s *Service) publish(taskID string, typ SSEEventType, data any) {
-	if s.sse == nil || taskID == "" || typ == "" {
+func (s *Service) publish(taskID string, name string, data any) {
+	if s.sse == nil || taskID == "" || name == "" {
 		return
 	}
-
 	b, err := json.Marshal(data)
-
 	if err != nil {
 		s.log.Error("sse marshal failed",
 			logger.FieldPurpose, logger.PurposeBiz,
 			logger.FieldEvent, "article.sse.marshal_failed",
 			logger.FieldErr, err,
 			"task_id", taskID,
-			"type", string(typ))
+			"name", name)
 		return
 	}
-
 	s.sse.Publish(port.SSEEvent{
 		Topic: taskID,
-		Name:  string(typ),
+		Name:  name,
 		Data:  b,
 	})
 }
 
-func (s *Service) publishOutlineDelta(taskID string, delta string) {
-	s.publish(taskID, EventOutlineDelta, OutlineDeltaPayload{
-		Delta: delta,
-	})
-}
-
-func (s *Service) publishOutlineDone(taskID string, outline []OutlineSection) {
-	s.publish(taskID, EventOutlineDone, OutlineDonePayload{
-		Phase:   PhaseOutlineEditing,
-		Outline: outline,
-	})
-}
-
-func (s *Service) publishContentDelta(taskID string, delta string) {
-	s.publish(taskID, EventContentDelta, ContentDeltaPayload{
-		Delta: delta,
-	})
-}
-
-func (s *Service) publishContentDone(taskID string, content string) {
-	s.publish(taskID, EventContentDone, ContentDonePayload{
-		Phase:   PhaseCompleted,
-		Content: content,
-	})
-}
-
 func (s *Service) publishSSEError(taskID, msg string) {
-	s.publish(taskID, EventError, ErrorPayload{
-		Message: msg,
-	})
-}
-
-// PublishConnected 在客户端 Subscribe 成功后推送当前任务快照。
-func (s *Service) PublishConnected(taskID string, phase ArticlePhase, status ArticleStatus) {
-	s.publish(taskID, EventConnected, ConnectedPayload{
-		Phase:  phase,
-		Status: status,
-	})
+	s.publish(taskID, EventTaskError, TaskErrorPayload{Message: msg})
 }

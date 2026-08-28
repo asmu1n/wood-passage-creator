@@ -56,8 +56,13 @@ type UpdateArticleParams struct {
 	EnabledImageMethods []string
 }
 
+// ProgressFunc 任务进度回调（由 Service 注入，内部通常 publish 到 SSE）。
+// name 为 SSE event 名；data 为 payload（将被 JSON 序列化）。
+type ProgressFunc func(ctx context.Context, name string, data any)
+
 type AgentOrchestrator interface {
 	RunPhase1(ctx context.Context, state *ArticleState) error
-	RunPhase2(ctx context.Context, state *ArticleState, streamHandler port.StreamHandler) error
-	RunPhase3(ctx context.Context, state *ArticleState, streamHandler port.StreamHandler) error
+	RunPhase2(ctx context.Context, state *ArticleState, onProgress ProgressFunc) error
+	RunPhase3(ctx context.Context, state *ArticleState, onProgress ProgressFunc) error
+	ModifyOutline(ctx context.Context, state *ArticleState, modifySuggestion string) ([]OutlineSection, error)
 }

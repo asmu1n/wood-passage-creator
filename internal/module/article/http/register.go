@@ -17,6 +17,7 @@ func Register(api *echo.Group, svc *article.Service, usersvc *user.Service) {
 		article.POST("/create", h.Create)
 		article.POST("/confirm-title", h.ConfirmTitle)
 		article.POST("/confirm-outline", h.ConfirmOutline)
+		article.POST("/modify-outline", h.ModifyOutline)
 
 		// 具体 path 须在 /:taskId 之前
 		article.GET("/progress/:taskId", h.GetProgress)

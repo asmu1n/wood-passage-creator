@@ -12,8 +12,12 @@ type Picsum struct{}
 
 func NewPicsum() *Picsum { return &Picsum{} }
 
-func (p *Picsum) Method() string  { return MethodPicsum }
-func (p *Picsum) Available() bool { return true }
+func (p *Picsum) Method() string {
+	return MethodPicsum
+}
+func (p *Picsum) Available() bool {
+	return true
+}
 
 func (p *Picsum) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {
 	_ = ctx

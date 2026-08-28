@@ -24,8 +24,12 @@ type ImageResult struct {
 	PlaceholderID string `json:"placeholderId"` // {{IMAGE_PLACEHOLDER_N}}
 }
 
+// ImageProgressFunc 单张图片成功时回调；done 为已成功张数，total 为需求总数。
+// 实现不得长时间阻塞；可 nil。
+type ImageProgressFunc func(ctx context.Context, done, total int, img ImageResult)
+
 // ImageGenerator 根据需求列表生成图片结果。
-// 实现位于 infra；编排层负责写回业务 state，infra 不依赖 article 模块。
+// 实现位于 infra；编排层负责写回业务 state 与 SSE，infra 不依赖 article。
 type ImageGenerator interface {
-	Generate(ctx context.Context, taskID string, reqs []ImageRequirement) ([]ImageResult, error)
+	Generate(ctx context.Context, taskID string, reqs []ImageRequirement, onProgress ImageProgressFunc) ([]ImageResult, error)
 }
