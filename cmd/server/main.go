@@ -90,11 +90,21 @@ func main() {
 	ssehub := sse.NewHub()
 	userSvc := user.NewService(userrepo.New(db.Client))
 	imgGen := image.NewGenerator(cfg.Pexels)
-	articleSvc := article.NewService(articlerepo.NewArticleRepo(db.Client), userSvc, articleagent.NewOrchestrator(
-		chatModal,
-		imgGen,
-		articleagent.DefaultImageMethodGuides(),
-	), ssehub)
+	articleRepo := articlerepo.NewArticleRepo(db.Client)
+	agentLogRepo := articlerepo.NewAgentLogRepo(db.Client)
+	agentLogRecorder := article.NewAgentLogRecorder(agentLogRepo)
+	articleSvc := article.NewService(
+		articleRepo,
+		agentLogRepo,
+		userSvc,
+		articleagent.NewOrchestrator(
+			chatModal,
+			imgGen,
+			articleagent.DefaultImageMethodGuides(),
+			agentLogRecorder,
+		),
+		ssehub,
+	)
 
 	e.Use(session.Middleware(store))
 

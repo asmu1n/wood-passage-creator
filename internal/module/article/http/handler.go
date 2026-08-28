@@ -337,3 +337,33 @@ func (h *Handler) ModifyOutline(c *echo.Context) error {
 
 	return c.JSON(http.StatusOK, response.OK(u))
 }
+
+
+// GetExecutionLogs godoc
+// @Summary      任务执行日志
+// @Description  返回该 task 下各 agent 步骤的耗时与状态汇总。
+// @Tags         article
+// @Produce      json
+// @Param        taskId path string true "任务 ID"
+// @Success      200 {object} response.Response{data=article.AgentExecutionStats}
+// @Security     SessionAuth
+// @Router       /article/execution-logs/{taskId} [get]
+func (h *Handler) GetExecutionLogs(c *echo.Context) error {
+	taskID := c.Param("taskId")
+	if taskID == "" {
+		return response.NewBizErrorWithDetail(response.ParamsError, "任务ID不能为空")
+	}
+	actorID, err := middleware.GetLoginUserID(c)
+	if err != nil {
+		return err
+	}
+	actorRole, err := middleware.GetLoginUserRole(c)
+	if err != nil {
+		return err
+	}
+	stats, err := h.svc.GetExecutionLogs(c.Request().Context(), taskID, actorID, actorRole)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, response.OK(stats))
+}

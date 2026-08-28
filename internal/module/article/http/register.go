@@ -21,6 +21,7 @@ func Register(api *echo.Group, svc *article.Service, usersvc *user.Service) {
 
 		// 具体 path 须在 /:taskId 之前
 		article.GET("/progress/:taskId", h.GetProgress)
+		article.GET("/execution-logs/:taskId", h.GetExecutionLogs)
 
 		article.GET("/:taskId", h.GetByTaskID)
 		article.POST("/list", h.ListAll)

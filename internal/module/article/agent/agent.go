@@ -16,6 +16,7 @@ const (
 	NameContentGenerator Name = "content_generator"
 	NameImageAnalyzer    Name = "image_analyzer"
 	NameContentMerger    Name = "content_merger"
+	NameImageGenerator   Name = "image_generator"
 )
 
 // agent 单个任务智能体：读写共享 ArticleState。

@@ -17,15 +17,23 @@ import (
 
 type Service struct {
 	repo         Repository
+	agentLogs    AgentLogRepository
 	userService  *user.Service
 	orchestrator AgentOrchestrator
 	sse          port.SSEHub
 	log          *slog.Logger
 }
 
-func NewService(repo Repository, userService *user.Service, orch AgentOrchestrator, sse port.SSEHub) *Service {
+func NewService(
+	repo Repository,
+	agentLogs AgentLogRepository,
+	userService *user.Service,
+	orch AgentOrchestrator,
+	sse port.SSEHub,
+) *Service {
 	return &Service{
 		repo:         repo,
+		agentLogs:    agentLogs,
 		userService:  userService,
 		orchestrator: orch,
 		sse:          sse,
@@ -244,11 +252,21 @@ func (s *Service) runPhase1Async(taskID string, topic string, style *ArticleStyl
 		return
 	}
 
+	art, err := s.repo.GetByTaskID(ctx, taskID)
+	if err != nil || art == nil {
+		if err == nil {
+			err = fmt.Errorf("article not found")
+		}
+		s.failPhase1(ctx, taskID, fmt.Errorf("load article: %w", err))
+		return
+	}
+
 	state := &ArticleState{
-		TaskID: taskID,
-		Topic:  topic,
-		Style:  style,
-		Phase:  PhaseTitleGenerating,
+		ArticleID: art.ID,
+		TaskID:    taskID,
+		Topic:     topic,
+		Style:     style,
+		Phase:     PhaseTitleGenerating,
 	}
 
 	if err := s.orchestrator.RunPhase1(ctx, state); err != nil {
@@ -327,6 +345,7 @@ func (s *Service) runPhase2Async(article *Article) {
 	}
 
 	state := &ArticleState{
+		ArticleID: article.ID,
 		TaskID:    article.TaskID,
 		Style:     article.Style,
 		Phase:     PhaseOutlineGenerating,
@@ -415,6 +434,7 @@ func (s *Service) runPhase3Async(article *Article) {
 	}
 
 	state := &ArticleState{
+		ArticleID:           article.ID,
 		TaskID:              article.TaskID,
 		MainTitle:           article.MainTitle,
 		SubTitle:            article.SubTitle,
@@ -511,6 +531,7 @@ func (s *Service) ModifyOutline(ctx context.Context, actorID int64, role user.Us
 	}
 
 	state := &ArticleState{
+		ArticleID: article.ID,
 		TaskID:    article.TaskID,
 		MainTitle: article.MainTitle,
 		SubTitle:  article.SubTitle,
@@ -530,6 +551,60 @@ func (s *Service) ModifyOutline(ctx context.Context, actorID int64, role user.Us
 
 	return newOutline, nil
 
+}
+
+
+// GetExecutionLogs 按 taskId 返回 agent 执行日志与汇总（需能访问该任务）。
+func (s *Service) GetExecutionLogs(ctx context.Context, taskID string, actorID int64, role user.UserRole) (*AgentExecutionStats, error) {
+	if _, err := s.loadAccessibleByTaskID(ctx, taskID, actorID, role); err != nil {
+		return nil, err
+	}
+	if s.agentLogs == nil {
+		return &AgentExecutionStats{
+			TaskID:         taskID,
+			OverallStatus:  "NOT_FOUND",
+			AgentDurations: map[string]int{},
+			Logs:           []*AgentLog{},
+		}, nil
+	}
+	logs, err := s.agentLogs.ListByTaskID(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+	if len(logs) == 0 {
+		return &AgentExecutionStats{
+			TaskID:         taskID,
+			OverallStatus:  "NOT_FOUND",
+			AgentDurations: map[string]int{},
+			Logs:           []*AgentLog{},
+		}, nil
+	}
+
+	total := 0
+	durations := make(map[string]int, len(logs))
+	overall := "SUCCESS"
+	for _, entry := range logs {
+		if entry.DurationMs != nil {
+			total += *entry.DurationMs
+			durations[entry.AgentName] = *entry.DurationMs
+		}
+		switch entry.Status {
+		case AgentLogFailed:
+			overall = "FAILED"
+		case AgentLogRunning:
+			if overall != "FAILED" {
+				overall = "RUNNING"
+			}
+		}
+	}
+	return &AgentExecutionStats{
+		TaskID:          taskID,
+		TotalDurationMs: total,
+		AgentCount:      len(logs),
+		AgentDurations:  durations,
+		OverallStatus:   overall,
+		Logs:            logs,
+	}, nil
 }
 
 func truncateErr(err error, max int) string {

@@ -66,3 +66,31 @@ type AgentOrchestrator interface {
 	RunPhase3(ctx context.Context, state *ArticleState, onProgress ProgressFunc) error
 	ModifyOutline(ctx context.Context, state *ArticleState, modifySuggestion string) ([]OutlineSection, error)
 }
+
+
+// CreateAgentLogParams 写入一条执行日志。
+type CreateAgentLogParams struct {
+	ArticleID    int64
+	TaskID       string
+	AgentName    string
+	StartTime    time.Time
+	EndTime      time.Time
+	DurationMs   int
+	Status       AgentLogStatus
+	ErrorMessage string
+	InputData    string
+	OutputData   string
+	// Prompt 默认不写或截断，由调用方决定是否传入
+	Prompt string
+}
+
+// AgentLogRepository 执行日志持久化。
+type AgentLogRepository interface {
+	Create(ctx context.Context, params CreateAgentLogParams) error
+	ListByTaskID(ctx context.Context, taskID string) ([]*AgentLog, error)
+}
+
+// AgentLogRecorder 编排层打点用；实现应异步落库且不因失败影响主流程。
+type AgentLogRecorder interface {
+	SaveAsync(params CreateAgentLogParams)
+}

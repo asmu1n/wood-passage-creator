@@ -76,6 +76,7 @@ type OutlineSection struct {
 
 // ArticleState 文章生成状态（智能体间共享）
 type ArticleState struct {
+	ArticleID               int64                   `json:"articleId,omitempty"` // 写 agent_log 用
 	TaskID                  string                  `json:"taskId"`
 	Topic                   string                  `json:"topic"`
 	UserDescription         string                  `json:"userDescription"`     // 用户补充描述
@@ -137,4 +138,42 @@ type ConfirmOutlineRequest struct {
 type AiModifyOutlineRequest struct {
 	TaskID           string `json:"taskId" validate:"required,min=1,max=64"`
 	ModifySuggestion string `json:"modifySuggestion" validate:"required,min=1,max=4000"`
+}
+
+
+// ---------- Agent 执行日志 ----------
+
+type AgentLogStatus string
+
+const (
+	AgentLogRunning AgentLogStatus = "RUNNING"
+	AgentLogSuccess AgentLogStatus = "SUCCESS"
+	AgentLogFailed  AgentLogStatus = "FAILED"
+)
+
+// AgentLog 单次智能体/步骤执行记录。
+type AgentLog struct {
+	ID           int64          `json:"id"`
+	ArticleID    int64          `json:"articleId"`
+	TaskID       string         `json:"taskId"`
+	AgentName    string         `json:"agentName"`
+	StartTime    time.Time      `json:"startTime"`
+	EndTime      *time.Time     `json:"endTime,omitempty"`
+	DurationMs   *int           `json:"durationMs,omitempty"`
+	Status       AgentLogStatus `json:"status"`
+	ErrorMessage *string        `json:"errorMessage,omitempty"`
+	Prompt       *string        `json:"prompt,omitempty"`
+	InputData    *string        `json:"inputData,omitempty"`
+	OutputData   *string        `json:"outputData,omitempty"`
+	CreateTime   time.Time      `json:"createTime"`
+}
+
+// AgentExecutionStats 某 task 的执行汇总（execution-logs API）。
+type AgentExecutionStats struct {
+	TaskID          string         `json:"taskId"`
+	TotalDurationMs int            `json:"totalDurationMs"`
+	AgentCount      int            `json:"agentCount"`
+	AgentDurations  map[string]int `json:"agentDurations"`
+	OverallStatus   string         `json:"overallStatus"` // SUCCESS/FAILED/RUNNING/NOT_FOUND
+	Logs            []*AgentLog    `json:"logs"`
 }
