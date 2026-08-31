@@ -186,3 +186,43 @@ func (h *Handler) Delete(c *echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, response.OK(nil))
 }
+
+// UpgradeVIP godoc
+// @Summary      [Admin] 升级用户为 VIP
+// @Tags         users
+// @Produce      json
+// @Param        id path int true "用户 ID"
+// @Success      200 {object} response.Response{data=user.User}
+// @Security     SessionAuth
+// @Router       /users/{id}/upgrade-vip [post]
+func (h *Handler) UpgradeVIP(c *echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		return response.NewBizErrorWithDetail(response.ParamsError, "无效的用户 ID")
+	}
+	u, err := h.svc.UpgradeToVIP(c.Request().Context(), id)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, response.OK(u))
+}
+
+// RevokeVIP godoc
+// @Summary      [Admin] 取消用户 VIP
+// @Tags         users
+// @Produce      json
+// @Param        id path int true "用户 ID"
+// @Success      200 {object} response.Response{data=user.User}
+// @Security     SessionAuth
+// @Router       /users/{id}/revoke-vip [post]
+func (h *Handler) RevokeVIP(c *echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		return response.NewBizErrorWithDetail(response.ParamsError, "无效的用户 ID")
+	}
+	u, err := h.svc.RevokeVIP(c.Request().Context(), id)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, response.OK(u))
+}

@@ -19,6 +19,8 @@ import (
 	"wood-passage-creator/internal/module/article"
 	articleagent "wood-passage-creator/internal/module/article/agent"
 	articlerepo "wood-passage-creator/internal/module/article/repo"
+	"wood-passage-creator/internal/module/payment"
+	paymentrepo "wood-passage-creator/internal/module/payment/repo"
 	"wood-passage-creator/internal/module/user"
 	userrepo "wood-passage-creator/internal/module/user/repo"
 	"wood-passage-creator/internal/pkg/logger"
@@ -89,6 +91,7 @@ func main() {
 	// _ = redisClient
 	ssehub := sse.NewHub()
 	userSvc := user.NewService(userrepo.New(db.Client))
+	paymentSvc := payment.NewService(paymentrepo.New(db.Client), userSvc)
 	imgGen := image.NewGenerator(cfg, chatModal)
 	articleRepo := articlerepo.NewArticleRepo(db.Client)
 	agentLogRepo := articlerepo.NewAgentLogRepo(db.Client)
@@ -110,7 +113,7 @@ func main() {
 
 	e.GET("/swagger/*", echo.WrapHandler(httpSwagger.WrapHandler))
 
-	httpapi.RegisterRouter(e, userSvc, articleSvc)
+	httpapi.RegisterRouter(e, userSvc, articleSvc, paymentSvc)
 
 	logger.Info("http server starting",
 		logger.FieldPurpose, logger.PurposeInfra,

@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"time"
 	"log/slog"
 
 	"wood-passage-creator/internal/pkg/logger"
@@ -43,18 +44,66 @@ func (s *Service) CheckAndConsumeQuota(ctx context.Context, id int64) error {
 	return err
 }
 
-func (s *Service) UpgradeToVIP(ctx context.Context, id int64) error {
+// UpgradeToVIP 将用户设为 VIP 并记录 vip_time；已是 VIP 则幂等返回。
+func (s *Service) UpgradeToVIP(ctx context.Context, id int64) (*User, error) {
 	u, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if u == nil {
-		return response.NewBizErrorWithDetail(response.ParamsError, "用户不存在")
+		return nil, response.NewBizErrorWithDetail(response.NotFound, "用户不存在")
 	}
-	_, err = s.repo.Update(ctx, u.ID, UpdateRepoParams{
+	if u.UserRole == RoleVIP {
+		return u, nil
+	}
+	if u.UserRole == RoleAdmin {
+		// 管理员无需 VIP；直接返回
+		return u, nil
+	}
+	now := time.Now()
+	out, err := s.repo.Update(ctx, u.ID, UpdateRepoParams{
 		UserRole: new(RoleVIP),
+		VipTime:  &now,
 	})
-	return err
+	if err != nil {
+		return nil, err
+	}
+	s.log.Info("user upgraded to vip",
+		logger.FieldPurpose, logger.PurposeBiz,
+		logger.FieldEvent, "user.vip.upgrade",
+		"user_id", id,
+	)
+	return out, nil
+}
+
+// RevokeVIP 取消 VIP，角色回 user 并清空 vip_time（开发/退款用）。
+func (s *Service) RevokeVIP(ctx context.Context, id int64) (*User, error) {
+	u, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if u == nil {
+		return nil, response.NewBizErrorWithDetail(response.NotFound, "用户不存在")
+	}
+	if u.UserRole == RoleAdmin {
+		return nil, response.NewBizErrorWithDetail(response.ParamsError, "不能取消管理员身份")
+	}
+	if u.UserRole != RoleVIP {
+		return u, nil
+	}
+	out, err := s.repo.Update(ctx, u.ID, UpdateRepoParams{
+		UserRole:     new(RoleUser),
+		ClearVipTime: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.log.Info("user vip revoked",
+		logger.FieldPurpose, logger.PurposeBiz,
+		logger.FieldEvent, "user.vip.revoke",
+		"user_id", id,
+	)
+	return out, nil
 }
 
 func (s *Service) Register(ctx context.Context, in RegisterRequest) (*User, error) {

@@ -118,6 +118,11 @@ func (r *UserRepo) Update(ctx context.Context, id int64, in user.UpdateRepoParam
 	if in.Quota != nil {
 		b.SetQuota(*in.Quota)
 	}
+	if in.ClearVipTime {
+		b.ClearVipTime()
+	} else if in.VipTime != nil {
+		b.SetVipTime(*in.VipTime)
+	}
 
 	row, err := b.Save(ctx)
 	if err != nil {

@@ -25,5 +25,8 @@ func Register(api *echo.Group, svc *user.Service) {
 		// 管理端：列表 / 删除需管理员
 		users.GET("/list", h.List, middleware.AuthWithRoleRequired(svc, true))
 		users.DELETE("/:id", h.Delete, middleware.AuthWithRoleRequired(svc, true))
+		// 管理端：开发期直接升降 VIP（真支付上线后仍可保留）
+		users.POST("/:id/upgrade-vip", h.UpgradeVIP, middleware.AuthWithRoleRequired(svc, true))
+		users.POST("/:id/revoke-vip", h.RevokeVIP, middleware.AuthWithRoleRequired(svc, true))
 	}
 }

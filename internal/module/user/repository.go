@@ -3,6 +3,8 @@ package user
 import (
 	"context"
 	"errors"
+	"time"
+
 	"wood-passage-creator/internal/pkg/page"
 )
 
@@ -39,6 +41,8 @@ type UpdateRepoParams struct {
 	UserProfile  *string
 	UserRole     *UserRole
 	Quota        *int
+	VipTime      *time.Time
+	ClearVipTime bool // true 时清空 vip_time（降级）
 }
 
 // UserWithSecret 含密码哈希，仅限 Service 校验登录使用，禁止直接作为 API 响应。
