@@ -89,7 +89,7 @@ func main() {
 	// _ = redisClient
 	ssehub := sse.NewHub()
 	userSvc := user.NewService(userrepo.New(db.Client))
-	imgGen := image.NewGenerator(cfg.Pexels)
+	imgGen := image.NewGenerator(cfg, chatModal)
 	articleRepo := articlerepo.NewArticleRepo(db.Client)
 	agentLogRepo := articlerepo.NewAgentLogRepo(db.Client)
 	agentLogRecorder := article.NewAgentLogRecorder(agentLogRepo)

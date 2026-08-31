@@ -16,7 +16,7 @@ import (
 // Orchestrator 文章多智能体编排（确定性流水线，非 ReAct）。
 type Orchestrator struct {
 	log  *slog.Logger
-	logs article.AgentLogRecorder // 可选；nil 则不写日志
+	logs article.AgentLogRecorder
 
 	title   agent
 	outline agentWithModify
@@ -32,9 +32,6 @@ func NewOrchestrator(
 	imageMethods []ImageMethodGuide,
 	logs article.AgentLogRecorder,
 ) article.AgentOrchestrator {
-	if logs == nil {
-		logs = article.NewAgentLogRecorder(nil)
-	}
 	return &Orchestrator{
 		log:     logger.Module("article.orchestrator"),
 		logs:    logs,
@@ -282,8 +279,8 @@ func (o *Orchestrator) ModifyOutline(ctx context.Context, state *article.Article
 	)
 	err := o.trace(state, "outline_modifier",
 		map[string]any{
-			"sections":           len(state.Outline),
-			"suggestionLength":   len(modifySuggestion),
+			"sections":         len(state.Outline),
+			"suggestionLength": len(modifySuggestion),
 		},
 		func() error {
 			if err := o.outline.ExecuteWithModify(ctx, state, modifySuggestion); err != nil {

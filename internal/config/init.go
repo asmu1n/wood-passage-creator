@@ -15,8 +15,15 @@ type Config struct {
 	Redis    RedisConfig    `mapstructure:"redis"`
 	Session  SessionConfig  `mapstructure:"session"`
 	LLM      LLMConfig      `mapstructure:"llm"`
-	Pexels   PexelsConfig   `mapstructure:"pexels"`
+	Pexels     PexelsConfig     `mapstructure:"pexels"`
+	Iconify    IconifyConfig    `mapstructure:"iconify"`
+	Mermaid    MermaidConfig    `mapstructure:"mermaid"`
+	EmojiPack  EmojiPackConfig  `mapstructure:"emoji_pack"`
+	SVGDiagram SVGDiagramConfig `mapstructure:"svg_diagram"`
+	NanoBanana NanoBananaConfig `mapstructure:"nano_banana"`
+	R2         R2Config         `mapstructure:"r2"`
 }
+
 
 type AppConfig struct {
 	Name      string `mapstructure:"name"`
@@ -51,6 +58,118 @@ type LLMConfig struct {
 // PexelsConfig Pexels 图库检索。
 type PexelsConfig struct {
 	APIKey string `mapstructure:"api_key"`
+}
+
+type IconifyConfig struct {
+	BaseURL   string `mapstructure:"base_url"`
+	TimeoutMs int    `mapstructure:"timeout_ms"`
+}
+
+type MermaidConfig struct {
+	CLI          string `mapstructure:"cli"`
+	OutputFormat string `mapstructure:"output_format"`
+	Theme        string `mapstructure:"theme"`
+	Width        int    `mapstructure:"width"`
+	Height       int    `mapstructure:"height"`
+	TimeoutMs    int    `mapstructure:"timeout_ms"`
+}
+
+type EmojiPackConfig struct {
+	Suffix    string `mapstructure:"suffix"`
+	TimeoutMs int    `mapstructure:"timeout_ms"`
+}
+
+type SVGDiagramConfig struct {
+	Enabled bool `mapstructure:"enabled"`
+}
+
+type NanoBananaConfig struct {
+	APIKey      string `mapstructure:"api_key"`
+	Model       string `mapstructure:"model"`
+	AspectRatio string `mapstructure:"aspect_ratio"`
+}
+
+// R2Config Cloudflare R2 应用配置（写入 objectstore.Options）。
+// 密钥走 env：APP_R2_ACCESS_KEY_ID / APP_R2_SECRET_ACCESS_KEY
+// 具体上传实现见 internal/pkg/objectstore，可复用于配图、头像等。
+type R2Config struct {
+	AccountID       string `mapstructure:"account_id"`
+	AccessKeyID     string `mapstructure:"access_key_id"`
+	SecretAccessKey string `mapstructure:"secret_access_key"`
+	Bucket          string `mapstructure:"bucket"`
+	Endpoint        string `mapstructure:"endpoint"`        // 可选
+	PublicBaseURL   string `mapstructure:"public_base_url"` // 公开访问前缀
+	KeyPrefix       string `mapstructure:"key_prefix"`      // 全局 key 前缀
+}
+
+func (c IconifyConfig) Normalized() IconifyConfig {
+	out := c
+	if out.BaseURL == "" {
+		out.BaseURL = "https://api.iconify.design"
+	}
+	if out.TimeoutMs <= 0 {
+		out.TimeoutMs = 5000
+	}
+	return out
+}
+
+func (c MermaidConfig) Normalized() MermaidConfig {
+	out := c
+	if out.CLI == "" {
+		out.CLI = "mmdc"
+	}
+	if out.OutputFormat == "" {
+		out.OutputFormat = "png"
+	}
+	if out.Theme == "" {
+		out.Theme = "default"
+	}
+	if out.Width <= 0 {
+		out.Width = 1200
+	}
+	if out.Height <= 0 {
+		out.Height = 800
+	}
+	if out.TimeoutMs <= 0 {
+		out.TimeoutMs = 30000
+	}
+	return out
+}
+
+func (c EmojiPackConfig) Normalized() EmojiPackConfig {
+	out := c
+	if out.Suffix == "" {
+		out.Suffix = "表情包"
+	}
+	if out.TimeoutMs <= 0 {
+		out.TimeoutMs = 8000
+	}
+	return out
+}
+
+func (c NanoBananaConfig) Normalized() NanoBananaConfig {
+	out := c
+	if out.Model == "" {
+		out.Model = "gemini-2.0-flash-preview-image-generation"
+	}
+	if out.AspectRatio == "" {
+		out.AspectRatio = "16:9"
+	}
+	return out
+}
+
+// Enabled 配置是否足以启用对象存储（与 objectstore.Options.Enabled 对齐）。
+func (c R2Config) Enabled() bool {
+	if c.AccessKeyID == "" || c.SecretAccessKey == "" || c.Bucket == "" {
+		return false
+	}
+	if c.Endpoint == "" && c.AccountID == "" {
+		return false
+	}
+	if c.PublicBaseURL == "" {
+		return false
+	}
+	return true
 }
 
 // SessionConfig Cookie Session（Redis 后端）相关配置。
@@ -120,6 +239,10 @@ func LoadConfig() *Config {
 
 		// 6. session 默认值
 		globalConfig.Session = globalConfig.Session.Normalized()
+		globalConfig.Iconify = globalConfig.Iconify.Normalized()
+		globalConfig.Mermaid = globalConfig.Mermaid.Normalized()
+		globalConfig.EmojiPack = globalConfig.EmojiPack.Normalized()
+		globalConfig.NanoBanana = globalConfig.NanoBanana.Normalized()
 	})
 
 	return globalConfig

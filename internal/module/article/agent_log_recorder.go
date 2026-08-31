@@ -13,9 +13,10 @@ type asyncAgentLogRecorder struct {
 	log  *slog.Logger
 }
 
+// NewAgentLogRecorder repo 为 nil 时返回 nil（调用方判空即可，无空实现）。
 func NewAgentLogRecorder(repo AgentLogRepository) AgentLogRecorder {
 	if repo == nil {
-		return nopAgentLogRecorder{}
+		return nil
 	}
 	return &asyncAgentLogRecorder{
 		repo: repo,
@@ -50,7 +51,3 @@ func (r *asyncAgentLogRecorder) SaveAsync(params CreateAgentLogParams) {
 		)
 	}()
 }
-
-type nopAgentLogRecorder struct{}
-
-func (nopAgentLogRecorder) SaveAsync(CreateAgentLogParams) {}

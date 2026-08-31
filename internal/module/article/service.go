@@ -10,7 +10,7 @@ import (
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/pkg/response"
-	"wood-passage-creator/internal/port"
+	"wood-passage-creator/internal/pkg/sse"
 
 	"github.com/google/uuid"
 )
@@ -20,7 +20,7 @@ type Service struct {
 	agentLogs    AgentLogRepository
 	userService  *user.Service
 	orchestrator AgentOrchestrator
-	sse          port.SSEHub
+	sse          sse.SSEHub
 	log          *slog.Logger
 }
 
@@ -29,7 +29,7 @@ func NewService(
 	agentLogs AgentLogRepository,
 	userService *user.Service,
 	orch AgentOrchestrator,
-	sse port.SSEHub,
+	sse sse.SSEHub,
 ) *Service {
 	return &Service{
 		repo:         repo,
@@ -552,7 +552,6 @@ func (s *Service) ModifyOutline(ctx context.Context, actorID int64, role user.Us
 	return newOutline, nil
 
 }
-
 
 // GetExecutionLogs 按 taskId 返回 agent 执行日志与汇总（需能访问该任务）。
 func (s *Service) GetExecutionLogs(ctx context.Context, taskID string, actorID int64, role user.UserRole) (*AgentExecutionStats, error) {

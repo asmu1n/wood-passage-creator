@@ -20,8 +20,12 @@ type Pexels struct {
 }
 
 func NewPexels(apiKey string) *Pexels {
+	apiKey = strings.TrimSpace(apiKey)
+	if apiKey == "" {
+		return nil
+	}
 	return &Pexels{
-		apiKey: strings.TrimSpace(apiKey),
+		apiKey: apiKey,
 		client: &http.Client{Timeout: 30 * time.Second},
 	}
 }
@@ -30,14 +34,7 @@ func (p *Pexels) Method() string {
 	return MethodPexels
 }
 
-func (p *Pexels) Available() bool {
-	return p != nil && p.apiKey != ""
-}
-
 func (p *Pexels) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {
-	if !p.Available() {
-		return "", fmt.Errorf("pexels: api key not configured")
-	}
 	q := strings.TrimSpace(req.Keywords)
 	if q == "" {
 		q = strings.TrimSpace(req.Prompt)

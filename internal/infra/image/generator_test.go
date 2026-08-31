@@ -13,11 +13,9 @@ type stubProvider struct {
 	method string
 	url    string
 	err    error
-	avail  bool
 }
 
-func (s stubProvider) Method() string  { return s.method }
-func (s stubProvider) Available() bool { return s.avail }
+func (s stubProvider) Method() string { return s.method }
 func (s stubProvider) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {
 	if s.err != nil {
 		return "", s.err
@@ -28,7 +26,7 @@ func (s stubProvider) Fetch(ctx context.Context, req port.ImageRequirement) (str
 func TestGenerator_PexelsThenOK(t *testing.T) {
 	g := &Generator{
 		providers: map[string]Provider{
-			MethodPexels: stubProvider{method: MethodPexels, url: "https://example.com/a.jpg", avail: true},
+			MethodPexels: stubProvider{method: MethodPexels, url: "https://example.com/a.jpg"},
 		},
 		fallback:    NewPicsum(),
 		concurrency: 2,
@@ -61,7 +59,7 @@ func TestGenerator_PexelsThenOK(t *testing.T) {
 func TestGenerator_FallbackOnError(t *testing.T) {
 	g := &Generator{
 		providers: map[string]Provider{
-			MethodPexels: stubProvider{method: MethodPexels, avail: true, err: fmt.Errorf("boom")},
+			MethodPexels: stubProvider{method: MethodPexels, err: fmt.Errorf("boom")},
 		},
 		fallback:    NewPicsum(),
 		concurrency: 2,

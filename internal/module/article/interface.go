@@ -91,6 +91,7 @@ type AgentLogRepository interface {
 }
 
 // AgentLogRecorder 编排层打点用；实现应异步落库且不因失败影响主流程。
+// 可为 nil：编排层判空后跳过，不提供空实现。
 type AgentLogRecorder interface {
 	SaveAsync(params CreateAgentLogParams)
 }

@@ -6,6 +6,7 @@ import (
 	"wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/pkg/response"
+	"wood-passage-creator/internal/pkg/sse"
 	"wood-passage-creator/internal/port"
 )
 
@@ -104,7 +105,7 @@ func (s *Service) SubscribeProgress(
 	taskID string,
 	actorID int64,
 	role user.UserRole,
-) (ch <-chan port.SSEEvent, cancel func(), err error) {
+) (ch <-chan sse.SSEEvent, cancel func(), err error) {
 	art, err := s.loadAccessibleByTaskID(ctx, taskID, actorID, role)
 	if err != nil {
 		return nil, nil, err
@@ -135,7 +136,7 @@ func (s *Service) publish(taskID string, name string, data any) {
 			"name", name)
 		return
 	}
-	s.sse.Publish(port.SSEEvent{
+	s.sse.Publish(sse.SSEEvent{
 		Topic: taskID,
 		Name:  name,
 		Data:  b,

@@ -3,8 +3,6 @@ package sse
 import (
 	"testing"
 	"time"
-
-	"wood-passage-creator/internal/port"
 )
 
 func TestFanOut_TwoSubscribersReceiveSameEvents(t *testing.T) {
@@ -14,7 +12,7 @@ func TestFanOut_TwoSubscribersReceiveSameEvents(t *testing.T) {
 	defer unsub1()
 	defer unsub2()
 
-	ev := port.SSEEvent{Topic: "task-a", Name: "outline_delta", Data: []byte(`{"delta":"x"}`)}
+	ev := SSEEvent{Topic: "task-a", Name: "outline_delta", Data: []byte(`{"delta":"x"}`)}
 	h.Publish(ev)
 
 	got1 := recv(t, ch1)
@@ -53,7 +51,7 @@ func TestFanOut_UnsubscribeDoesNotKickOthers(t *testing.T) {
 		}
 	}
 
-	h.Publish(port.SSEEvent{Topic: "task-a", Name: "connected", Data: []byte(`{}`)})
+	h.Publish(SSEEvent{Topic: "task-a", Name: "connected", Data: []byte(`{}`)})
 	got := recv(t, ch2)
 	if got.Name != "connected" {
 		t.Fatalf("sub2 should still receive, got %q", got.Name)
@@ -67,7 +65,7 @@ func TestFanOut_DifferentTopicsIsolated(t *testing.T) {
 	defer unsubA()
 	defer unsubB()
 
-	h.Publish(port.SSEEvent{Topic: "task-a", Name: "outline_done", Data: []byte(`{"a":1}`)})
+	h.Publish(SSEEvent{Topic: "task-a", Name: "outline_done", Data: []byte(`{"a":1}`)})
 
 	got := recv(t, chA)
 	if got.Name != "outline_done" {
@@ -82,10 +80,10 @@ func TestFanOut_DifferentTopicsIsolated(t *testing.T) {
 
 func TestFanOut_NoSubscribersNoPanic(t *testing.T) {
 	h := NewHub()
-	h.Publish(port.SSEEvent{Topic: "none", Name: "x", Data: []byte(`{}`)})
+	h.Publish(SSEEvent{Topic: "none", Name: "x", Data: []byte(`{}`)})
 }
 
-func recv(t *testing.T, ch <-chan port.SSEEvent) port.SSEEvent {
+func recv(t *testing.T, ch <-chan SSEEvent) SSEEvent {
 	t.Helper()
 	select {
 	case msg, ok := <-ch:
@@ -95,6 +93,6 @@ func recv(t *testing.T, ch <-chan port.SSEEvent) port.SSEEvent {
 		return msg
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting event")
-		return port.SSEEvent{}
+		return SSEEvent{}
 	}
 }

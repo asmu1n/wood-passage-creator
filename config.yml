@@ -32,3 +32,38 @@ session:
   secret: "" # APP_SESSION_SECRET；空则代码内开发默认值
   max_age: 604800 # 7d
   secure: false # 生产 HTTPS 可改为 true
+
+# ---- 其它配图方式（非密钥默认值；密钥用 APP_* env）----
+iconify:
+  base_url: "https://api.iconify.design"
+  timeout_ms: 5000
+
+mermaid:
+  cli: "mmdc"
+  output_format: "png"
+  theme: "default"
+  width: 1200
+  height: 800
+  timeout_ms: 30000
+
+emoji_pack:
+  suffix: "表情包"
+  timeout_ms: 8000
+
+svg_diagram:
+  enabled: true
+
+nano_banana:
+  api_key: "" # APP_NANO_BANANA_API_KEY
+  model: "gemini-2.0-flash-preview-image-generation"
+  aspect_ratio: "16:9"
+
+# Cloudflare R2（S3 兼容）。配齐后配图会转存；缺任一关键项则跳过，保留原始 URL。
+r2:
+  account_id: ""          # Cloudflare Account ID（非密钥，可写 yml）
+  access_key_id: ""       # APP_R2_ACCESS_KEY_ID
+  secret_access_key: ""   # APP_R2_SECRET_ACCESS_KEY
+  bucket: ""
+  endpoint: ""            # 可选；空则 https://{account_id}.r2.cloudflarestorage.com
+  public_base_url: ""     # 对外访问前缀：自定义域名或 https://pub-xxx.r2.dev
+  key_prefix: "articles/images"

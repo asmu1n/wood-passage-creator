@@ -6,15 +6,11 @@ import (
 	"wood-passage-creator/internal/port"
 )
 
-// Provider 单一配图来源（Pexels / Picsum / 后续 AI 生图等）。
+// Provider 单一配图来源。
+// 约定：NewXxx 在不可用时返回 nil，Generator.Register 会跳过；
+// 不要再维护 Available()==false 的“空壳”实现。
 type Provider interface {
 	Method() string
-	Available() bool
-	// Fetch 返回可公开访问的图片 URL（当前阶段不做 COS 转存）。
+	// Fetch 返回可公开访问的图片 URL，或 data: URL（生成类）。
 	Fetch(ctx context.Context, req port.ImageRequirement) (url string, err error)
 }
-
-const (
-	MethodPexels = "PEXELS"
-	MethodPicsum = "PICSUM" // 降级：随机图，无需 API Key
-)
