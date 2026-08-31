@@ -34,9 +34,9 @@ import (
 	_ "wood-passage-creator/docs/api/swagger"
 )
 
-// @title           Go Web API Template
+// @title           Wood Passage Creator API
 // @version         1.0
-// @description     Go Web 后端工程模板接口文档（业务模块由使用者自行接入）
+// @description     AI 文章生成后端：用户/会话、文章三阶段流水线（SSE 进度）、配图、Agent 日志；开发态 VIP Mock 支付与管理端升降 VIP。
 // @host            localhost:8080
 // @BasePath        /api
 // @securityDefinitions.apikey SessionAuth

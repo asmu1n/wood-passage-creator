@@ -148,6 +148,12 @@ go run ./cmd/server
 # 健康检查：http://localhost:8080/health
 # Swagger UI：http://localhost:8080/swagger/index.html
 # 生成物目录：docs/api/swagger（import: wood-passage-creator/docs/api/swagger）
+# SSE 契约：docs/SSE_NOTES.md
+#
+# 主要 API 前缀 /api ：
+#   auth  users  article  payment(vip mock)
+# 重新生成文档：
+#   swag init -g cmd/server/main.go -o docs/api/swagger --parseDependency --parseInternal
 ```
 
 访问日志来自 **`httpapi/middleware.AccessLog`**（Echo RequestLogger → `pkg/logger`，event=`http.access`）；业务 / 任务 / 审计同样走 `internal/pkg/logger`（stderr）。HTTP 错误经 **`httpapi.HTTPErrorHandler`** 统一写 JSON。详见 [logger README](internal/pkg/logger/README.md)。

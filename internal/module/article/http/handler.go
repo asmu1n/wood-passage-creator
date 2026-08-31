@@ -319,6 +319,19 @@ func (h *Handler) GetProgress(c *echo.Context) error {
 	}
 }
 
+// ModifyOutline godoc
+// @Summary      AI 修改大纲（VIP）
+// @Description  仅 VIP/管理员；阶段须为 OUTLINE_EDITING。按自然语言建议改大纲并落库。
+// @Tags         article
+// @Accept       json
+// @Produce      json
+// @Param        body body article.AiModifyOutlineRequest true "任务 ID 与修改建议"
+// @Success      200 {object} response.Response{data=[]article.OutlineSection}
+// @Failure      400 {object} response.Response
+// @Failure      401 {object} response.Response
+// @Failure      403 {object} response.Response "非 VIP 或阶段不允许"
+// @Security     SessionAuth
+// @Router       /article/modify-outline [post]
 func (h *Handler) ModifyOutline(c *echo.Context) error {
 	var req article.AiModifyOutlineRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {

@@ -256,6 +256,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/article/execution-logs/{taskId}": {
+            "get": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "返回该 task 下各 agent 步骤的耗时与状态汇总。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "article"
+                ],
+                "summary": "任务执行日志",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "任务 ID",
+                        "name": "taskId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wood-passage-creator_internal_module_article.AgentExecutionStats"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/article/list": {
             "post": {
                 "security": [
@@ -318,6 +364,130 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "无权限",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/article/modify-outline": {
+            "post": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "仅 VIP/管理员；阶段须为 OUTLINE_EDITING。按自然语言建议改大纲并落库。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "article"
+                ],
+                "summary": "AI 修改大纲（VIP）",
+                "parameters": [
+                    {
+                        "description": "任务 ID 与修改建议",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_module_article.AiModifyOutlineRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/wood-passage-creator_internal_module_article.OutlineSection"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "非 VIP 或阶段不允许",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/article/progress/{taskId}": {
+            "get": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "按 taskId 建立 text/event-stream；需先登录且有权访问该任务。使用 SSE named events：connected / outline_delta / outline_done / task_error。",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "article"
+                ],
+                "summary": "SSE 订阅文章生成进度",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "任务 ID",
+                        "name": "taskId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE 流",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "无权限",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "文章不存在",
                         "schema": {
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
@@ -516,6 +686,94 @@ const docTemplate = `{
                         "description": "参数错误/账号冲突",
                         "schema": {
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/payment/vip/mock-complete": {
+            "post": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "将 PENDING 会话标为 SUCCEEDED 并为对应用户开通 VIP（幂等）。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment"
+                ],
+                "summary": "[Dev] Mock 支付成功回调",
+                "parameters": [
+                    {
+                        "description": "sessionId",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_module_payment.MockCompleteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wood-passage-creator_internal_module_payment.MockCompleteResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/payment/vip/mock-session": {
+            "post": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "不连接 Stripe；写入 PENDING 支付记录并返回假 checkoutUrl。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment"
+                ],
+                "summary": "[Dev] 创建 Mock VIP 支付会话",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wood-passage-creator_internal_module_payment.MockSessionResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -774,9 +1032,205 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/users/{id}/revoke-vip": {
+            "post": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "[Admin] 取消用户 VIP",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wood-passage-creator_internal_module_user.User"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}/upgrade-vip": {
+            "post": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "[Admin] 升级用户为 VIP",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wood-passage-creator_internal_module_user.User"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "wood-passage-creator_internal_module_article.AgentExecutionStats": {
+            "type": "object",
+            "properties": {
+                "agentCount": {
+                    "type": "integer"
+                },
+                "agentDurations": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "logs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wood-passage-creator_internal_module_article.AgentLog"
+                    }
+                },
+                "overallStatus": {
+                    "description": "SUCCESS/FAILED/RUNNING/NOT_FOUND",
+                    "type": "string"
+                },
+                "taskId": {
+                    "type": "string"
+                },
+                "totalDurationMs": {
+                    "type": "integer"
+                }
+            }
+        },
+        "wood-passage-creator_internal_module_article.AgentLog": {
+            "type": "object",
+            "properties": {
+                "agentName": {
+                    "type": "string"
+                },
+                "articleId": {
+                    "type": "integer"
+                },
+                "createTime": {
+                    "type": "string"
+                },
+                "durationMs": {
+                    "type": "integer"
+                },
+                "endTime": {
+                    "type": "string"
+                },
+                "errorMessage": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "inputData": {
+                    "type": "string"
+                },
+                "outputData": {
+                    "type": "string"
+                },
+                "prompt": {
+                    "type": "string"
+                },
+                "startTime": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/wood-passage-creator_internal_module_article.AgentLogStatus"
+                },
+                "taskId": {
+                    "type": "string"
+                }
+            }
+        },
+        "wood-passage-creator_internal_module_article.AgentLogStatus": {
+            "type": "string",
+            "enum": [
+                "RUNNING",
+                "SUCCESS",
+                "FAILED"
+            ],
+            "x-enum-varnames": [
+                "AgentLogRunning",
+                "AgentLogSuccess",
+                "AgentLogFailed"
+            ]
+        },
+        "wood-passage-creator_internal_module_article.AiModifyOutlineRequest": {
+            "type": "object",
+            "required": [
+                "modifySuggestion",
+                "taskId"
+            ],
+            "properties": {
+                "modifySuggestion": {
+                    "type": "string",
+                    "maxLength": 4000,
+                    "minLength": 1
+                },
+                "taskId": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "minLength": 1
+                }
+            }
+        },
         "wood-passage-creator_internal_module_article.Article": {
             "type": "object",
             "properties": {
@@ -790,10 +1244,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "enabledImageMethods": {
-                    "description": "允许的配图方式列表",
+                    "description": "空=不限制",
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/wood-passage-creator_internal_port.ImageMethod"
                     }
                 },
                 "errorMessage": {
@@ -808,7 +1262,7 @@ const docTemplate = `{
                 "images": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/wood-passage-creator_internal_module_article.ImageResult"
+                        "$ref": "#/definitions/wood-passage-creator_internal_port.ImageResult"
                     }
                 },
                 "mainTitle": {
@@ -833,7 +1287,11 @@ const docTemplate = `{
                 },
                 "style": {
                     "description": "文章风格",
-                    "type": "string"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wood-passage-creator_internal_module_article.ArticleStyle"
+                        }
+                    ]
                 },
                 "subTitle": {
                     "type": "string"
@@ -888,9 +1346,11 @@ const docTemplate = `{
                 "TITLE_SELECTING",
                 "OUTLINE_GENERATING",
                 "OUTLINE_EDITING",
-                "CONTENT_GENERATING"
+                "CONTENT_GENERATING",
+                "COMPLETED"
             ],
             "x-enum-comments": {
+                "PhaseCompleted": "完成",
                 "PhaseContentGenerating": "生成正文中",
                 "PhaseOutlineEditing": "等待编辑大纲",
                 "PhaseOutlineGenerating": "生成大纲中",
@@ -904,7 +1364,8 @@ const docTemplate = `{
                 "等待选择标题",
                 "生成大纲中",
                 "等待编辑大纲",
-                "生成正文中"
+                "生成正文中",
+                "完成"
             ],
             "x-enum-varnames": [
                 "PhasePending",
@@ -912,7 +1373,8 @@ const docTemplate = `{
                 "PhaseTitleSelecting",
                 "PhaseOutlineGenerating",
                 "PhaseOutlineEditing",
-                "PhaseContentGenerating"
+                "PhaseContentGenerating",
+                "PhaseCompleted"
             ]
         },
         "wood-passage-creator_internal_module_article.ArticleStatus": {
@@ -928,6 +1390,21 @@ const docTemplate = `{
                 "StatusProcessing",
                 "StatusCompleted",
                 "StatusFailed"
+            ]
+        },
+        "wood-passage-creator_internal_module_article.ArticleStyle": {
+            "type": "string",
+            "enum": [
+                "tech",
+                "emotional",
+                "educational",
+                "humorous"
+            ],
+            "x-enum-varnames": [
+                "StyleTech",
+                "StyleEmotional",
+                "StyleEducational",
+                "StyleHumorous"
             ]
         },
         "wood-passage-creator_internal_module_article.ConfirmOutlineRequest": {
@@ -988,48 +1465,19 @@ const docTemplate = `{
             ],
             "properties": {
                 "enabledImageMethods": {
-                    "description": "空/nil 表示支持所有方式",
+                    "description": "空=按角色默认；仅大写枚举",
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/wood-passage-creator_internal_port.ImageMethod"
                     }
                 },
                 "style": {
-                    "description": "tech/emotional/educational/humorous，可为空",
-                    "type": "string",
-                    "maxLength": 64
+                    "$ref": "#/definitions/wood-passage-creator_internal_module_article.ArticleStyle"
                 },
                 "topic": {
                     "type": "string",
                     "maxLength": 512,
                     "minLength": 1
-                }
-            }
-        },
-        "wood-passage-creator_internal_module_article.ImageResult": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "keywords": {
-                    "type": "string"
-                },
-                "method": {
-                    "type": "string"
-                },
-                "placeholderId": {
-                    "description": "{{IMAGE_PLACEHOLDER_N}}",
-                    "type": "string"
-                },
-                "position": {
-                    "type": "integer"
-                },
-                "sectionTitle": {
-                    "type": "string"
-                },
-                "url": {
-                    "type": "string"
                 }
             }
         },
@@ -1078,6 +1526,95 @@ const docTemplate = `{
                 },
                 "subTitle": {
                     "type": "string"
+                }
+            }
+        },
+        "wood-passage-creator_internal_module_payment.MockCompleteRequest": {
+            "type": "object",
+            "required": [
+                "sessionId"
+            ],
+            "properties": {
+                "sessionId": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "minLength": 8
+                }
+            }
+        },
+        "wood-passage-creator_internal_module_payment.MockCompleteResult": {
+            "type": "object",
+            "properties": {
+                "isVip": {
+                    "type": "boolean"
+                },
+                "record": {
+                    "$ref": "#/definitions/wood-passage-creator_internal_module_payment.Record"
+                },
+                "userId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "wood-passage-creator_internal_module_payment.MockSessionResult": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "checkoutUrl": {
+                    "description": "假地址，仅便于前端联调展示",
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "productType": {
+                    "type": "string"
+                },
+                "sessionId": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "wood-passage-creator_internal_module_payment.Record": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "createTime": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "productType": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "stripePaymentIntentId": {
+                    "type": "string"
+                },
+                "stripeSessionId": {
+                    "type": "string"
+                },
+                "updateTime": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "integer"
                 }
             }
         },
@@ -1238,6 +1775,65 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "wood-passage-creator_internal_port.ImageMethod": {
+            "type": "string",
+            "enum": [
+                "PEXELS",
+                "ICONIFY",
+                "EMOJI_PACK",
+                "MERMAID",
+                "SVG_DIAGRAM",
+                "NANO_BANANA",
+                "PICSUM"
+            ],
+            "x-enum-comments": {
+                "MethodPicsum": "仅系统 fallback，不可出现在请求中"
+            },
+            "x-enum-descriptions": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "仅系统 fallback，不可出现在请求中"
+            ],
+            "x-enum-varnames": [
+                "MethodPexels",
+                "MethodIconify",
+                "MethodEmojiPack",
+                "MethodMermaid",
+                "MethodSVGDiagram",
+                "MethodNanoBanana",
+                "MethodPicsum"
+            ]
+        },
+        "wood-passage-creator_internal_port.ImageResult": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "keywords": {
+                    "type": "string"
+                },
+                "method": {
+                    "$ref": "#/definitions/wood-passage-creator_internal_port.ImageMethod"
+                },
+                "placeholderId": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "sectionTitle": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
         }
     },
     "securityDefinitions": {
@@ -1256,8 +1852,8 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "localhost:8080",
 	BasePath:         "/api",
 	Schemes:          []string{},
-	Title:            "Go Web API Template",
-	Description:      "Go Web 后端工程模板接口文档（业务模块由使用者自行接入）",
+	Title:            "Wood Passage Creator API",
+	Description:      "AI 文章生成后端：用户/会话、文章三阶段流水线（SSE 进度）、配图、Agent 日志；开发态 VIP Mock 支付与管理端升降 VIP。",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",
