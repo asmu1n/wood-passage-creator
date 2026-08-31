@@ -11,6 +11,7 @@ import (
 	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/pkg/response"
 	"wood-passage-creator/internal/pkg/sse"
+	"wood-passage-creator/internal/port"
 
 	"github.com/google/uuid"
 )
@@ -103,7 +104,7 @@ func (s *Service) ConfirmOutline(ctx context.Context, taskID string, actorID int
 		"sections", len(outline),
 	)
 
-	go s.runPhase3Async(article)
+	go s.runPhase3Async(article, role)
 
 	return nil
 }
@@ -146,26 +147,31 @@ func (s *Service) ConfirmTitle(ctx context.Context, actorID int64, role user.Use
 }
 
 // Create 创建文章任务并异步启动 Phase1（生成标题方案）。
-func (s *Service) Create(ctx context.Context, actorID int64, params CreateArticleRequest) (string, error) {
+func (s *Service) Create(ctx context.Context, actorID int64, role user.UserRole, req CreateArticleRequest) (string, error) {
+
+	taskID := uuid.NewString()
+
+	enabledMethods, err := resolveEnabledImageMethods(req.EnabledImageMethods, role)
+	if err != nil {
+		return "", err
+	}
 	if err := s.userService.CheckAndConsumeQuota(ctx, actorID); err != nil {
 		return "", err
 	}
 
-	taskID := uuid.NewString()
-
 	if _, err := s.repo.Create(ctx, CreateArticleParams{
 		UserID:              actorID,
 		TaskID:              taskID,
-		Topic:               params.Topic,
-		Style:               params.Style,
-		EnabledImageMethods: params.EnabledImageMethods,
+		Topic:               req.Topic,
+		Style:               req.Style,
+		EnabledImageMethods: enabledMethods,
 	}); err != nil {
 		s.log.Error("create article failed",
 			logger.FieldPurpose, logger.PurposeBiz,
 			logger.FieldEvent, "article.create.failed",
 			logger.FieldErr, err,
 			"user_id", actorID,
-			"topic", params.Topic,
+			"topic", req.Topic,
 		)
 		return "", err
 	}
@@ -175,10 +181,10 @@ func (s *Service) Create(ctx context.Context, actorID int64, params CreateArticl
 		logger.FieldEvent, "article.create.ok",
 		"task_id", taskID,
 		"user_id", actorID,
-		"topic", params.Topic,
+		"topic", req.Topic,
 	)
 
-	go s.runPhase1Async(taskID, params.Topic, params.Style)
+	go s.runPhase1Async(taskID, req.Topic, req.Style)
 
 	return taskID, nil
 }
@@ -418,7 +424,7 @@ func (s *Service) failPhase2(ctx context.Context, taskID string, err error) {
 	s.publishSSEError(taskID, msg)
 }
 
-func (s *Service) runPhase3Async(article *Article) {
+func (s *Service) runPhase3Async(article *Article, userRole user.UserRole) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
@@ -513,6 +519,10 @@ func (s *Service) failPhase3(ctx context.Context, taskID string, err error) {
 }
 
 func (s *Service) ModifyOutline(ctx context.Context, actorID int64, role user.UserRole, req AiModifyOutlineRequest) ([]OutlineSection, error) {
+
+	if !role.IsVipOrAdmin() {
+		return nil, response.NewBizErrorWithDetail(response.Forbidden, "AI 修改大纲仅限 VIP 会员使用")
+	}
 
 	article, err := s.loadAccessibleByTaskID(ctx, req.TaskID, actorID, role)
 	if err != nil {
@@ -615,4 +625,25 @@ func truncateErr(err error, max int) string {
 		return msg
 	}
 	return msg[:max] + "..."
+}
+
+// resolveEnabledImageMethods 仅处理默认值与 VIP；枚举合法性已在 Bind/Validate 完成。
+// 空：VIP/Admin → nil；普通 → FreeImageMethods。非空：普通用户不得含 VIP 项。
+func resolveEnabledImageMethods(methods []port.ImageMethod, role user.UserRole) ([]port.ImageMethod, error) {
+	if len(methods) == 0 {
+		if role.IsVipOrAdmin() {
+			return nil, nil
+		}
+		out := make([]port.ImageMethod, len(port.FreeImageMethods))
+		copy(out, port.FreeImageMethods)
+		return out, nil
+	}
+	if !role.IsVipOrAdmin() {
+		for _, m := range methods {
+			if m.IsVIPMethod() {
+				return nil, response.NewBizErrorWithDetail(response.Forbidden, "高级配图功能（AI 生图、SVG 图表）仅限 VIP 会员使用")
+			}
+		}
+	}
+	return methods, nil
 }

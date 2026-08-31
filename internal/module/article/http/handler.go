@@ -44,7 +44,11 @@ func (h *Handler) Create(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
-	u, err := h.svc.Create(c.Request().Context(), actorID, req)
+	role, err := middleware.GetLoginUserRole(c)
+	if err != nil {
+		return err
+	}
+	u, err := h.svc.Create(c.Request().Context(), actorID, role, req)
 	if err != nil {
 		return err
 	}
@@ -337,7 +341,6 @@ func (h *Handler) ModifyOutline(c *echo.Context) error {
 
 	return c.JSON(http.StatusOK, response.OK(u))
 }
-
 
 // GetExecutionLogs godoc
 // @Summary      任务执行日志

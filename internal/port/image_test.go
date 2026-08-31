@@ -1,19 +1,34 @@
 package port
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
-func TestImageMethod_NormalizeAndVIP(t *testing.T) {
-	if ParseImageMethod("  pexels ").Normalize() != MethodPexels {
+func TestImageMethod_UnmarshalJSON(t *testing.T) {
+	var m ImageMethod
+	if err := json.Unmarshal([]byte(`"  pexels "`), &m); err != nil {
+		t.Fatal(err)
+	}
+	if m != MethodPexels {
+		t.Fatal(m)
+	}
+}
+
+func TestAllow(t *testing.T) {
+	if !Allow(nil, MethodNanoBanana) {
 		t.Fatal()
 	}
-	if !MethodNanoBanana.RequiresVIP() || MethodPexels.RequiresVIP() {
+	if Allow([]ImageMethod{MethodPexels}, MethodNanoBanana) {
 		t.Fatal()
 	}
-	if !MethodPexels.IsValid() || ParseImageMethod("nope").IsValid() {
-		t.Fatal(ParseImageMethod("nope"))
+}
+
+func TestIsUserAndVIP(t *testing.T) {
+	if !MethodPexels.IsUserMethod() || MethodPicsum.IsUserMethod() {
+		t.Fatal()
 	}
-	ss := ImageMethodsToStrings(FREE_IMAGE_METHODS[:])
-	if len(ss) != 4 {
-		t.Fatal(ss)
+	if !MethodNanoBanana.IsVIPMethod() || MethodPexels.IsVIPMethod() {
+		t.Fatal()
 	}
 }

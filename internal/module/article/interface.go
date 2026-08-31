@@ -34,7 +34,7 @@ type CreateArticleParams struct {
 	TaskID              string
 	Topic               string
 	Style               *ArticleStyle
-	EnabledImageMethods []string
+	EnabledImageMethods []port.ImageMethod
 }
 
 type UpdateArticleParams struct {
@@ -53,7 +53,7 @@ type UpdateArticleParams struct {
 	TitleOptions        []TitleOption
 	Outline             []OutlineSection
 	Images              []port.ImageResult
-	EnabledImageMethods []string
+	EnabledImageMethods []port.ImageMethod
 }
 
 // ProgressFunc 任务进度回调（由 Service 注入，内部通常 publish 到 SSE）。

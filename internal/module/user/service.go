@@ -43,6 +43,20 @@ func (s *Service) CheckAndConsumeQuota(ctx context.Context, id int64) error {
 	return err
 }
 
+func (s *Service) UpgradeToVIP(ctx context.Context, id int64) error {
+	u, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if u == nil {
+		return response.NewBizErrorWithDetail(response.ParamsError, "用户不存在")
+	}
+	_, err = s.repo.Update(ctx, u.ID, UpdateRepoParams{
+		UserRole: new(RoleVIP),
+	})
+	return err
+}
+
 func (s *Service) Register(ctx context.Context, in RegisterRequest) (*User, error) {
 	exists, err := s.repo.ExistsAccount(ctx, in.UserAccount)
 	if err != nil {

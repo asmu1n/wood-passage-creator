@@ -11,6 +11,7 @@ import (
 	"wood-passage-creator/ent/agentlog"
 	"wood-passage-creator/ent/article"
 	"wood-passage-creator/ent/user"
+	"wood-passage-creator/internal/port"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
@@ -186,7 +187,7 @@ func (_c *ArticleCreate) SetNillableStyle(v *article.Style) *ArticleCreate {
 }
 
 // SetEnabledImageMethods sets the "enabled_image_methods" field.
-func (_c *ArticleCreate) SetEnabledImageMethods(v []string) *ArticleCreate {
+func (_c *ArticleCreate) SetEnabledImageMethods(v []port.ImageMethod) *ArticleCreate {
 	_c.mutation.SetEnabledImageMethods(v)
 	return _c
 }

@@ -171,6 +171,7 @@ const (
 	PhaseOUTLINE_GENERATING Phase = "OUTLINE_GENERATING"
 	PhaseOUTLINE_EDITING    Phase = "OUTLINE_EDITING"
 	PhaseCONTENT_GENERATING Phase = "CONTENT_GENERATING"
+	PhaseCOMPLETED          Phase = "COMPLETED"
 )
 
 func (ph Phase) String() string {
@@ -180,7 +181,7 @@ func (ph Phase) String() string {
 // PhaseValidator is a validator for the "phase" field enum values. It is called by the builders before save.
 func PhaseValidator(ph Phase) error {
 	switch ph {
-	case PhasePENDING, PhaseTITLE_GENERATING, PhaseTITLE_SELECTING, PhaseOUTLINE_GENERATING, PhaseOUTLINE_EDITING, PhaseCONTENT_GENERATING:
+	case PhasePENDING, PhaseTITLE_GENERATING, PhaseTITLE_SELECTING, PhaseOUTLINE_GENERATING, PhaseOUTLINE_EDITING, PhaseCONTENT_GENERATING, PhaseCOMPLETED:
 		return nil
 	default:
 		return fmt.Errorf("article: invalid enum value for phase field: %q", ph)

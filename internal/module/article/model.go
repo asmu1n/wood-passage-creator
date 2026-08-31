@@ -23,7 +23,7 @@ type Article struct {
 	Phase               ArticlePhase       `json:"phase"` // 当前阶段
 	ErrorMessage        *string            `json:"errorMessage"`
 	Style               *ArticleStyle      `json:"style"`               // 文章风格
-	EnabledImageMethods []string           `json:"enabledImageMethods"` // 允许的配图方式列表
+	EnabledImageMethods []port.ImageMethod `json:"enabledImageMethods,omitempty"` // 空=不限制
 	CreateTime          time.Time          `json:"createTime"`
 	CompletedTime       *time.Time         `json:"completedTime"`
 }
@@ -82,7 +82,7 @@ type ArticleState struct {
 	UserDescription         string                  `json:"userDescription"`     // 用户补充描述
 	Style                   *ArticleStyle           `json:"style"`               // 文章风格
 	Phase                   ArticlePhase            `json:"phase"`               // 当前阶段
-	EnabledImageMethods     []string                `json:"enabledImageMethods"` // 允许的配图方式列表
+	EnabledImageMethods     []port.ImageMethod      `json:"enabledImageMethods,omitempty"` // 空=不限制
 	TitleOptions            []TitleOption           `json:"titleOptions"`        // 标题方案列表
 	MainTitle               *string                 `json:"mainTitle"`
 	SubTitle                *string                 `json:"subTitle"`
@@ -109,9 +109,9 @@ type ArticleListData struct {
 
 // CreateArticleRequest 创建文章入参（JSON body）。
 type CreateArticleRequest struct {
-	Topic               string        `json:"topic" validate:"required,min=1,max=512"`
-	Style               *ArticleStyle `json:"style" validate:"omitempty"`
-	EnabledImageMethods []string      `json:"enabledImageMethods" validate:"omitempty,dive,min=1"` // 空/nil 表示支持所有方式
+	Topic               string             `json:"topic" validate:"required,min=1,max=512"`
+	Style               *ArticleStyle      `json:"style" validate:"omitempty"`
+	EnabledImageMethods []port.ImageMethod `json:"enabledImageMethods" validate:"omitempty,dive,image_method"` // 空=按角色默认；仅大写枚举
 }
 
 // QueryArticleRequest 查询文章入参（query；分页字段来自嵌入的 PageRequest）。
@@ -139,7 +139,6 @@ type AiModifyOutlineRequest struct {
 	TaskID           string `json:"taskId" validate:"required,min=1,max=64"`
 	ModifySuggestion string `json:"modifySuggestion" validate:"required,min=1,max=4000"`
 }
-
 
 // ---------- Agent 执行日志 ----------
 

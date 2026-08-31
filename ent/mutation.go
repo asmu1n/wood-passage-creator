@@ -14,6 +14,7 @@ import (
 	"wood-passage-creator/ent/paymentrecord"
 	"wood-passage-creator/ent/predicate"
 	"wood-passage-creator/ent/user"
+	"wood-passage-creator/internal/port"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
@@ -1299,8 +1300,8 @@ type ArticleMutation struct {
 	phase                       *article.Phase
 	error_message               *string
 	style                       *article.Style
-	enabled_image_methods       *[]string
-	appendenabled_image_methods []string
+	enabled_image_methods       *[]port.ImageMethod
+	appendenabled_image_methods []port.ImageMethod
 	create_time                 *time.Time
 	completed_time              *time.Time
 	update_time                 *time.Time
@@ -2139,13 +2140,13 @@ func (m *ArticleMutation) ResetStyle() {
 }
 
 // SetEnabledImageMethods sets the "enabled_image_methods" field.
-func (m *ArticleMutation) SetEnabledImageMethods(s []string) {
-	m.enabled_image_methods = &s
+func (m *ArticleMutation) SetEnabledImageMethods(pm []port.ImageMethod) {
+	m.enabled_image_methods = &pm
 	m.appendenabled_image_methods = nil
 }
 
 // EnabledImageMethods returns the value of the "enabled_image_methods" field in the mutation.
-func (m *ArticleMutation) EnabledImageMethods() (r []string, exists bool) {
+func (m *ArticleMutation) EnabledImageMethods() (r []port.ImageMethod, exists bool) {
 	v := m.enabled_image_methods
 	if v == nil {
 		return
@@ -2156,7 +2157,7 @@ func (m *ArticleMutation) EnabledImageMethods() (r []string, exists bool) {
 // OldEnabledImageMethods returns the old "enabled_image_methods" field's value of the Article entity.
 // If the Article object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ArticleMutation) OldEnabledImageMethods(ctx context.Context) (v []string, err error) {
+func (m *ArticleMutation) OldEnabledImageMethods(ctx context.Context) (v []port.ImageMethod, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldEnabledImageMethods is only allowed on UpdateOne operations")
 	}
@@ -2170,13 +2171,13 @@ func (m *ArticleMutation) OldEnabledImageMethods(ctx context.Context) (v []strin
 	return oldValue.EnabledImageMethods, nil
 }
 
-// AppendEnabledImageMethods adds s to the "enabled_image_methods" field.
-func (m *ArticleMutation) AppendEnabledImageMethods(s []string) {
-	m.appendenabled_image_methods = append(m.appendenabled_image_methods, s...)
+// AppendEnabledImageMethods adds pm to the "enabled_image_methods" field.
+func (m *ArticleMutation) AppendEnabledImageMethods(pm []port.ImageMethod) {
+	m.appendenabled_image_methods = append(m.appendenabled_image_methods, pm...)
 }
 
 // AppendedEnabledImageMethods returns the list of values that were appended to the "enabled_image_methods" field in this mutation.
-func (m *ArticleMutation) AppendedEnabledImageMethods() ([]string, bool) {
+func (m *ArticleMutation) AppendedEnabledImageMethods() ([]port.ImageMethod, bool) {
 	if len(m.appendenabled_image_methods) == 0 {
 		return nil, false
 	}
@@ -2748,7 +2749,7 @@ func (m *ArticleMutation) SetField(name string, value ent.Value) error {
 		m.SetStyle(v)
 		return nil
 	case article.FieldEnabledImageMethods:
-		v, ok := value.([]string)
+		v, ok := value.([]port.ImageMethod)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}

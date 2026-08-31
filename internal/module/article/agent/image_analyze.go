@@ -83,14 +83,10 @@ func (a *ImageAnalyzer) Execute(ctx context.Context, state *article.ArticleState
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
 
-	allowed := map[port.ImageMethod]struct{}{}
-	for _, g := range guides {
-		allowed[g.Code.Normalize()] = struct{}{}
-	}
 	filtered := make([]port.ImageRequirement, 0, len(result.ImageRequirements))
 	for _, req := range result.ImageRequirements {
 		src := req.ImageSource.Normalize()
-		if _, ok := allowed[src]; !ok {
+		if !port.Allow(enabled, src) {
 			continue
 		}
 		req.ImageSource = src
@@ -113,25 +109,16 @@ func (a *ImageAnalyzer) Execute(ctx context.Context, state *article.ArticleState
 	return nil
 }
 
-func (a *ImageAnalyzer) filterMethods(enabled []string) []ImageMethodGuide {
+func (a *ImageAnalyzer) filterMethods(enabled []port.ImageMethod) []ImageMethodGuide {
 	if len(a.methods) == 0 {
 		return nil
 	}
 	if len(enabled) == 0 {
-		// 未指定则全部可用
-		return a.methods
+		return a.methods // 空 = 不限制
 	}
-	set := map[port.ImageMethod]struct{}{}
-	for _, e := range enabled {
-		m := port.ParseImageMethod(e)
-		if m == "" {
-			continue
-		}
-		set[m] = struct{}{}
-	}
-	out := make([]ImageMethodGuide, 0, len(enabled))
+	out := make([]ImageMethodGuide, 0, len(a.methods))
 	for _, g := range a.methods {
-		if _, ok := set[g.Code.Normalize()]; ok {
+		if port.Allow(enabled, g.Code) {
 			out = append(out, g)
 		}
 	}

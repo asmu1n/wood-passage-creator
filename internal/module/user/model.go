@@ -16,6 +16,12 @@ func (r UserRole) IsValid() bool {
 	return r == RoleUser || r == RoleAdmin || r == RoleVIP
 }
 
+// IsVipOrAdmin VIP 或管理员（高级配图、AI 改大纲等）。
+func (r UserRole) IsVipOrAdmin() bool {
+	return r == RoleVIP || r == RoleAdmin
+}
+
+
 // User 对外可见的用户信息（过滤 user_password 等敏感字段）。
 type User struct {
 	ID          int64      `json:"id"`

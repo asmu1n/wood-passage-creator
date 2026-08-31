@@ -9,6 +9,7 @@ import (
 	"time"
 	"wood-passage-creator/ent/article"
 	"wood-passage-creator/ent/user"
+	"wood-passage-creator/internal/port"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
@@ -44,14 +45,14 @@ type Article struct {
 	Images json.RawMessage `json:"images,omitempty"`
 	// 文章状态：PENDING/PROCESSING/COMPLETED/FAILED
 	Status article.Status `json:"status,omitempty"`
-	// 当前阶段：PENDING/TITLE_GENERATING/TITLE_SELECTING/OUTLINE_GENERATING/OUTLINE_EDITING/CONTENT_GENERATING
+	// 当前阶段：PENDING/TITLE_GENERATING/TITLE_SELECTING/OUTLINE_GENERATING/OUTLINE_EDITING/CONTENT_GENERATING/COMPLETED
 	Phase article.Phase `json:"phase,omitempty"`
 	// 失败错误信息
 	ErrorMessage *string `json:"error_message,omitempty"`
 	// 文章风格：tech/emotional/educational/humorous
 	Style article.Style `json:"style,omitempty"`
 	// 允许的配图方式列表（JSON）
-	EnabledImageMethods []string `json:"enabled_image_methods,omitempty"`
+	EnabledImageMethods []port.ImageMethod `json:"enabled_image_methods,omitempty"`
 	// 创建时间
 	CreateTime time.Time `json:"create_time,omitempty"`
 	// 完成时间

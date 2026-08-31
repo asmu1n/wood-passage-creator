@@ -104,7 +104,7 @@ func (g *Generator) Generate(ctx context.Context, taskID string, reqs []port.Ima
 		logger.FieldEvent, "image.generate.start",
 		"task_id", taskID,
 		"count", total,
-		"providers", port.ImageMethodsToStrings(g.RegisteredMethods()),
+		"providers", g.RegisteredMethods(),
 	)
 
 	limit := g.concurrency

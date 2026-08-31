@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"wood-passage-creator/internal/port"
 	"encoding/json"
 	"time"
 
@@ -103,7 +104,7 @@ func (Article) Fields() []ent.Field {
 			Values("tech", "emotional", "educational", "humorous").
 			Optional().
 			Comment("文章风格：tech/emotional/educational/humorous"),
-		field.JSON("enabled_image_methods", []string{}).
+		field.JSON("enabled_image_methods", []port.ImageMethod{}).
 			Optional().
 			SchemaType(map[string]string{
 				dialect.Postgres: "jsonb",

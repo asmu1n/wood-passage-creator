@@ -12,6 +12,7 @@ import (
 	"wood-passage-creator/ent/article"
 	"wood-passage-creator/ent/predicate"
 	"wood-passage-creator/ent/user"
+	"wood-passage-creator/internal/port"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -297,13 +298,13 @@ func (_u *ArticleUpdate) ClearStyle() *ArticleUpdate {
 }
 
 // SetEnabledImageMethods sets the "enabled_image_methods" field.
-func (_u *ArticleUpdate) SetEnabledImageMethods(v []string) *ArticleUpdate {
+func (_u *ArticleUpdate) SetEnabledImageMethods(v []port.ImageMethod) *ArticleUpdate {
 	_u.mutation.SetEnabledImageMethods(v)
 	return _u
 }
 
 // AppendEnabledImageMethods appends value to the "enabled_image_methods" field.
-func (_u *ArticleUpdate) AppendEnabledImageMethods(v []string) *ArticleUpdate {
+func (_u *ArticleUpdate) AppendEnabledImageMethods(v []port.ImageMethod) *ArticleUpdate {
 	_u.mutation.AppendEnabledImageMethods(v)
 	return _u
 }
@@ -956,13 +957,13 @@ func (_u *ArticleUpdateOne) ClearStyle() *ArticleUpdateOne {
 }
 
 // SetEnabledImageMethods sets the "enabled_image_methods" field.
-func (_u *ArticleUpdateOne) SetEnabledImageMethods(v []string) *ArticleUpdateOne {
+func (_u *ArticleUpdateOne) SetEnabledImageMethods(v []port.ImageMethod) *ArticleUpdateOne {
 	_u.mutation.SetEnabledImageMethods(v)
 	return _u
 }
 
 // AppendEnabledImageMethods appends value to the "enabled_image_methods" field.
-func (_u *ArticleUpdateOne) AppendEnabledImageMethods(v []string) *ArticleUpdateOne {
+func (_u *ArticleUpdateOne) AppendEnabledImageMethods(v []port.ImageMethod) *ArticleUpdateOne {
 	_u.mutation.AppendEnabledImageMethods(v)
 	return _u
 }
