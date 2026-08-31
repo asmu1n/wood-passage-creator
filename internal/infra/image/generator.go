@@ -21,7 +21,7 @@ const defaultConcurrency = 4
 // Generator 实现 port.ImageGenerator。
 type Generator struct {
 	log         *slog.Logger
-	providers   map[string]Provider
+	providers   map[port.ImageMethod]Provider
 	fallback    Provider
 	store       objectstore.Store
 	concurrency int
@@ -43,7 +43,7 @@ func NewGenerator(cfg *config.Config, llm port.ChatModel, store ...objectstore.S
 	}
 	g := &Generator{
 		log:         logger.Module("infra.image"),
-		providers:   make(map[string]Provider),
+		providers:   make(map[port.ImageMethod]Provider),
 		fallback:    NewPicsum(),
 		store:       st,
 		concurrency: defaultConcurrency,
@@ -60,29 +60,29 @@ func NewGenerator(cfg *config.Config, llm port.ChatModel, store ...objectstore.S
 	return g
 }
 
-// Register 注册/覆盖一种配图来源。
+// Register 注册/覆盖一种配图来源（nil 跳过）。
 func (g *Generator) Register(p Provider) {
 	if g == nil || p == nil {
 		return
 	}
 	if g.providers == nil {
-		g.providers = make(map[string]Provider)
+		g.providers = make(map[port.ImageMethod]Provider)
 	}
-	g.providers[strings.ToUpper(p.Method())] = p
+	g.providers[p.Method().Normalize()] = p
 }
 
-// RegisteredMethods 返回已注册（New 非 nil）的 method 代码（供调试）。
-func (g *Generator) RegisteredMethods() []string {
+// RegisteredMethods 返回已注册（New 非 nil）的 method。
+func (g *Generator) RegisteredMethods() []port.ImageMethod {
 	if g == nil {
 		return nil
 	}
-	out := make([]string, 0, len(g.providers))
+	out := make([]port.ImageMethod, 0, len(g.providers))
 	for k, p := range g.providers {
 		if p != nil {
 			out = append(out, k)
 		}
 	}
-	sort.Strings(out)
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
 	return out
 }
 
@@ -104,7 +104,7 @@ func (g *Generator) Generate(ctx context.Context, taskID string, reqs []port.Ima
 		logger.FieldEvent, "image.generate.start",
 		"task_id", taskID,
 		"count", total,
-		"providers", g.RegisteredMethods(),
+		"providers", port.ImageMethodsToStrings(g.RegisteredMethods()),
 	)
 
 	limit := g.concurrency
@@ -172,9 +172,9 @@ func (g *Generator) Generate(ctx context.Context, taskID string, reqs []port.Ima
 }
 
 func (g *Generator) fetchOne(ctx context.Context, taskID string, req port.ImageRequirement) (port.ImageResult, error) {
-	src := strings.ToUpper(strings.TrimSpace(req.ImageSource))
+	src := req.ImageSource.Normalize()
 	if src == "" {
-		src = MethodPexels
+		src = port.MethodPexels
 	}
 
 	url, method, err := g.tryProvider(ctx, src, req, false)
@@ -195,7 +195,7 @@ func (g *Generator) fetchOne(ctx context.Context, taskID string, req port.ImageR
 
 	// 可选对象存储转存：未配置 store==nil，直接保留原 URL
 	if g.store != nil {
-		folder := strings.ToLower(method)
+		folder := strings.ToLower(method.String())
 		if published, uerr := objectstore.PublishSource(ctx, g.store, url, folder, 0); uerr != nil {
 			g.log.Warn("objectstore publish failed, keep original url",
 				logger.FieldPurpose, logger.PurposeJob,
@@ -220,8 +220,8 @@ func (g *Generator) fetchOne(ctx context.Context, taskID string, req port.ImageR
 	}, nil
 }
 
-func (g *Generator) tryProvider(ctx context.Context, method string, req port.ImageRequirement, isFallback bool) (url, usedMethod string, err error) {
-	method = strings.ToUpper(method)
+func (g *Generator) tryProvider(ctx context.Context, method port.ImageMethod, req port.ImageRequirement, isFallback bool) (url string, usedMethod port.ImageMethod, err error) {
+	method = method.Normalize()
 	var p Provider
 	if isFallback {
 		p = g.fallback
@@ -240,7 +240,6 @@ func (g *Generator) tryProvider(ctx context.Context, method string, req port.Ima
 	}
 	return u, p.Method(), nil
 }
-
 
 func newObjectStore(cfg *config.Config) objectstore.Store {
 	if cfg == nil {

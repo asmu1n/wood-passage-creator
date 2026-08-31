@@ -8,16 +8,6 @@ import (
 	"wood-passage-creator/internal/port"
 )
 
-const (
-	MethodPexels     = "PEXELS"
-	MethodPicsum     = "PICSUM"
-	MethodIconify    = "ICONIFY"
-	MethodEmojiPack  = "EMOJI_PACK"
-	MethodMermaid    = "MERMAID"
-	MethodSVGDiagram = "SVG_DIAGRAM"
-	MethodNanoBanana = "NANO_BANANA"
-)
-
 func dataURL(mime string, raw []byte) string {
 	mime = strings.TrimSpace(mime)
 	if mime == "" {

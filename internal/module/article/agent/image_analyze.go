@@ -14,9 +14,9 @@ import (
 
 // ImageMethodGuide 描述一种可用配图方式（由上层/配图模块注入，避免 agent 依赖 infra）。
 type ImageMethodGuide struct {
-	Code        string // 如 PEXELS / NANO_BANANA
-	Description string // 简短说明
-	UsageGuide  string // 给模型的详细用法
+	Code        port.ImageMethod // 如 PEXELS / NANO_BANANA
+	Description string           // 简短说明
+	UsageGuide  string           // 给模型的详细用法
 }
 
 // ImageAnalyzer 阶段 3b：分析配图需求并在正文插入占位符。
@@ -83,15 +83,17 @@ func (a *ImageAnalyzer) Execute(ctx context.Context, state *article.ArticleState
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
 
-	allowed := map[string]struct{}{}
+	allowed := map[port.ImageMethod]struct{}{}
 	for _, g := range guides {
-		allowed[g.Code] = struct{}{}
+		allowed[g.Code.Normalize()] = struct{}{}
 	}
 	filtered := make([]port.ImageRequirement, 0, len(result.ImageRequirements))
 	for _, req := range result.ImageRequirements {
-		if _, ok := allowed[req.ImageSource]; !ok {
+		src := req.ImageSource.Normalize()
+		if _, ok := allowed[src]; !ok {
 			continue
 		}
+		req.ImageSource = src
 		filtered = append(filtered, req)
 	}
 
@@ -119,14 +121,18 @@ func (a *ImageAnalyzer) filterMethods(enabled []string) []ImageMethodGuide {
 		// 未指定则全部可用
 		return a.methods
 	}
-	set := map[string]struct{}{}
+	set := map[port.ImageMethod]struct{}{}
 	for _, e := range enabled {
-		set[e] = struct{}{}
+		m := port.ParseImageMethod(e)
+		if m == "" {
+			continue
+		}
+		set[m] = struct{}{}
 	}
 	out := make([]ImageMethodGuide, 0, len(enabled))
-	for _, m := range a.methods {
-		if _, ok := set[m.Code]; ok {
-			out = append(out, m)
+	for _, g := range a.methods {
+		if _, ok := set[g.Code.Normalize()]; ok {
+			out = append(out, g)
 		}
 	}
 	return out
@@ -139,7 +145,7 @@ func formatAvailableMethods(guides []ImageMethodGuide) string {
 			b.WriteByte('\n')
 		}
 		b.WriteString("- ")
-		b.WriteString(g.Code)
+		b.WriteString(g.Code.String())
 		if g.Description != "" {
 			b.WriteString(": ")
 			b.WriteString(g.Description)
@@ -155,7 +161,7 @@ func formatMethodUsage(guides []ImageMethodGuide) string {
 			b.WriteString("\n\n")
 		}
 		b.WriteString("### ")
-		b.WriteString(g.Code)
+		b.WriteString(g.Code.String())
 		b.WriteByte('\n')
 		b.WriteString(g.UsageGuide)
 	}

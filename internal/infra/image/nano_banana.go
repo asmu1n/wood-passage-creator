@@ -35,7 +35,7 @@ func NewNanoBanana(cfg config.NanoBananaConfig) *NanoBanana {
 	}
 }
 
-func (p *NanoBanana) Method() string { return MethodNanoBanana }
+func (p *NanoBanana) Method() port.ImageMethod { return port.MethodNanoBanana }
 
 func (p *NanoBanana) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {
 	prompt := reqText(req, true)

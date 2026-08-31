@@ -27,7 +27,7 @@ func NewMermaid(cfg config.MermaidConfig) *Mermaid {
 	return &Mermaid{cfg: cfg}
 }
 
-func (p *Mermaid) Method() string { return MethodMermaid }
+func (p *Mermaid) Method() port.ImageMethod { return port.MethodMermaid }
 
 func (p *Mermaid) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {
 	code := reqText(req, true)

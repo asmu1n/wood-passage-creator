@@ -31,7 +31,7 @@ func NewEmojiPack(cfg config.EmojiPackConfig) *EmojiPack {
 	}
 }
 
-func (p *EmojiPack) Method() string { return MethodEmojiPack }
+func (p *EmojiPack) Method() port.ImageMethod { return port.MethodEmojiPack }
 
 func (p *EmojiPack) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {
 	kw := reqText(req, false)

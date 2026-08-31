@@ -21,8 +21,8 @@ func NewSVGDiagram(cfg config.SVGDiagramConfig, llm port.ChatModel) *SVGDiagram 
 	return &SVGDiagram{llm: llm}
 }
 
-func (p *SVGDiagram) Method() string {
-	return MethodSVGDiagram
+func (p *SVGDiagram) Method() port.ImageMethod {
+	return port.MethodSVGDiagram
 }
 
 func (p *SVGDiagram) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {

@@ -10,12 +10,12 @@ import (
 )
 
 type stubProvider struct {
-	method string
+	method port.ImageMethod
 	url    string
 	err    error
 }
 
-func (s stubProvider) Method() string { return s.method }
+func (s stubProvider) Method() port.ImageMethod { return s.method }
 func (s stubProvider) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {
 	if s.err != nil {
 		return "", s.err
@@ -25,15 +25,15 @@ func (s stubProvider) Fetch(ctx context.Context, req port.ImageRequirement) (str
 
 func TestGenerator_PexelsThenOK(t *testing.T) {
 	g := &Generator{
-		providers: map[string]Provider{
-			MethodPexels: stubProvider{method: MethodPexels, url: "https://example.com/a.jpg"},
+		providers: map[port.ImageMethod]Provider{
+			port.MethodPexels: stubProvider{method: port.MethodPexels, url: "https://example.com/a.jpg"},
 		},
 		fallback:    NewPicsum(),
 		concurrency: 2,
 	}
 	reqs := []port.ImageRequirement{
-		{Position: 2, ImageSource: MethodPexels, Keywords: "forest", PlaceholderID: "{{IMAGE_PLACEHOLDER_2}}"},
-		{Position: 1, ImageSource: MethodPexels, Keywords: "city", PlaceholderID: "{{IMAGE_PLACEHOLDER_1}}"},
+		{Position: 2, ImageSource: port.MethodPexels, Keywords: "forest", PlaceholderID: "{{IMAGE_PLACEHOLDER_2}}"},
+		{Position: 1, ImageSource: port.MethodPexels, Keywords: "city", PlaceholderID: "{{IMAGE_PLACEHOLDER_1}}"},
 	}
 	var prog atomic.Int32
 	imgs, err := g.Generate(context.Background(), "t1", reqs, func(ctx context.Context, done, total int, img port.ImageResult) {
@@ -58,20 +58,20 @@ func TestGenerator_PexelsThenOK(t *testing.T) {
 
 func TestGenerator_FallbackOnError(t *testing.T) {
 	g := &Generator{
-		providers: map[string]Provider{
-			MethodPexels: stubProvider{method: MethodPexels, err: fmt.Errorf("boom")},
+		providers: map[port.ImageMethod]Provider{
+			port.MethodPexels: stubProvider{method: port.MethodPexels, err: fmt.Errorf("boom")},
 		},
 		fallback:    NewPicsum(),
 		concurrency: 2,
 	}
 	reqs := []port.ImageRequirement{
-		{Position: 1, ImageSource: MethodPexels, PlaceholderID: "{{IMAGE_PLACEHOLDER_1}}"},
+		{Position: 1, ImageSource: port.MethodPexels, PlaceholderID: "{{IMAGE_PLACEHOLDER_1}}"},
 	}
 	imgs, err := g.Generate(context.Background(), "t1", reqs, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(imgs) != 1 || imgs[0].Method != MethodPicsum {
+	if len(imgs) != 1 || imgs[0].Method != port.MethodPicsum {
 		t.Fatalf("got %+v", imgs)
 	}
 }

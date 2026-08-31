@@ -27,8 +27,8 @@ func NewIconify(cfg config.IconifyConfig) *Iconify {
 	}
 }
 
-func (p *Iconify) Method() string {
-	return MethodIconify
+func (p *Iconify) Method() port.ImageMethod {
+	return port.MethodIconify
 }
 
 func (p *Iconify) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {

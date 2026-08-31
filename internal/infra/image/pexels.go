@@ -30,8 +30,8 @@ func NewPexels(apiKey string) *Pexels {
 	}
 }
 
-func (p *Pexels) Method() string {
-	return MethodPexels
+func (p *Pexels) Method() port.ImageMethod {
+	return port.MethodPexels
 }
 
 func (p *Pexels) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {
