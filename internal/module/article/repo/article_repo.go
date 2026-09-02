@@ -7,7 +7,6 @@ import (
 	"wood-passage-creator/ent"
 	entm "wood-passage-creator/ent/article"
 	"wood-passage-creator/internal/module/article"
-	"wood-passage-creator/internal/pkg/page"
 )
 
 type ArticleRepo struct {
@@ -130,20 +129,26 @@ func (r *ArticleRepo) UpdateSubTitle(ctx context.Context, taskID string, subTitl
 	return err
 }
 
-func (r *ArticleRepo) ListByUser(ctx context.Context, userID int64, params page.PageRequest) ([]*article.Article, int, error) {
+func (r *ArticleRepo) ListByUser(ctx context.Context, userID int64, params article.ListArticlesParams) ([]*article.Article, int, error) {
 	// 基础查询只放过滤条件；Count 与分页列表必须分开，避免 Limit/Offset 污染 total。
 	base := r.client.Article.Query().
 		Where(entm.UserIDEQ(userID), entm.IsDeleteEQ(false))
+	if params.Status != nil {
+		base = base.Where(entm.StatusEQ(entm.Status(*params.Status)))
+	}
 	return listPage(ctx, base, params)
 }
 
-func (r *ArticleRepo) ListAll(ctx context.Context, params page.PageRequest) ([]*article.Article, int, error) {
+func (r *ArticleRepo) ListAll(ctx context.Context, params article.ListArticlesParams) ([]*article.Article, int, error) {
 	base := r.client.Article.Query().
 		Where(entm.IsDeleteEQ(false))
+	if params.Status != nil {
+		base = base.Where(entm.StatusEQ(entm.Status(*params.Status)))
+	}
 	return listPage(ctx, base, params)
 }
 
-func listPage(ctx context.Context, base *ent.ArticleQuery, params page.PageRequest) ([]*article.Article, int, error) {
+func listPage(ctx context.Context, base *ent.ArticleQuery, params article.ListArticlesParams) ([]*article.Article, int, error) {
 	total, err := base.Clone().Count(ctx)
 	if err != nil {
 		return nil, 0, err

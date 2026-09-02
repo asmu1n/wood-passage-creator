@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/port"
 )
 
@@ -22,8 +21,8 @@ type Repository interface {
 	UpdateOutline(ctx context.Context, taskID string, outline []OutlineSection) error
 
 	// ListByUser / ListAll 返回当前页数据与符合条件的总数（供 Service 组装 PageResponse）。
-	ListByUser(ctx context.Context, userID int64, params page.PageRequest) (items []*Article, total int, err error)
-	ListAll(ctx context.Context, params page.PageRequest) (items []*Article, total int, err error)
+	ListByUser(ctx context.Context, userID int64, params ListArticlesParams) (items []*Article, total int, err error)
+	ListAll(ctx context.Context, params ListArticlesParams) (items []*Article, total int, err error)
 
 	Delete(ctx context.Context, id int64) error
 }
@@ -56,6 +55,10 @@ type UpdateArticleParams struct {
 	EnabledImageMethods []port.ImageMethod
 }
 
+type ListArticlesParams struct {
+	QueryArticleRequest
+}
+
 // ProgressFunc 任务进度回调（由 Service 注入，内部通常 publish 到 SSE）。
 // name 为 SSE event 名；data 为 payload（将被 JSON 序列化）。
 type ProgressFunc func(ctx context.Context, name string, data any)
@@ -66,7 +69,6 @@ type AgentOrchestrator interface {
 	RunPhase3(ctx context.Context, state *ArticleState, onProgress ProgressFunc) error
 	ModifyOutline(ctx context.Context, state *ArticleState, modifySuggestion string) ([]OutlineSection, error)
 }
-
 
 // CreateAgentLogParams 写入一条执行日志。
 type CreateAgentLogParams struct {

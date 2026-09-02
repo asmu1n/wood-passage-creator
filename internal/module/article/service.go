@@ -8,7 +8,6 @@ import (
 
 	"wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/logger"
-	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/pkg/response"
 	"wood-passage-creator/internal/pkg/sse"
 	"wood-passage-creator/internal/port"
@@ -217,12 +216,12 @@ func (s *Service) UpdateTitleOptions(ctx context.Context, taskID string, titleOp
 	return s.repo.UpdateTitleOptions(ctx, taskID, titleOptions)
 }
 
-func (s *Service) ListByUser(ctx context.Context, userID int64, params page.PageRequest) ([]*Article, int, error) {
-	return s.repo.ListByUser(ctx, userID, params)
+func (s *Service) ListByUser(ctx context.Context, userID int64, req QueryArticleRequest) ([]*Article, int, error) {
+	return s.repo.ListByUser(ctx, userID, ListArticlesParams{QueryArticleRequest: req})
 }
 
-func (s *Service) ListAll(ctx context.Context, params page.PageRequest) ([]*Article, int, error) {
-	return s.repo.ListAll(ctx, params)
+func (s *Service) ListAll(ctx context.Context, req QueryArticleRequest) ([]*Article, int, error) {
+	return s.repo.ListAll(ctx, ListArticlesParams{QueryArticleRequest: req})
 }
 
 func (s *Service) Delete(ctx context.Context, id int64) error {

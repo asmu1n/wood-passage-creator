@@ -22,7 +22,7 @@ type Article struct {
 	Status              ArticleStatus      `json:"status"`
 	Phase               ArticlePhase       `json:"phase"` // 当前阶段
 	ErrorMessage        *string            `json:"errorMessage"`
-	Style               *ArticleStyle      `json:"style"`               // 文章风格
+	Style               *ArticleStyle      `json:"style"`                         // 文章风格
 	EnabledImageMethods []port.ImageMethod `json:"enabledImageMethods,omitempty"` // 空=不限制
 	CreateTime          time.Time          `json:"createTime"`
 	CompletedTime       *time.Time         `json:"completedTime"`
@@ -79,11 +79,11 @@ type ArticleState struct {
 	ArticleID               int64                   `json:"articleId,omitempty"` // 写 agent_log 用
 	TaskID                  string                  `json:"taskId"`
 	Topic                   string                  `json:"topic"`
-	UserDescription         string                  `json:"userDescription"`     // 用户补充描述
-	Style                   *ArticleStyle           `json:"style"`               // 文章风格
-	Phase                   ArticlePhase            `json:"phase"`               // 当前阶段
+	UserDescription         string                  `json:"userDescription"`               // 用户补充描述
+	Style                   *ArticleStyle           `json:"style"`                         // 文章风格
+	Phase                   ArticlePhase            `json:"phase"`                         // 当前阶段
 	EnabledImageMethods     []port.ImageMethod      `json:"enabledImageMethods,omitempty"` // 空=不限制
-	TitleOptions            []TitleOption           `json:"titleOptions"`        // 标题方案列表
+	TitleOptions            []TitleOption           `json:"titleOptions"`                  // 标题方案列表
 	MainTitle               *string                 `json:"mainTitle"`
 	SubTitle                *string                 `json:"subTitle"`
 	Outline                 []OutlineSection        `json:"outline"`
@@ -116,7 +116,7 @@ type CreateArticleRequest struct {
 
 // QueryArticleRequest 查询文章入参（query；分页字段来自嵌入的 PageRequest）。
 type QueryArticleRequest struct {
-	Status *string `json:"status" query:"status" validate:"omitempty,oneof=PENDING PROCESSING COMPLETED FAILED"`
+	Status *ArticleStatus `json:"status" query:"status" validate:"omitempty,oneof=PENDING PROCESSING COMPLETED FAILED"`
 	page.PageRequest
 }
 

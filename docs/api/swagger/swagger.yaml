@@ -265,20 +265,6 @@ definitions:
       title:
         type: string
     type: object
-  wood-passage-creator_internal_module_article.QueryArticleRequest:
-    properties:
-      pageNum:
-        type: integer
-      pageSize:
-        type: integer
-      status:
-        enum:
-        - PENDING
-        - PROCESSING
-        - COMPLETED
-        - FAILED
-        type: string
-    type: object
   wood-passage-creator_internal_module_article.TitleOption:
     properties:
       mainTitle:
@@ -667,7 +653,7 @@ paths:
       - article
   /article/delete:
     post:
-      description: 按主键软删除文章。
+      description: 按主键软删除；需登录。权限由业务层校验（作者或管理员）。
       parameters:
       - description: 文章主键 ID
         in: query
@@ -687,6 +673,10 @@ paths:
             $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
         "401":
           description: 未登录
+          schema:
+            $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
+        "403":
+          description: 无权限
           schema:
             $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
         "404":
@@ -725,17 +715,26 @@ paths:
       tags:
       - article
   /article/list:
-    post:
-      consumes:
-      - application/json
-      description: 管理端/全量列表；具体权限由路由中间件控制。
+    get:
+      description: 全站文章列表，仅管理员；支持 pageNum/pageSize/status 查询参数。
       parameters:
-      - description: 分页与筛选（pageNum/pageSize/status）
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/wood-passage-creator_internal_module_article.QueryArticleRequest'
+      - description: 页码，默认 1
+        in: query
+        name: pageNum
+        type: integer
+      - description: 每页条数，默认 10，最大 100
+        in: query
+        name: pageSize
+        type: integer
+      - description: 状态筛选
+        enum:
+        - PENDING
+        - PROCESSING
+        - COMPLETED
+        - FAILED
+        in: query
+        name: status
+        type: string
       produces:
       - application/json
       responses:
@@ -762,7 +761,53 @@ paths:
             $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
       security:
       - SessionAuth: []
-      summary: 分页查询全部文章
+      summary: 分页查询全部文章（管理员）
+      tags:
+      - article
+  /article/list/self:
+    get:
+      description: 仅返回当前登录用户自己的文章；支持 pageNum/pageSize/status 查询参数。
+      parameters:
+      - description: 页码，默认 1
+        in: query
+        name: pageNum
+        type: integer
+      - description: 每页条数，默认 10，最大 100
+        in: query
+        name: pageSize
+        type: integer
+      - description: 状态筛选
+        enum:
+        - PENDING
+        - PROCESSING
+        - COMPLETED
+        - FAILED
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/wood-passage-creator_internal_module_article.ArticleListData'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
+      security:
+      - SessionAuth: []
+      summary: 分页查询我的文章
       tags:
       - article
   /article/modify-outline:

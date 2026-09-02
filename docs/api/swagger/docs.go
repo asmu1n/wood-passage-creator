@@ -211,7 +211,7 @@ const docTemplate = `{
                         "SessionAuth": []
                     }
                 ],
-                "description": "按主键软删除文章。",
+                "description": "按主键软删除；需登录。权限由业务层校验（作者或管理员）。",
                 "produces": [
                     "application/json"
                 ],
@@ -243,6 +243,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "无权限",
                         "schema": {
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
@@ -303,32 +309,44 @@ const docTemplate = `{
             }
         },
         "/article/list": {
-            "post": {
+            "get": {
                 "security": [
                     {
                         "SessionAuth": []
                     }
                 ],
-                "description": "管理端/全量列表；具体权限由路由中间件控制。",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "全站文章列表，仅管理员；支持 pageNum/pageSize/status 查询参数。",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "article"
                 ],
-                "summary": "分页查询全部文章",
+                "summary": "分页查询全部文章（管理员）",
                 "parameters": [
                     {
-                        "description": "分页与筛选（pageNum/pageSize/status）",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/wood-passage-creator_internal_module_article.QueryArticleRequest"
-                        }
+                        "type": "integer",
+                        "description": "页码，默认 1",
+                        "name": "pageNum",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数，默认 10，最大 100",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "PENDING",
+                            "PROCESSING",
+                            "COMPLETED",
+                            "FAILED"
+                        ],
+                        "type": "string",
+                        "description": "状态筛选",
+                        "name": "status",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -364,6 +382,81 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "无权限",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/article/list/self": {
+            "get": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "仅返回当前登录用户自己的文章；支持 pageNum/pageSize/status 查询参数。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "article"
+                ],
+                "summary": "分页查询我的文章",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码，默认 1",
+                        "name": "pageNum",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数，默认 10，最大 100",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "PENDING",
+                            "PROCESSING",
+                            "COMPLETED",
+                            "FAILED"
+                        ],
+                        "type": "string",
+                        "description": "状态筛选",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wood-passage-creator_internal_module_article.ArticleListData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
                         "schema": {
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
@@ -1495,26 +1588,6 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
-                }
-            }
-        },
-        "wood-passage-creator_internal_module_article.QueryArticleRequest": {
-            "type": "object",
-            "properties": {
-                "pageNum": {
-                    "type": "integer"
-                },
-                "pageSize": {
-                    "type": "integer"
-                },
-                "status": {
-                    "type": "string",
-                    "enum": [
-                        "PENDING",
-                        "PROCESSING",
-                        "COMPLETED",
-                        "FAILED"
-                    ]
                 }
             }
         },

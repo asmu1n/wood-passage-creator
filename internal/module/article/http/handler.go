@@ -168,9 +168,20 @@ func (h *Handler) GetByID(c *echo.Context) error {
 	return c.JSON(http.StatusOK, response.OK(u))
 }
 
-// ListByUser 分页查询当前登录用户的文章。
-// 当前 register.go 未挂载该路由；保留 handler 供后续接入，故暂不生成 @Router。
-func (h *Handler) ListByUser(c *echo.Context) error {
+// ListBySelf godoc
+// @Summary      分页查询我的文章
+// @Description  仅返回当前登录用户自己的文章；支持 pageNum/pageSize/status 查询参数。
+// @Tags         article
+// @Produce      json
+// @Param        pageNum  query int    false "页码，默认 1"
+// @Param        pageSize query int    false "每页条数，默认 10，最大 100"
+// @Param        status   query string false "状态筛选" Enums(PENDING, PROCESSING, COMPLETED, FAILED)
+// @Success      200 {object} response.Response{data=article.ArticleListData} "成功"
+// @Failure      400 {object} response.Response "参数错误"
+// @Failure      401 {object} response.Response "未登录"
+// @Security     SessionAuth
+// @Router       /article/list/self [get]
+func (h *Handler) ListBySelf(c *echo.Context) error {
 	var req article.QueryArticleRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
@@ -180,7 +191,7 @@ func (h *Handler) ListByUser(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
-	u, total, err := h.svc.ListByUser(c.Request().Context(), actorID, req.PageRequest)
+	u, total, err := h.svc.ListByUser(c.Request().Context(), actorID, req)
 	if err != nil {
 		return err
 	}
@@ -188,24 +199,25 @@ func (h *Handler) ListByUser(c *echo.Context) error {
 }
 
 // ListAll godoc
-// @Summary      分页查询全部文章
-// @Description  管理端/全量列表；具体权限由路由中间件控制。
+// @Summary      分页查询全部文章（管理员）
+// @Description  全站文章列表，仅管理员；支持 pageNum/pageSize/status 查询参数。
 // @Tags         article
-// @Accept       json
 // @Produce      json
-// @Param        body body article.QueryArticleRequest true "分页与筛选（pageNum/pageSize/status）"
+// @Param        pageNum  query int    false "页码，默认 1"
+// @Param        pageSize query int    false "每页条数，默认 10，最大 100"
+// @Param        status   query string false "状态筛选" Enums(PENDING, PROCESSING, COMPLETED, FAILED)
 // @Success      200 {object} response.Response{data=article.ArticleListData} "成功"
 // @Failure      400 {object} response.Response "参数错误"
 // @Failure      401 {object} response.Response "未登录"
 // @Failure      403 {object} response.Response "无权限"
 // @Security     SessionAuth
-// @Router       /article/list [post]
+// @Router       /article/list [get]
 func (h *Handler) ListAll(c *echo.Context) error {
 	var req article.QueryArticleRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
-	u, total, err := h.svc.ListAll(c.Request().Context(), req.PageRequest)
+	u, total, err := h.svc.ListAll(c.Request().Context(), req)
 	if err != nil {
 		return err
 	}
@@ -214,13 +226,14 @@ func (h *Handler) ListAll(c *echo.Context) error {
 
 // Delete godoc
 // @Summary      删除文章（软删除）
-// @Description  按主键软删除文章。
+// @Description  按主键软删除；需登录。权限由业务层校验（作者或管理员）。
 // @Tags         article
 // @Produce      json
 // @Param        id query int true "文章主键 ID"
 // @Success      200 {object} response.Response "成功（data 一般为 null）"
 // @Failure      400 {object} response.Response "参数错误"
 // @Failure      401 {object} response.Response "未登录"
+// @Failure      403 {object} response.Response "无权限"
 // @Failure      404 {object} response.Response "文章不存在"
 // @Security     SessionAuth
 // @Router       /article/delete [post]
