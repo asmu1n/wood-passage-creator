@@ -42,19 +42,16 @@ func NewService(
 }
 
 // ensureArticleAccess 校验登录用户是否可访问文章（管理员或作者）。
-func (s *Service) ensureArticleAccess(article *Article, actorID int64, role user.UserRole) error {
+func (s *Service) ensureArticleAccess(article *Article, actor user.Actor) error {
 	if article == nil {
 		return response.NewBizErrorWithDetail(response.NotFound, "文章不存在")
 	}
-	if role == user.RoleAdmin || article.UserID == actorID {
-		return nil
-	}
-	return response.NewBizErrorWithDetail(response.NoAuth, "无权限")
+	return actor.RequireSelfOrAdmin(article.UserID)
 }
 
 // loadAccessibleByTaskID 按 taskID 加载文章并校验访问权。
 // 不存在 → NotFound；非管理员且非作者 → NoAuth。
-func (s *Service) loadAccessibleByTaskID(ctx context.Context, taskID string, actorID int64, role user.UserRole) (*Article, error) {
+func (s *Service) loadAccessibleByTaskID(ctx context.Context, taskID string, actor user.Actor) (*Article, error) {
 	if taskID == "" {
 		return nil, response.NewBizErrorWithDetail(response.ParamsError, "任务ID不能为空")
 	}
@@ -65,15 +62,34 @@ func (s *Service) loadAccessibleByTaskID(ctx context.Context, taskID string, act
 	if article == nil {
 		return nil, response.NewBizErrorWithDetail(response.NotFound, "文章不存在")
 	}
-	if err := s.ensureArticleAccess(article, actorID, role); err != nil {
+	if err := s.ensureArticleAccess(article, actor); err != nil {
+		return nil, err
+	}
+	return article, nil
+}
+
+// loadAccessibleByID 按 ID 加载文章并校验访问权。
+// 不存在 → NotFound；非管理员且非作者 → NoAuth。
+func (s *Service) loadAccessibleByID(ctx context.Context, id int64, actor user.Actor) (*Article, error) {
+	if id == 0 {
+		return nil, response.NewBizErrorWithDetail(response.ParamsError, "文章ID不能为空")
+	}
+	article, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if article == nil {
+		return nil, response.NewBizErrorWithDetail(response.NotFound, "文章不存在")
+	}
+	if err := s.ensureArticleAccess(article, actor); err != nil {
 		return nil, err
 	}
 	return article, nil
 }
 
 // ConfirmOutline agent 大纲生成完毕后，确认并更新文章大纲。
-func (s *Service) ConfirmOutline(ctx context.Context, taskID string, actorID int64, role user.UserRole, outline []OutlineSection) error {
-	article, err := s.loadAccessibleByTaskID(ctx, taskID, actorID, role)
+func (s *Service) ConfirmOutline(ctx context.Context, actor user.Actor, taskID string, outline []OutlineSection) error {
+	article, err := s.loadAccessibleByTaskID(ctx, taskID, actor)
 	if err != nil {
 		return err
 	}
@@ -90,7 +106,7 @@ func (s *Service) ConfirmOutline(ctx context.Context, taskID string, actorID int
 			logger.FieldEvent, "article.confirm_outline.failed",
 			logger.FieldErr, err,
 			"task_id", taskID,
-			"user_id", actorID,
+			"user_id", actor.ID,
 		)
 		return err
 	}
@@ -99,18 +115,18 @@ func (s *Service) ConfirmOutline(ctx context.Context, taskID string, actorID int
 		logger.FieldPurpose, logger.PurposeBiz,
 		logger.FieldEvent, "article.confirm_outline.ok",
 		"task_id", taskID,
-		"user_id", actorID,
+		"user_id", actor.ID,
 		"sections", len(outline),
 	)
 
-	go s.runPhase3Async(article, role)
+	go s.runPhase3Async(article, actor.Role)
 
 	return nil
 }
 
 // ConfirmTitle agent 标题生成完毕后，确认主/副标题。
-func (s *Service) ConfirmTitle(ctx context.Context, actorID int64, role user.UserRole, params ConfirmTitleRequest) error {
-	article, err := s.loadAccessibleByTaskID(ctx, params.TaskID, actorID, role)
+func (s *Service) ConfirmTitle(ctx context.Context, actor user.Actor, params ConfirmTitleRequest) error {
+	article, err := s.loadAccessibleByTaskID(ctx, params.TaskID, actor)
 	if err != nil {
 		return err
 	}
@@ -129,7 +145,7 @@ func (s *Service) ConfirmTitle(ctx context.Context, actorID int64, role user.Use
 			logger.FieldEvent, "article.confirm_title.failed",
 			logger.FieldErr, err,
 			"task_id", params.TaskID,
-			"user_id", actorID,
+			"user_id", actor.ID,
 		)
 		return err
 	}
@@ -138,7 +154,7 @@ func (s *Service) ConfirmTitle(ctx context.Context, actorID int64, role user.Use
 		logger.FieldPurpose, logger.PurposeBiz,
 		logger.FieldEvent, "article.confirm_title.ok",
 		"task_id", params.TaskID,
-		"user_id", actorID,
+		"user_id", actor.ID,
 	)
 
 	go s.runPhase2Async(article)
@@ -146,20 +162,19 @@ func (s *Service) ConfirmTitle(ctx context.Context, actorID int64, role user.Use
 }
 
 // Create 创建文章任务并异步启动 Phase1（生成标题方案）。
-func (s *Service) Create(ctx context.Context, actorID int64, role user.UserRole, req CreateArticleRequest) (string, error) {
-
+func (s *Service) Create(ctx context.Context, actor user.Actor, req CreateArticleRequest) (string, error) {
 	taskID := uuid.NewString()
 
-	enabledMethods, err := resolveEnabledImageMethods(req.EnabledImageMethods, role)
+	enabledMethods, err := resolveEnabledImageMethods(req.EnabledImageMethods, actor)
 	if err != nil {
 		return "", err
 	}
-	if err := s.userService.CheckAndConsumeQuota(ctx, actorID); err != nil {
+	if err := s.userService.CheckAndConsumeQuota(ctx, actor.ID); err != nil {
 		return "", err
 	}
 
 	if _, err := s.repo.Create(ctx, CreateArticleParams{
-		UserID:              actorID,
+		UserID:              actor.ID,
 		TaskID:              taskID,
 		Topic:               req.Topic,
 		Style:               req.Style,
@@ -169,7 +184,7 @@ func (s *Service) Create(ctx context.Context, actorID int64, role user.UserRole,
 			logger.FieldPurpose, logger.PurposeBiz,
 			logger.FieldEvent, "article.create.failed",
 			logger.FieldErr, err,
-			"user_id", actorID,
+			"user_id", actor.ID,
 			"topic", req.Topic,
 		)
 		return "", err
@@ -179,7 +194,7 @@ func (s *Service) Create(ctx context.Context, actorID int64, role user.UserRole,
 		logger.FieldPurpose, logger.PurposeBiz,
 		logger.FieldEvent, "article.create.ok",
 		"task_id", taskID,
-		"user_id", actorID,
+		"user_id", actor.ID,
 		"topic", req.Topic,
 	)
 
@@ -188,8 +203,8 @@ func (s *Service) Create(ctx context.Context, actorID int64, role user.UserRole,
 	return taskID, nil
 }
 
-func (s *Service) GetByTaskID(ctx context.Context, taskID string, actorID int64, role user.UserRole) (*Article, error) {
-	return s.loadAccessibleByTaskID(ctx, taskID, actorID, role)
+func (s *Service) GetByTaskID(ctx context.Context, taskID string, actor user.Actor) (*Article, error) {
+	return s.loadAccessibleByTaskID(ctx, taskID, actor)
 }
 
 func (s *Service) GetByID(ctx context.Context, id int64) (*Article, error) {
@@ -216,15 +231,22 @@ func (s *Service) UpdateTitleOptions(ctx context.Context, taskID string, titleOp
 	return s.repo.UpdateTitleOptions(ctx, taskID, titleOptions)
 }
 
-func (s *Service) ListByUser(ctx context.Context, userID int64, req QueryArticleRequest) ([]*Article, int, error) {
-	return s.repo.ListByUser(ctx, userID, ListArticlesParams{QueryArticleRequest: req})
+func (s *Service) ListByUser(ctx context.Context, actor user.Actor, req QueryArticleRequest) ([]*Article, int, error) {
+	// 仅查询执行者自己的文章（admin 也走 list/self 时同样只看自己）
+	return s.repo.ListByUser(ctx, actor.ID, ListArticlesParams{QueryArticleRequest: req})
 }
 
-func (s *Service) ListAll(ctx context.Context, req QueryArticleRequest) ([]*Article, int, error) {
+func (s *Service) ListAll(ctx context.Context, actor user.Actor, req QueryArticleRequest) ([]*Article, int, error) {
+	if err := actor.RequireAdmin(); err != nil {
+		return nil, 0, err
+	}
 	return s.repo.ListAll(ctx, ListArticlesParams{QueryArticleRequest: req})
 }
 
-func (s *Service) Delete(ctx context.Context, id int64) error {
+func (s *Service) Delete(ctx context.Context, actor user.Actor, id int64) error {
+	if _, err := s.loadAccessibleByID(ctx, id, actor); err != nil {
+		return err
+	}
 	return s.repo.Delete(ctx, id)
 }
 
@@ -517,26 +539,25 @@ func (s *Service) failPhase3(ctx context.Context, taskID string, err error) {
 	s.publishSSEError(taskID, msg)
 }
 
-func (s *Service) ModifyOutline(ctx context.Context, actorID int64, role user.UserRole, req AiModifyOutlineRequest) ([]OutlineSection, error) {
-
-	if !role.IsVipOrAdmin() {
-		return nil, response.NewBizErrorWithDetail(response.Forbidden, "AI 修改大纲仅限 VIP 会员使用")
+func (s *Service) ModifyOutline(ctx context.Context, actor user.Actor, req AiModifyOutlineRequest) ([]OutlineSection, error) {
+	if err := actor.RequireVipOrAdmin(); err != nil {
+		return nil, err
 	}
 
-	article, err := s.loadAccessibleByTaskID(ctx, req.TaskID, actorID, role)
+	article, err := s.loadAccessibleByTaskID(ctx, req.TaskID, actor)
 	if err != nil {
-
 		s.log.Error("get article failed",
 			logger.FieldPurpose, logger.PurposeBiz,
 			logger.FieldEvent, "article.modify_outline.get_failed",
 			logger.FieldErr, err,
 			"task_id", req.TaskID,
+			"actor_id", actor.ID,
 		)
 		return nil, err
 	}
 
 	if article.Phase != PhaseOutlineEditing {
-		return nil, response.NewBizErrorWithDetail(response.Forbidden, "only confirmed outline can be modified")
+		return nil, response.NewBizErrorWithDetail(response.Forbidden, "当前阶段不允许修改大纲")
 	}
 
 	state := &ArticleState{
@@ -554,17 +575,22 @@ func (s *Service) ModifyOutline(ctx context.Context, actorID int64, role user.Us
 			logger.FieldEvent, "article.modify_outline.failed",
 			logger.FieldErr, err,
 			"task_id", req.TaskID,
+			"actor_id", actor.ID,
 		)
 		return nil, err
 	}
 
-	return newOutline, nil
+	// 写回修改后的大纲
+	if _, err := s.repo.Update(ctx, article.ID, UpdateArticleParams{Outline: newOutline}); err != nil {
+		return nil, err
+	}
 
+	return newOutline, nil
 }
 
 // GetExecutionLogs 按 taskId 返回 agent 执行日志与汇总（需能访问该任务）。
-func (s *Service) GetExecutionLogs(ctx context.Context, taskID string, actorID int64, role user.UserRole) (*AgentExecutionStats, error) {
-	if _, err := s.loadAccessibleByTaskID(ctx, taskID, actorID, role); err != nil {
+func (s *Service) GetExecutionLogs(ctx context.Context, actor user.Actor, taskID string) (*AgentExecutionStats, error) {
+	if _, err := s.loadAccessibleByTaskID(ctx, taskID, actor); err != nil {
 		return nil, err
 	}
 	if s.agentLogs == nil {
@@ -628,16 +654,17 @@ func truncateErr(err error, max int) string {
 
 // resolveEnabledImageMethods 仅处理默认值与 VIP；枚举合法性已在 Bind/Validate 完成。
 // 空：VIP/Admin → nil；普通 → FreeImageMethods。非空：普通用户不得含 VIP 项。
-func resolveEnabledImageMethods(methods []port.ImageMethod, role user.UserRole) ([]port.ImageMethod, error) {
+func resolveEnabledImageMethods(methods []port.ImageMethod, actor user.Actor) ([]port.ImageMethod, error) {
+	vip := actor.Role == user.RoleVIP || actor.Role == user.RoleAdmin
 	if len(methods) == 0 {
-		if role.IsVipOrAdmin() {
+		if vip {
 			return nil, nil
 		}
 		out := make([]port.ImageMethod, len(port.FreeImageMethods))
 		copy(out, port.FreeImageMethods)
 		return out, nil
 	}
-	if !role.IsVipOrAdmin() {
+	if !vip {
 		for _, m := range methods {
 			if m.IsVIPMethod() {
 				return nil, response.NewBizErrorWithDetail(response.Forbidden, "高级配图功能（AI 生图、SVG 图表）仅限 VIP 会员使用")

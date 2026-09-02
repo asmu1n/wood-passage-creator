@@ -15,6 +15,338 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/article/list": {
+            "get": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "全站文章列表，仅管理员；支持 pageNum/pageSize/status 查询参数。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-article"
+                ],
+                "summary": "分页查询全部文章（管理员）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码，默认 1",
+                        "name": "pageNum",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数，默认 10，最大 100",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "PENDING",
+                            "PROCESSING",
+                            "COMPLETED",
+                            "FAILED"
+                        ],
+                        "type": "string",
+                        "description": "状态筛选",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wood-passage-creator_internal_module_article.ArticleListData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "无权限",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/list": {
+            "get": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-users"
+                ],
+                "summary": "分页查询用户列表（管理员）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码，默认 1",
+                        "name": "pageNum",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数，默认 10，最大 100",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wood-passage-creator_internal_module_user.UserListData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "无权限",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-users"
+                ],
+                "summary": "删除用户（软删除，管理员）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功（data 一般为 null）",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "无权限",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "用户不存在",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{id}/revoke-vip": {
+            "post": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-users"
+                ],
+                "summary": "取消用户 VIP（管理员）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wood-passage-creator_internal_module_user.User"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "无权限",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "用户不存在",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{id}/upgrade-vip": {
+            "post": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-users"
+                ],
+                "summary": "升级用户为 VIP（管理员）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wood-passage-creator_internal_module_user.User"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "无权限",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "用户不存在",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/article/confirm-outline": {
             "post": {
                 "security": [
@@ -303,87 +635,6 @@ const docTemplate = `{
                                     }
                                 }
                             ]
-                        }
-                    }
-                }
-            }
-        },
-        "/article/list": {
-            "get": {
-                "security": [
-                    {
-                        "SessionAuth": []
-                    }
-                ],
-                "description": "全站文章列表，仅管理员；支持 pageNum/pageSize/status 查询参数。",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "article"
-                ],
-                "summary": "分页查询全部文章（管理员）",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "页码，默认 1",
-                        "name": "pageNum",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "每页条数，默认 10，最大 100",
-                        "name": "pageSize",
-                        "in": "query"
-                    },
-                    {
-                        "enum": [
-                            "PENDING",
-                            "PROCESSING",
-                            "COMPLETED",
-                            "FAILED"
-                        ],
-                        "type": "string",
-                        "description": "状态筛选",
-                        "name": "status",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/wood-passage-creator_internal_module_article.ArticleListData"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
-                        }
-                    },
-                    "401": {
-                        "description": "未登录",
-                        "schema": {
-                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "无权限",
-                        "schema": {
-                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
                 }
@@ -872,76 +1123,13 @@ const docTemplate = `{
                 }
             }
         },
-        "/users/list": {
+        "/users/{id}": {
             "get": {
                 "security": [
                     {
                         "SessionAuth": []
                     }
                 ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "分页查询用户列表（管理员）",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "页码，默认 1",
-                        "name": "pageNum",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "每页条数，默认 10，最大 100",
-                        "name": "pageSize",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/wood-passage-creator_internal_module_user.UserListData"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
-                        }
-                    },
-                    "401": {
-                        "description": "未登录",
-                        "schema": {
-                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "无权限",
-                        "schema": {
-                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/users/{id}": {
-            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -983,57 +1171,8 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     },
-                    "404": {
-                        "description": "用户不存在",
-                        "schema": {
-                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "SessionAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "删除用户（软删除，管理员）",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "用户 ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功（data 一般为 null）",
-                        "schema": {
-                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
-                        }
-                    },
                     "401": {
                         "description": "未登录",
-                        "schema": {
-                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "无权限",
                         "schema": {
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
@@ -1121,96 +1260,6 @@ const docTemplate = `{
                         "description": "用户不存在",
                         "schema": {
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/users/{id}/revoke-vip": {
-            "post": {
-                "security": [
-                    {
-                        "SessionAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "[Admin] 取消用户 VIP",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "用户 ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/wood-passage-creator_internal_module_user.User"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/users/{id}/upgrade-vip": {
-            "post": {
-                "security": [
-                    {
-                        "SessionAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "[Admin] 升级用户为 VIP",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "用户 ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/wood-passage-creator_internal_module_user.User"
-                                        }
-                                    }
-                                }
-                            ]
                         }
                     }
                 }

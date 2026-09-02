@@ -3,8 +3,8 @@ package user
 import (
 	"context"
 	"errors"
-	"time"
 	"log/slog"
+	"time"
 
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/pkg/page"
@@ -26,38 +26,17 @@ func NewService(repo Repository) *Service {
 	}
 }
 
-func (s *Service) CheckAndConsumeQuota(ctx context.Context, id int64) error {
-	u, err := s.repo.FindByID(ctx, id)
-	if err != nil {
-		return err
-	}
-	if u == nil {
-		return response.NewBizErrorWithDetail(response.ParamsError, "用户不存在")
-	}
-	if u.Quota <= 0 {
-		return response.NewBizErrorWithDetail(response.ParamsError, "配额不足")
-	}
-	u.Quota--
-	_, err = s.repo.Update(ctx, u.ID, UpdateRepoParams{
-		Quota: &u.Quota,
-	})
-	return err
-}
-
-// UpgradeToVIP 将用户设为 VIP 并记录 vip_time；已是 VIP 则幂等返回。
-func (s *Service) UpgradeToVIP(ctx context.Context, id int64) (*User, error) {
-	u, err := s.repo.FindByID(ctx, id)
+// GrantVIP 领域授 VIP（支付成功、系统任务等调用；不做 admin 校验）。
+// 已是 VIP 幂等返回；admin 账号无需 VIP，原样返回。
+func (s *Service) GrantVIP(ctx context.Context, userID int64) (*User, error) {
+	u, err := s.repo.FindByID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 	if u == nil {
 		return nil, response.NewBizErrorWithDetail(response.NotFound, "用户不存在")
 	}
-	if u.UserRole == RoleVIP {
-		return u, nil
-	}
-	if u.UserRole == RoleAdmin {
-		// 管理员无需 VIP；直接返回
+	if u.UserRole == RoleVIP || u.UserRole == RoleAdmin {
 		return u, nil
 	}
 	now := time.Now()
@@ -68,17 +47,38 @@ func (s *Service) UpgradeToVIP(ctx context.Context, id int64) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.log.Info("user upgraded to vip",
+	s.log.Info("user granted vip",
 		logger.FieldPurpose, logger.PurposeBiz,
-		logger.FieldEvent, "user.vip.upgrade",
-		"user_id", id,
+		logger.FieldEvent, "user.vip.grant",
+		"user_id", userID,
 	)
 	return out, nil
 }
 
-// RevokeVIP 取消 VIP，角色回 user 并清空 vip_time（开发/退款用）。
-func (s *Service) RevokeVIP(ctx context.Context, id int64) (*User, error) {
-	u, err := s.repo.FindByID(ctx, id)
+// AdminUpgradeVIP 管理员人工开通 VIP。
+func (s *Service) AdminUpgradeVIP(ctx context.Context, actor Actor, targetID int64) (*User, error) {
+	if err := actor.RequireAdmin(); err != nil {
+		return nil, err
+	}
+	out, err := s.GrantVIP(ctx, targetID)
+	if err != nil {
+		return nil, err
+	}
+	s.log.Info("admin upgraded user vip",
+		logger.FieldPurpose, logger.PurposeBiz,
+		logger.FieldEvent, "user.vip.admin_upgrade",
+		"user_id", targetID,
+		"actor_id", actor.ID,
+	)
+	return out, nil
+}
+
+// AdminRevokeVIP 管理员取消 VIP（开发/人工处理；支付退款也可走此入口并带 actor）。
+func (s *Service) AdminRevokeVIP(ctx context.Context, actor Actor, targetID int64) (*User, error) {
+	if err := actor.RequireAdmin(); err != nil {
+		return nil, err
+	}
+	u, err := s.repo.FindByID(ctx, targetID)
 	if err != nil {
 		return nil, err
 	}
@@ -98,12 +98,31 @@ func (s *Service) RevokeVIP(ctx context.Context, id int64) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.log.Info("user vip revoked",
+	s.log.Info("admin revoked user vip",
 		logger.FieldPurpose, logger.PurposeBiz,
-		logger.FieldEvent, "user.vip.revoke",
-		"user_id", id,
+		logger.FieldEvent, "user.vip.admin_revoke",
+		"user_id", targetID,
+		"actor_id", actor.ID,
 	)
 	return out, nil
+}
+
+func (s *Service) CheckAndConsumeQuota(ctx context.Context, id int64) error {
+	u, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if u == nil {
+		return response.NewBizErrorWithDetail(response.ParamsError, "用户不存在")
+	}
+	if u.Quota <= 0 {
+		return response.NewBizErrorWithDetail(response.ParamsError, "配额不足")
+	}
+	u.Quota--
+	_, err = s.repo.Update(ctx, u.ID, UpdateRepoParams{
+		Quota: &u.Quota,
+	})
+	return err
 }
 
 func (s *Service) Register(ctx context.Context, in RegisterRequest) (*User, error) {
@@ -178,7 +197,10 @@ func (s *Service) GetByID(ctx context.Context, id int64) (*User, error) {
 	return u, nil
 }
 
-func (s *Service) QueryList(ctx context.Context, params page.PageRequest) ([]*User, int, error) {
+func (s *Service) AdminQueryList(ctx context.Context, actor Actor, params page.PageRequest) ([]*User, int, error) {
+	if err := actor.RequireAdmin(); err != nil {
+		return nil, 0, err
+	}
 	users, total, err := s.repo.QueryList(ctx, params)
 	if err != nil {
 		return nil, 0, err
@@ -186,18 +208,9 @@ func (s *Service) QueryList(ctx context.Context, params page.PageRequest) ([]*Us
 	return users, total, nil
 }
 
-func (s *Service) Update(ctx context.Context, actorID, targetID int64, in UpdateRequest) (*User, error) {
-	if actorID != targetID {
-		actor, err := s.repo.FindByID(ctx, actorID)
-		if err != nil {
-			return nil, err
-		}
-		if actor == nil {
-			return nil, response.NewBizError(response.NoAuth)
-		}
-		if actor.UserRole != "admin" {
-			return nil, response.NewBizError(response.NoAuth)
-		}
+func (s *Service) Update(ctx context.Context, actor Actor, targetID int64, in UpdateRequest) (*User, error) {
+	if err := actor.RequireSelfOrAdmin(targetID); err != nil {
+		return nil, err
 	}
 
 	existing, err := s.repo.FindByID(ctx, targetID)
@@ -237,8 +250,33 @@ func (s *Service) Update(ctx context.Context, actorID, targetID int64, in Update
 	return u, nil
 }
 
-func (s *Service) Delete(ctx context.Context, id int64) error {
-	return s.repo.Delete(ctx, id)
+func (s *Service) AdminDelete(ctx context.Context, actor Actor, targetID int64) error {
+	if err := actor.RequireAdmin(); err != nil {
+		return err
+	}
+	if actor.ID == targetID {
+		return response.NewBizErrorWithDetail(response.ParamsError, "不能删除自己")
+	}
+	u, err := s.repo.FindByID(ctx, targetID)
+	if err != nil {
+		return err
+	}
+	if u == nil {
+		return response.NewBizError(response.NotFound)
+	}
+	if u.UserRole == RoleAdmin {
+		return response.NewBizErrorWithDetail(response.ParamsError, "不能删除管理员")
+	}
+	if err := s.repo.Delete(ctx, targetID); err != nil {
+		return err
+	}
+	s.log.Info("admin deleted user",
+		logger.FieldPurpose, logger.PurposeBiz,
+		logger.FieldEvent, "user.admin_delete",
+		"user_id", targetID,
+		"actor_id", actor.ID,
+	)
+	return nil
 }
 
 func hashPassword(plain string) (string, error) {

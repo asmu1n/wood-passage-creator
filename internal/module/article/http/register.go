@@ -31,8 +31,9 @@ func Register(api *echo.Group, svc *article.Service, usersvc *user.Service) {
 	}
 
 	{
-		article := api.Group("/article", middleware.AuthWithRoleRequired(usersvc, true))
+		admin := api.Group("/admin/article", middleware.AuthWithRoleRequired(usersvc, true))
 
-		article.GET("/list", h.ListAll)
+		admin.GET("/list", h.ListAll)
+
 	}
 }

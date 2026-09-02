@@ -84,7 +84,7 @@ func (h *Handler) Logout(c *echo.Context) error {
 
 // List godoc
 // @Summary      分页查询用户列表（管理员）
-// @Tags         users
+// @Tags         admin-users
 // @Produce      json
 // @Param        pageNum  query int false "页码，默认 1"
 // @Param        pageSize query int false "每页条数，默认 10，最大 100"
@@ -93,13 +93,17 @@ func (h *Handler) Logout(c *echo.Context) error {
 // @Failure      401 {object} response.Response "未登录"
 // @Failure      403 {object} response.Response "无权限"
 // @Security     SessionAuth
-// @Router       /users/list [get]
+// @Router       /admin/users/list [get]
 func (h *Handler) List(c *echo.Context) error {
 	var req page.PageRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
-	users, total, err := h.svc.QueryList(c.Request().Context(), req)
+	actor, err := middleware.GetLoginActor(c)
+	if err != nil {
+		return err
+	}
+	users, total, err := h.svc.AdminQueryList(c.Request().Context(), actor, req)
 	if err != nil {
 		return err
 	}
@@ -113,7 +117,9 @@ func (h *Handler) List(c *echo.Context) error {
 // @Param        id path int true "用户 ID"
 // @Success      200 {object} response.Response{data=user.User} "成功"
 // @Failure      400 {object} response.Response "参数错误"
+// @Failure      401 {object} response.Response "未登录"
 // @Failure      404 {object} response.Response "用户不存在"
+// @Security     SessionAuth
 // @Router       /users/{id} [get]
 func (h *Handler) GetByID(c *echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -146,7 +152,7 @@ func (h *Handler) Update(c *echo.Context) error {
 	if err != nil || id <= 0 {
 		return response.NewBizErrorWithDetail(response.ParamsError, "无效的用户 ID")
 	}
-	actorID, err := middleware.GetLoginUserID(c)
+	actor, err := middleware.GetLoginActor(c)
 	if err != nil {
 		return err
 	}
@@ -157,7 +163,7 @@ func (h *Handler) Update(c *echo.Context) error {
 	if !req.HasUpdates() {
 		return response.NewBizErrorWithDetail(response.ParamsError, "请至少提供一个更新字段")
 	}
-	u, err := h.svc.Update(c.Request().Context(), actorID, id, req)
+	u, err := h.svc.Update(c.Request().Context(), actor, id, req)
 	if err != nil {
 		return err
 	}
@@ -166,7 +172,7 @@ func (h *Handler) Update(c *echo.Context) error {
 
 // Delete godoc
 // @Summary      删除用户（软删除，管理员）
-// @Tags         users
+// @Tags         admin-users
 // @Produce      json
 // @Param        id path int true "用户 ID"
 // @Success      200 {object} response.Response "成功（data 一般为 null）"
@@ -175,32 +181,43 @@ func (h *Handler) Update(c *echo.Context) error {
 // @Failure      403 {object} response.Response "无权限"
 // @Failure      404 {object} response.Response "用户不存在"
 // @Security     SessionAuth
-// @Router       /users/{id} [delete]
+// @Router       /admin/users/{id} [delete]
 func (h *Handler) Delete(c *echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
 		return response.NewBizErrorWithDetail(response.ParamsError, "无效的用户 ID")
 	}
-	if err := h.svc.Delete(c.Request().Context(), id); err != nil {
+	actor, err := middleware.GetLoginActor(c)
+	if err != nil {
+		return err
+	}
+	if err := h.svc.AdminDelete(c.Request().Context(), actor, id); err != nil {
 		return err
 	}
 	return c.JSON(http.StatusOK, response.OK(nil))
 }
 
 // UpgradeVIP godoc
-// @Summary      [Admin] 升级用户为 VIP
-// @Tags         users
+// @Summary      升级用户为 VIP（管理员）
+// @Tags         admin-users
 // @Produce      json
 // @Param        id path int true "用户 ID"
 // @Success      200 {object} response.Response{data=user.User}
+// @Failure      401 {object} response.Response "未登录"
+// @Failure      403 {object} response.Response "无权限"
+// @Failure      404 {object} response.Response "用户不存在"
 // @Security     SessionAuth
-// @Router       /users/{id}/upgrade-vip [post]
+// @Router       /admin/users/{id}/upgrade-vip [post]
 func (h *Handler) UpgradeVIP(c *echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
 		return response.NewBizErrorWithDetail(response.ParamsError, "无效的用户 ID")
 	}
-	u, err := h.svc.UpgradeToVIP(c.Request().Context(), id)
+	actor, err := middleware.GetLoginActor(c)
+	if err != nil {
+		return err
+	}
+	u, err := h.svc.AdminUpgradeVIP(c.Request().Context(), actor, id)
 	if err != nil {
 		return err
 	}
@@ -208,19 +225,26 @@ func (h *Handler) UpgradeVIP(c *echo.Context) error {
 }
 
 // RevokeVIP godoc
-// @Summary      [Admin] 取消用户 VIP
-// @Tags         users
+// @Summary      取消用户 VIP（管理员）
+// @Tags         admin-users
 // @Produce      json
 // @Param        id path int true "用户 ID"
 // @Success      200 {object} response.Response{data=user.User}
+// @Failure      401 {object} response.Response "未登录"
+// @Failure      403 {object} response.Response "无权限"
+// @Failure      404 {object} response.Response "用户不存在"
 // @Security     SessionAuth
-// @Router       /users/{id}/revoke-vip [post]
+// @Router       /admin/users/{id}/revoke-vip [post]
 func (h *Handler) RevokeVIP(c *echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
 		return response.NewBizErrorWithDetail(response.ParamsError, "无效的用户 ID")
 	}
-	u, err := h.svc.RevokeVIP(c.Request().Context(), id)
+	actor, err := middleware.GetLoginActor(c)
+	if err != nil {
+		return err
+	}
+	u, err := h.svc.AdminRevokeVIP(c.Request().Context(), actor, id)
 	if err != nil {
 		return err
 	}

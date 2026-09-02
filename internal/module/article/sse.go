@@ -103,10 +103,9 @@ type ContentDonePayload struct {
 func (s *Service) SubscribeProgress(
 	ctx context.Context,
 	taskID string,
-	actorID int64,
-	role user.UserRole,
+	actor user.Actor,
 ) (ch <-chan sse.SSEEvent, cancel func(), err error) {
-	art, err := s.loadAccessibleByTaskID(ctx, taskID, actorID, role)
+	art, err := s.loadAccessibleByTaskID(ctx, taskID, actor)
 	if err != nil {
 		return nil, nil, err
 	}

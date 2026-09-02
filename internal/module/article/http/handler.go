@@ -7,6 +7,7 @@ import (
 	"wood-passage-creator/internal/httpapi/binding"
 	"wood-passage-creator/internal/httpapi/middleware"
 	"wood-passage-creator/internal/module/article"
+	"wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/pkg/response"
 	pkgsse "wood-passage-creator/internal/pkg/sse"
@@ -21,6 +22,11 @@ type Handler struct {
 
 func NewHandler(svc *article.Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+// loginActor 读取 AuthWithRoleRequired 注入的 Actor。
+func loginActor(c *echo.Context) (user.Actor, error) {
+	return middleware.GetLoginActor(c)
 }
 
 // Create godoc
@@ -40,15 +46,11 @@ func (h *Handler) Create(c *echo.Context) error {
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
-	actorID, err := middleware.GetLoginUserID(c)
+	actor, err := loginActor(c)
 	if err != nil {
 		return err
 	}
-	role, err := middleware.GetLoginUserRole(c)
-	if err != nil {
-		return err
-	}
-	u, err := h.svc.Create(c.Request().Context(), actorID, role, req)
+	u, err := h.svc.Create(c.Request().Context(), actor, req)
 	if err != nil {
 		return err
 	}
@@ -74,15 +76,11 @@ func (h *Handler) ConfirmTitle(c *echo.Context) error {
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
-	actorID, err := middleware.GetLoginUserID(c)
+	actor, err := loginActor(c)
 	if err != nil {
 		return err
 	}
-	actorRole, err := middleware.GetLoginUserRole(c)
-	if err != nil {
-		return err
-	}
-	if err := h.svc.ConfirmTitle(c.Request().Context(), actorID, actorRole, req); err != nil {
+	if err := h.svc.ConfirmTitle(c.Request().Context(), actor, req); err != nil {
 		return err
 	}
 	return c.JSON(http.StatusOK, response.OK(nil))
@@ -107,15 +105,11 @@ func (h *Handler) ConfirmOutline(c *echo.Context) error {
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
-	actorID, err := middleware.GetLoginUserID(c)
+	actor, err := loginActor(c)
 	if err != nil {
 		return err
 	}
-	actorRole, err := middleware.GetLoginUserRole(c)
-	if err != nil {
-		return err
-	}
-	if err := h.svc.ConfirmOutline(c.Request().Context(), req.TaskID, actorID, actorRole, req.Outline); err != nil {
+	if err := h.svc.ConfirmOutline(c.Request().Context(), actor, req.TaskID, req.Outline); err != nil {
 		return err
 	}
 	return c.JSON(http.StatusOK, response.OK(nil))
@@ -139,15 +133,11 @@ func (h *Handler) GetByTaskID(c *echo.Context) error {
 	if taskID == "" {
 		return response.NewBizErrorWithDetail(response.ParamsError, "任务ID不能为空")
 	}
-	actorID, err := middleware.GetLoginUserID(c)
+	actor, err := loginActor(c)
 	if err != nil {
 		return err
 	}
-	actorRole, err := middleware.GetLoginUserRole(c)
-	if err != nil {
-		return err
-	}
-	u, err := h.svc.GetByTaskID(c.Request().Context(), taskID, actorID, actorRole)
+	u, err := h.svc.GetByTaskID(c.Request().Context(), taskID, actor)
 	if err != nil {
 		return err
 	}
@@ -187,11 +177,11 @@ func (h *Handler) ListBySelf(c *echo.Context) error {
 		return err
 	}
 
-	actorID, err := middleware.GetLoginUserID(c)
+	actor, err := loginActor(c)
 	if err != nil {
 		return err
 	}
-	u, total, err := h.svc.ListByUser(c.Request().Context(), actorID, req)
+	u, total, err := h.svc.ListByUser(c.Request().Context(), actor, req)
 	if err != nil {
 		return err
 	}
@@ -201,7 +191,7 @@ func (h *Handler) ListBySelf(c *echo.Context) error {
 // ListAll godoc
 // @Summary      分页查询全部文章（管理员）
 // @Description  全站文章列表，仅管理员；支持 pageNum/pageSize/status 查询参数。
-// @Tags         article
+// @Tags         admin-article
 // @Produce      json
 // @Param        pageNum  query int    false "页码，默认 1"
 // @Param        pageSize query int    false "每页条数，默认 10，最大 100"
@@ -211,13 +201,17 @@ func (h *Handler) ListBySelf(c *echo.Context) error {
 // @Failure      401 {object} response.Response "未登录"
 // @Failure      403 {object} response.Response "无权限"
 // @Security     SessionAuth
-// @Router       /article/list [get]
+// @Router       /admin/article/list [get]
 func (h *Handler) ListAll(c *echo.Context) error {
 	var req article.QueryArticleRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
-	u, total, err := h.svc.ListAll(c.Request().Context(), req)
+	actor, err := loginActor(c)
+	if err != nil {
+		return err
+	}
+	u, total, err := h.svc.ListAll(c.Request().Context(), actor, req)
 	if err != nil {
 		return err
 	}
@@ -243,7 +237,12 @@ func (h *Handler) Delete(c *echo.Context) error {
 	if err != nil || id <= 0 {
 		return response.NewBizErrorWithDetail(response.ParamsError, "无效的文章 ID")
 	}
-	if err := h.svc.Delete(c.Request().Context(), id); err != nil {
+	actor, err := loginActor(c)
+	if err != nil {
+		return err
+	}
+
+	if err := h.svc.Delete(c.Request().Context(), actor, id); err != nil {
 		return err
 	}
 	return c.JSON(http.StatusOK, response.OK(nil))
@@ -267,11 +266,7 @@ func (h *Handler) GetProgress(c *echo.Context) error {
 		return response.NewBizErrorWithDetail(response.ParamsError, "任务ID不能为空")
 	}
 
-	actorID, err := middleware.GetLoginUserID(c)
-	if err != nil {
-		return err
-	}
-	actorRole, err := middleware.GetLoginUserRole(c)
+	actor, err := loginActor(c)
 	if err != nil {
 		return err
 	}
@@ -280,8 +275,7 @@ func (h *Handler) GetProgress(c *echo.Context) error {
 	ch, cancel, err := h.svc.SubscribeProgress(
 		c.Request().Context(),
 		taskID,
-		actorID,
-		actorRole,
+		actor,
 	)
 	if err != nil {
 		return err
@@ -351,16 +345,12 @@ func (h *Handler) ModifyOutline(c *echo.Context) error {
 		return err
 	}
 
-	actorID, err := middleware.GetLoginUserID(c)
-	if err != nil {
-		return err
-	}
-	actorRole, err := middleware.GetLoginUserRole(c)
+	actor, err := loginActor(c)
 	if err != nil {
 		return err
 	}
 
-	u, err := h.svc.ModifyOutline(c.Request().Context(), actorID, actorRole, req)
+	u, err := h.svc.ModifyOutline(c.Request().Context(), actor, req)
 	if err != nil {
 		return err
 	}
@@ -382,15 +372,11 @@ func (h *Handler) GetExecutionLogs(c *echo.Context) error {
 	if taskID == "" {
 		return response.NewBizErrorWithDetail(response.ParamsError, "任务ID不能为空")
 	}
-	actorID, err := middleware.GetLoginUserID(c)
+	actor, err := loginActor(c)
 	if err != nil {
 		return err
 	}
-	actorRole, err := middleware.GetLoginUserRole(c)
-	if err != nil {
-		return err
-	}
-	stats, err := h.svc.GetExecutionLogs(c.Request().Context(), taskID, actorID, actorRole)
+	stats, err := h.svc.GetExecutionLogs(c.Request().Context(), actor, taskID)
 	if err != nil {
 		return err
 	}

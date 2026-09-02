@@ -15,7 +15,7 @@ import (
 // UserVIP 升级 VIP 的最小依赖（避免 payment → user 具体方法膨胀时难测）。
 type UserVIP interface {
 	GetByID(ctx context.Context, id int64) (*user.User, error)
-	UpgradeToVIP(ctx context.Context, id int64) (*user.User, error)
+	GrantVIP(ctx context.Context, userID int64) (*user.User, error)
 }
 
 // Service 开发态 mock 支付 + 与 VIP 升级打通。
@@ -71,7 +71,7 @@ func (s *Service) CreateMockVIPSession(ctx context.Context, userID int64) (*Mock
 }
 
 // CompleteMockVIP 模拟支付成功：标记记录 SUCCEEDED 并 UpgradeToVIP（幂等）。
-func (s *Service) CompleteMockVIP(ctx context.Context, actorID int64, actorRole user.UserRole, sessionID string) (*MockCompleteResult, error) {
+func (s *Service) CompleteMockVIP(ctx context.Context, actor user.Actor, sessionID string) (*MockCompleteResult, error) {
 	rec, err := s.repo.GetBySessionID(ctx, sessionID)
 	if err != nil {
 		return nil, err
@@ -80,8 +80,8 @@ func (s *Service) CompleteMockVIP(ctx context.Context, actorID int64, actorRole 
 		return nil, response.NewBizErrorWithDetail(response.NotFound, "支付会话不存在")
 	}
 	// 仅本人或管理员可 complete
-	if actorRole != user.RoleAdmin && rec.UserID != actorID {
-		return nil, response.NewBizError(response.NoAuth)
+	if err := actor.RequireSelfOrAdmin(rec.UserID); err != nil {
+		return nil, err
 	}
 	if rec.ProductType != ProductVIPPermanent {
 		return nil, response.NewBizErrorWithDetail(response.ParamsError, "不支持的产品类型")
@@ -89,7 +89,7 @@ func (s *Service) CompleteMockVIP(ctx context.Context, actorID int64, actorRole 
 
 	// 已成功：只保证用户是 VIP，再返回
 	if rec.Status == StatusSucceeded {
-		u, err := s.users.UpgradeToVIP(ctx, rec.UserID)
+		u, err := s.users.GrantVIP(ctx, rec.UserID)
 		if err != nil {
 			return nil, err
 		}
@@ -108,7 +108,7 @@ func (s *Service) CompleteMockVIP(ctx context.Context, actorID int64, actorRole 
 	if err != nil {
 		return nil, err
 	}
-	u, err := s.users.UpgradeToVIP(ctx, rec.UserID)
+	u, err := s.users.GrantVIP(ctx, rec.UserID)
 	if err != nil {
 		return nil, err
 	}

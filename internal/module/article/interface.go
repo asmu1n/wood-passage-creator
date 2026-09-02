@@ -24,7 +24,7 @@ type Repository interface {
 	ListByUser(ctx context.Context, userID int64, params ListArticlesParams) (items []*Article, total int, err error)
 	ListAll(ctx context.Context, params ListArticlesParams) (items []*Article, total int, err error)
 
-	Delete(ctx context.Context, id int64) error
+	Delete(ctx context.Context, id int64) error // repo only
 }
 
 // CreateArticleParams 仓储创建参数。

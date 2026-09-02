@@ -28,11 +28,11 @@ func NewHandler(svc *payment.Service) *Handler {
 // @Security     SessionAuth
 // @Router       /payment/vip/mock-session [post]
 func (h *Handler) CreateMockVIPSession(c *echo.Context) error {
-	uid, err := middleware.GetLoginUserID(c)
+	actorID, err := middleware.GetLoginUserID(c)
 	if err != nil {
 		return err
 	}
-	out, err := h.svc.CreateMockVIPSession(c.Request().Context(), uid)
+	out, err := h.svc.CreateMockVIPSession(c.Request().Context(), actorID)
 	if err != nil {
 		return err
 	}
@@ -54,15 +54,11 @@ func (h *Handler) CompleteMockVIP(c *echo.Context) error {
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
-	uid, err := middleware.GetLoginUserID(c)
+	actor, err := middleware.GetLoginActor(c)
 	if err != nil {
 		return err
 	}
-	role, err := middleware.GetLoginUserRole(c)
-	if err != nil {
-		return err
-	}
-	out, err := h.svc.CompleteMockVIP(c.Request().Context(), uid, role, req.SessionID)
+	out, err := h.svc.CompleteMockVIP(c.Request().Context(), actor, req.SessionID)
 	if err != nil {
 		return err
 	}
