@@ -7,7 +7,6 @@ import (
 	"wood-passage-creator/internal/httpapi/binding"
 	"wood-passage-creator/internal/httpapi/middleware"
 	"wood-passage-creator/internal/module/article"
-	"wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/pkg/response"
 	pkgsse "wood-passage-creator/internal/pkg/sse"
@@ -22,11 +21,6 @@ type Handler struct {
 
 func NewHandler(svc *article.Service) *Handler {
 	return &Handler{svc: svc}
-}
-
-// loginActor 读取 AuthWithRoleRequired 注入的 Actor。
-func loginActor(c *echo.Context) (user.Actor, error) {
-	return middleware.GetLoginActor(c)
 }
 
 // Create godoc
@@ -46,7 +40,7 @@ func (h *Handler) Create(c *echo.Context) error {
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
-	actor, err := loginActor(c)
+	actor, err := middleware.GetLoginActor(c)
 	if err != nil {
 		return err
 	}
@@ -76,7 +70,7 @@ func (h *Handler) ConfirmTitle(c *echo.Context) error {
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
-	actor, err := loginActor(c)
+	actor, err := middleware.GetLoginActor(c)
 	if err != nil {
 		return err
 	}
@@ -105,7 +99,7 @@ func (h *Handler) ConfirmOutline(c *echo.Context) error {
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
-	actor, err := loginActor(c)
+	actor, err := middleware.GetLoginActor(c)
 	if err != nil {
 		return err
 	}
@@ -133,7 +127,7 @@ func (h *Handler) GetByTaskID(c *echo.Context) error {
 	if taskID == "" {
 		return response.NewBizErrorWithDetail(response.ParamsError, "任务ID不能为空")
 	}
-	actor, err := loginActor(c)
+	actor, err := middleware.GetLoginActor(c)
 	if err != nil {
 		return err
 	}
@@ -177,7 +171,7 @@ func (h *Handler) ListBySelf(c *echo.Context) error {
 		return err
 	}
 
-	actor, err := loginActor(c)
+	actor, err := middleware.GetLoginActor(c)
 	if err != nil {
 		return err
 	}
@@ -207,7 +201,7 @@ func (h *Handler) ListAll(c *echo.Context) error {
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
-	actor, err := loginActor(c)
+	actor, err := middleware.GetLoginActor(c)
 	if err != nil {
 		return err
 	}
@@ -237,7 +231,7 @@ func (h *Handler) Delete(c *echo.Context) error {
 	if err != nil || id <= 0 {
 		return response.NewBizErrorWithDetail(response.ParamsError, "无效的文章 ID")
 	}
-	actor, err := loginActor(c)
+	actor, err := middleware.GetLoginActor(c)
 	if err != nil {
 		return err
 	}
@@ -266,7 +260,7 @@ func (h *Handler) GetProgress(c *echo.Context) error {
 		return response.NewBizErrorWithDetail(response.ParamsError, "任务ID不能为空")
 	}
 
-	actor, err := loginActor(c)
+	actor, err := middleware.GetLoginActor(c)
 	if err != nil {
 		return err
 	}
@@ -345,7 +339,7 @@ func (h *Handler) ModifyOutline(c *echo.Context) error {
 		return err
 	}
 
-	actor, err := loginActor(c)
+	actor, err := middleware.GetLoginActor(c)
 	if err != nil {
 		return err
 	}
@@ -372,7 +366,7 @@ func (h *Handler) GetExecutionLogs(c *echo.Context) error {
 	if taskID == "" {
 		return response.NewBizErrorWithDetail(response.ParamsError, "任务ID不能为空")
 	}
-	actor, err := loginActor(c)
+	actor, err := middleware.GetLoginActor(c)
 	if err != nil {
 		return err
 	}
