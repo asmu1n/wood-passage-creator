@@ -21,7 +21,13 @@ type Service struct {
 	userService  *user.Service
 	orchestrator AgentOrchestrator
 	sse          sse.SSEHub
+	statsCache   overviewCacheInvalidator // 可选：文章变更时失效统计概览
 	log          *slog.Logger
+}
+
+// overviewCacheInvalidator 避免 article → statistics 具体类型依赖。
+type overviewCacheInvalidator interface {
+	InvalidateOverview(ctx context.Context)
 }
 
 func NewService(
@@ -30,6 +36,7 @@ func NewService(
 	userService *user.Service,
 	orch AgentOrchestrator,
 	sse sse.SSEHub,
+	statsCache overviewCacheInvalidator,
 ) *Service {
 	return &Service{
 		repo:         repo,
@@ -37,8 +44,16 @@ func NewService(
 		userService:  userService,
 		orchestrator: orch,
 		sse:          sse,
+		statsCache:   statsCache,
 		log:          logger.Module("article"),
 	}
+}
+
+func (s *Service) invalidateStatsOverview(ctx context.Context) {
+	if s.statsCache == nil {
+		return
+	}
+	s.statsCache.InvalidateOverview(ctx)
 }
 
 // ensureArticleAccess 校验登录用户是否可访问文章（管理员或作者）。
@@ -198,6 +213,7 @@ func (s *Service) Create(ctx context.Context, actor user.Actor, req CreateArticl
 		"topic", req.Topic,
 	)
 
+	s.invalidateStatsOverview(ctx)
 	go s.runPhase1Async(taskID, req.Topic, req.Style)
 
 	return taskID, nil
@@ -247,7 +263,11 @@ func (s *Service) Delete(ctx context.Context, actor user.Actor, id int64) error 
 	if _, err := s.loadAccessibleByID(ctx, id, actor); err != nil {
 		return err
 	}
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+	s.invalidateStatsOverview(ctx)
+	return nil
 }
 
 // runPhase1Async 异步执行阶段 1：生成标题方案。
@@ -352,6 +372,8 @@ func (s *Service) failPhase1(ctx context.Context, taskID string, err error) {
 			logger.FieldErr, uerr,
 			"task_id", taskID,
 		)
+	} else {
+		s.invalidateStatsOverview(ctx)
 	}
 	s.publishSSEError(taskID, msg)
 }
@@ -441,6 +463,8 @@ func (s *Service) failPhase2(ctx context.Context, taskID string, err error) {
 			logger.FieldErr, uerr,
 			"task_id", taskID,
 		)
+	} else {
+		s.invalidateStatsOverview(ctx)
 	}
 	s.publishSSEError(taskID, msg)
 }
@@ -503,6 +527,8 @@ func (s *Service) runPhase3Async(article *Article, userRole user.UserRole) {
 		Status: StatusCompleted,
 	})
 
+	s.invalidateStatsOverview(ctx)
+
 	s.log.Info("phase3 completed",
 		logger.FieldPurpose, logger.PurposeJob,
 		logger.FieldEvent, "article.phase3.completed",
@@ -535,6 +561,8 @@ func (s *Service) failPhase3(ctx context.Context, taskID string, err error) {
 			logger.FieldErr, uerr,
 			"task_id", taskID,
 		)
+	} else {
+		s.invalidateStatsOverview(ctx)
 	}
 	s.publishSSEError(taskID, msg)
 }

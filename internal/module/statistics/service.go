@@ -7,36 +7,67 @@ import (
 
 	"wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/logger"
+	"wood-passage-creator/internal/port"
 )
 
 // Service 管理端统计概览。
 type Service struct {
-	repo Repository
-	log  *slog.Logger
-	loc  *time.Location
+	repo  Repository
+	cache port.Cache
+	log   *slog.Logger
+	loc   *time.Location
 }
 
-func NewService(repo Repository) *Service {
+func NewService(repo Repository, cache port.Cache) *Service {
 	loc, err := time.LoadLocation("Asia/Shanghai")
 	if err != nil {
 		loc = time.Local
 	}
 	return &Service{
-		repo: repo,
-		log:  logger.Module("statistics"),
-		loc:  loc,
+		repo:  repo,
+		cache: cache,
+		log:   logger.Module("statistics"),
+		loc:   loc,
 	}
 }
 
-// GetOverview 聚合系统概览；需管理员。
+// InvalidateOverview 删除概览缓存，使下次 GetOverview 重新聚合。
+// 失败只记日志，不影响主业务流程。
+func (s *Service) InvalidateOverview(ctx context.Context) {
+	if s == nil || s.cache == nil {
+		return
+	}
+	if err := s.cache.Delete(ctx, OverviewCacheKey); err != nil {
+		s.log.Warn("invalidate overview cache failed",
+			logger.FieldPurpose, logger.PurposeCache,
+			logger.FieldEvent, "statistics.overview.invalidate_failed",
+			logger.FieldErr, err,
+			"key", OverviewCacheKey,
+		)
+		return
+	}
+	s.log.Info("overview cache invalidated",
+		logger.FieldPurpose, logger.PurposeCache,
+		logger.FieldEvent, "statistics.overview.invalidated",
+		"key", OverviewCacheKey,
+	)
+}
+
+// GetOverview 聚合系统概览；需管理员。命中缓存则跳过 DB 聚合。
 func (s *Service) GetOverview(ctx context.Context, actor user.Actor) (*Overview, error) {
 	if err := actor.RequireAdmin(); err != nil {
 		return nil, err
 	}
 
+	return port.TryFetch(ctx, s.cache, OverviewCacheKey, OverviewCacheTTL, func() (*Overview, error) {
+		return s.computeOverview(ctx, actor.ID)
+	})
+}
+
+func (s *Service) computeOverview(ctx context.Context, actorID int64) (*Overview, error) {
 	now := time.Now().In(s.loc)
 	todayStart := startOfDay(now)
-	weekStart := startOfWeek(now) // 周一 00:00
+	weekStart := startOfWeek(now)
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, s.loc)
 
 	today, err := s.repo.CountArticlesBetween(ctx, todayStart, now)
@@ -104,8 +135,8 @@ func (s *Service) GetOverview(ctx context.Context, actor user.Actor) (*Overview,
 
 	s.log.Info("statistics overview computed",
 		logger.FieldPurpose, logger.PurposeBiz,
-		logger.FieldEvent, "statistics.overview",
-		"actor_id", actor.ID,
+		logger.FieldEvent, "statistics.overview.computed",
+		"actor_id", actorID,
 		"total_articles", total,
 	)
 	return out, nil
@@ -116,10 +147,8 @@ func startOfDay(t time.Time) time.Time {
 	return time.Date(y, m, d, 0, 0, 0, 0, t.Location())
 }
 
-// startOfWeek 返回本周一 00:00（本地 loc）。
 func startOfWeek(t time.Time) time.Time {
 	sod := startOfDay(t)
-	// Go: Sunday=0 ... Saturday=6；转到距离周一的天数
 	wd := int(sod.Weekday())
 	if wd == 0 {
 		wd = 7

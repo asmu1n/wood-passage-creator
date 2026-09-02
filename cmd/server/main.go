@@ -12,6 +12,7 @@ import (
 	"wood-passage-creator/internal/httpapi"
 	"wood-passage-creator/internal/httpapi/binding"
 	httpmw "wood-passage-creator/internal/httpapi/middleware"
+	"wood-passage-creator/internal/infra/cache"
 	"wood-passage-creator/internal/infra/database"
 	"wood-passage-creator/internal/infra/image"
 	"wood-passage-creator/internal/infra/llm"
@@ -89,12 +90,12 @@ func main() {
 
 	// 业务装配：user 模块（可按需再注入 cache/lock）
 	// locker := lock.New(redisClient)
-	// cacheClient := cache.New(redisClient)
+	cacheClient := cache.New(redisClient)
 	// _ = redisClient
 	ssehub := sse.NewHub()
-	userSvc := user.NewService(userrepo.New(db.Client))
+	statsSvc := statistics.NewService(statisticsrepo.New(db.Client), cacheClient)
+	userSvc := user.NewService(userrepo.New(db.Client), statsSvc)
 	paymentSvc := payment.NewService(paymentrepo.New(db.Client), userSvc)
-	statsSvc := statistics.NewService(statisticsrepo.New(db.Client))
 	imgGen := image.NewGenerator(cfg, chatModal)
 	articleRepo := articlerepo.NewArticleRepo(db.Client)
 	agentLogRepo := articlerepo.NewAgentLogRepo(db.Client)
@@ -110,6 +111,7 @@ func main() {
 			agentLogRecorder,
 		),
 		ssehub,
+		statsSvc,
 	)
 
 	e.Use(session.Middleware(store))

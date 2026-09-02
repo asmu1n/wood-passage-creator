@@ -15,15 +15,29 @@ import (
 
 // Service 用户用例。
 type Service struct {
-	repo Repository
-	log  *slog.Logger
+	repo       Repository
+	statsCache overviewCacheInvalidator // 可选：用户/VIP 变更时失效统计概览
+	log        *slog.Logger
 }
 
-func NewService(repo Repository) *Service {
+// overviewCacheInvalidator 避免 user → statistics 具体类型依赖。
+type overviewCacheInvalidator interface {
+	InvalidateOverview(ctx context.Context)
+}
+
+func NewService(repo Repository, statsCache overviewCacheInvalidator) *Service {
 	return &Service{
-		repo: repo,
-		log:  logger.Module("user"),
+		repo:       repo,
+		statsCache: statsCache,
+		log:        logger.Module("user"),
 	}
+}
+
+func (s *Service) invalidateStatsOverview(ctx context.Context) {
+	if s.statsCache == nil {
+		return
+	}
+	s.statsCache.InvalidateOverview(ctx)
 }
 
 // GrantVIP 领域授 VIP（支付成功、系统任务等调用；不做 admin 校验）。
@@ -52,6 +66,7 @@ func (s *Service) GrantVIP(ctx context.Context, userID int64) (*User, error) {
 		logger.FieldEvent, "user.vip.grant",
 		"user_id", userID,
 	)
+	s.invalidateStatsOverview(ctx)
 	return out, nil
 }
 
@@ -104,6 +119,7 @@ func (s *Service) AdminRevokeVIP(ctx context.Context, actor Actor, targetID int6
 		"user_id", targetID,
 		"actor_id", actor.ID,
 	)
+	s.invalidateStatsOverview(ctx)
 	return out, nil
 }
 
@@ -161,6 +177,7 @@ func (s *Service) Register(ctx context.Context, in RegisterRequest) (*User, erro
 		"user_id", u.ID,
 		"user_account", u.UserAccount,
 	)
+	s.invalidateStatsOverview(ctx)
 	return u, nil
 }
 
@@ -276,6 +293,7 @@ func (s *Service) AdminDelete(ctx context.Context, actor Actor, targetID int64) 
 		"user_id", targetID,
 		"actor_id", actor.ID,
 	)
+	s.invalidateStatsOverview(ctx)
 	return nil
 }
 
