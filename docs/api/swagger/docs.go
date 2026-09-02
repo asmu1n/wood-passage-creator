@@ -96,6 +96,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/statistics/overview": {
+            "get": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "今日/本周/本月创作量、成功率、平均耗时、用户与 VIP、配额使用等。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-statistics"
+                ],
+                "summary": "系统统计概览（管理员）",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wood-passage-creator_internal_module_statistics.Overview"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "无权限",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/users/list": {
             "get": {
                 "security": [
@@ -1736,6 +1785,43 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "userId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "wood-passage-creator_internal_module_statistics.Overview": {
+            "type": "object",
+            "properties": {
+                "activeUserCount": {
+                    "description": "本周有创作的用户数",
+                    "type": "integer"
+                },
+                "avgDurationMs": {
+                    "type": "integer"
+                },
+                "monthCount": {
+                    "type": "integer"
+                },
+                "quotaUsed": {
+                    "type": "integer"
+                },
+                "successRate": {
+                    "description": "0~100",
+                    "type": "number"
+                },
+                "todayCount": {
+                    "type": "integer"
+                },
+                "totalCount": {
+                    "type": "integer"
+                },
+                "totalUserCount": {
+                    "type": "integer"
+                },
+                "vipUserCount": {
+                    "type": "integer"
+                },
+                "weekCount": {
                     "type": "integer"
                 }
             }

@@ -21,6 +21,8 @@ import (
 	articlerepo "wood-passage-creator/internal/module/article/repo"
 	"wood-passage-creator/internal/module/payment"
 	paymentrepo "wood-passage-creator/internal/module/payment/repo"
+	"wood-passage-creator/internal/module/statistics"
+	statisticsrepo "wood-passage-creator/internal/module/statistics/repo"
 	"wood-passage-creator/internal/module/user"
 	userrepo "wood-passage-creator/internal/module/user/repo"
 	"wood-passage-creator/internal/pkg/logger"
@@ -92,6 +94,7 @@ func main() {
 	ssehub := sse.NewHub()
 	userSvc := user.NewService(userrepo.New(db.Client))
 	paymentSvc := payment.NewService(paymentrepo.New(db.Client), userSvc)
+	statsSvc := statistics.NewService(statisticsrepo.New(db.Client))
 	imgGen := image.NewGenerator(cfg, chatModal)
 	articleRepo := articlerepo.NewArticleRepo(db.Client)
 	agentLogRepo := articlerepo.NewAgentLogRepo(db.Client)
@@ -113,7 +116,7 @@ func main() {
 
 	e.GET("/swagger/*", echo.WrapHandler(httpSwagger.WrapHandler))
 
-	httpapi.RegisterRouter(e, userSvc, articleSvc, paymentSvc)
+	httpapi.RegisterRouter(e, userSvc, articleSvc, paymentSvc, statsSvc)
 
 	logger.Info("http server starting",
 		logger.FieldPurpose, logger.PurposeInfra,
