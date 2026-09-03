@@ -98,7 +98,7 @@ func (h *Handler) AdminList(c *echo.Context) error {
 	return c.JSON(http.StatusOK, response.OK(page.NewPageResponse(out, count, req.PageRequest)))
 }
 
-func (h *Handler) GetSelfPaymentRecords(c *echo.Context) error {
+func (h *Handler) ListBySelf(c *echo.Context) error {
 	var req payment.ListByUserRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
