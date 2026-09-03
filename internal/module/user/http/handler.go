@@ -82,6 +82,28 @@ func (h *Handler) Logout(c *echo.Context) error {
 	return c.JSON(http.StatusOK, response.OK(nil))
 }
 
+// Me godoc
+// @Summary      获取当前登录用户
+// @Description  根据 session 从数据库加载最新用户信息（角色/配额等），用于前端刷新登录态。
+// @Tags         auth
+// @Produce      json
+// @Success      200 {object} response.Response{data=user.User} "成功"
+// @Failure      401 {object} response.Response "未登录"
+// @Failure      404 {object} response.Response "用户不存在"
+// @Security     SessionAuth
+// @Router       /auth/me [get]
+func (h *Handler) Me(c *echo.Context) error {
+	uid, err := middleware.GetLoginUserID(c)
+	if err != nil {
+		return err
+	}
+	u, err := h.svc.GetByID(c.Request().Context(), uid)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, response.OK(u))
+}
+
 // List godoc
 // @Summary      分页查询用户列表（管理员）
 // @Tags         admin-users

@@ -17,6 +17,7 @@ func Register(api *echo.Group, svc *user.Service) {
 		auth.POST("/register", h.Register)
 		auth.POST("/login", h.Login)
 		auth.POST("/logout", h.Logout, middleware.AuthRequired())
+		auth.GET("/me", h.Me, middleware.AuthRequired())
 	}
 
 	{
