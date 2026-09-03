@@ -21,7 +21,7 @@ func Register(api *echo.Group, svc *user.Service) {
 	}
 
 	{
-		users := api.Group("/users", middleware.AuthRequired())
+		users := api.Group("/users", middleware.AuthWithRoleRequired(svc, false))
 
 		users.GET("/:id", h.GetByID)
 		users.PATCH("/:id", h.Update)
