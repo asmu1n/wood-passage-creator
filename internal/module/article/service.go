@@ -18,7 +18,7 @@ import (
 type Service struct {
 	repo         Repository
 	agentLogs    AgentLogRepository
-	userService  *user.Service
+	userQuota    UserQuota
 	orchestrator AgentOrchestrator
 	sse          sse.SSEHub
 	statsCache   overviewCacheInvalidator // 可选：文章变更时失效统计概览
@@ -33,7 +33,7 @@ type overviewCacheInvalidator interface {
 func NewService(
 	repo Repository,
 	agentLogs AgentLogRepository,
-	userService *user.Service,
+	userQuota UserQuota,
 	orch AgentOrchestrator,
 	sse sse.SSEHub,
 	statsCache overviewCacheInvalidator,
@@ -41,7 +41,7 @@ func NewService(
 	return &Service{
 		repo:         repo,
 		agentLogs:    agentLogs,
-		userService:  userService,
+		userQuota:    userQuota,
 		orchestrator: orch,
 		sse:          sse,
 		statsCache:   statsCache,
@@ -184,7 +184,8 @@ func (s *Service) Create(ctx context.Context, actor user.Actor, req CreateArticl
 	if err != nil {
 		return "", err
 	}
-	if err := s.userService.CheckAndConsumeQuota(ctx, actor.ID); err != nil {
+	consumed, err := s.userQuota.CheckAndConsumeQuota(ctx, actor.ID)
+	if err != nil {
 		return "", err
 	}
 
@@ -195,11 +196,23 @@ func (s *Service) Create(ctx context.Context, actor user.Actor, req CreateArticl
 		Style:               req.Style,
 		EnabledImageMethods: enabledMethods,
 	}); err != nil {
+		if consumed {
+			if rerr := s.userQuota.RestoreQuota(ctx, actor.ID); rerr != nil {
+				s.log.Error("restore quota failed",
+					logger.FieldPurpose, logger.PurposeBiz,
+					logger.FieldEvent, "article.quota.restore_failed",
+					logger.FieldErr, rerr,
+					"user_id", actor.ID,
+					"task_id", taskID,
+				)
+			}
+		}
 		s.log.Error("create article failed",
 			logger.FieldPurpose, logger.PurposeBiz,
 			logger.FieldEvent, "article.create.failed",
 			logger.FieldErr, err,
 			"user_id", actor.ID,
+			"task_id", taskID,
 			"topic", req.Topic,
 		)
 		return "", err

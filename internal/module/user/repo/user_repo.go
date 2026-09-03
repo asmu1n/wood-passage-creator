@@ -22,7 +22,7 @@ func (r *UserRepo) Create(ctx context.Context, in user.CreateRepoParams) (*user.
 	b := r.client.User.Create().
 		SetUserAccount(in.UserAccount).
 		SetUserPassword(in.UserPassword).
-		SetUserRole(toEntRole(in.UserRole)).
+		SetUserRole(entgen.UserRole(in.UserRole)).
 		SetQuota(in.Quota)
 
 	if in.UserName != nil {
@@ -113,7 +113,7 @@ func (r *UserRepo) Update(ctx context.Context, id int64, in user.UpdateRepoParam
 		b.SetUserProfile(*in.UserProfile)
 	}
 	if in.UserRole != nil {
-		b.SetUserRole(toEntRole(*in.UserRole))
+		b.SetUserRole(entgen.UserRole(*in.UserRole))
 	}
 	if in.Quota != nil {
 		b.SetQuota(*in.Quota)
@@ -158,6 +158,29 @@ func (r *UserRepo) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (r *UserRepo) DecrementQuota(ctx context.Context, id int64) (int, error) {
+	n, err := r.client.User.Update().
+		Where(
+			entgen.IDEQ(id),
+			entgen.IsDeleteEQ(false),
+			entgen.QuotaGT(0),
+		).
+		AddQuota(-1).
+		Save(ctx)
+	return n, err
+}
+
+func (r *UserRepo) IncrementQuota(ctx context.Context, id int64) (int, error) {
+	n, err := r.client.User.Update().
+		Where(
+			entgen.IDEQ(id),
+			entgen.IsDeleteEQ(false),
+		).
+		AddQuota(1).
+		Save(ctx)
+	return n, err
+}
+
 func toDomain(row *ent.User) *user.User {
 	return &user.User{
 		ID:          row.ID,
@@ -180,15 +203,4 @@ func toDomainList(rows []*ent.User) []*user.User {
 		users = append(users, toDomain(row))
 	}
 	return users
-}
-
-func toEntRole(r user.UserRole) entgen.UserRole {
-	switch r {
-	case user.RoleAdmin:
-		return entgen.UserRoleAdmin
-	case user.RoleVIP:
-		return entgen.UserRoleVip
-	default:
-		return entgen.UserRoleUser
-	}
 }

@@ -123,21 +123,46 @@ func (s *Service) AdminRevokeVIP(ctx context.Context, actor Actor, targetID int6
 	return out, nil
 }
 
-func (s *Service) CheckAndConsumeQuota(ctx context.Context, id int64) error {
+// CheckAndConsumeQuota 检查并消耗 1 次配额。
+// VIP/Admin 不扣减，返回 consumed=false；普通用户原子扣减成功返回 consumed=true。
+func (s *Service) CheckAndConsumeQuota(ctx context.Context, id int64) (consumed bool, err error) {
+	u, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	if u == nil {
+		return false, response.NewBizErrorWithDetail(response.ParamsError, "用户不存在")
+	}
+	// VIP / Admin 无限配额
+	if u.UserRole == RoleVIP || u.UserRole == RoleAdmin {
+		return false, nil
+	}
+
+	n, err := s.repo.DecrementQuota(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	if n == 0 {
+		return false, response.NewBizErrorWithDetail(response.ParamsError, "配额不足，无法创建文章")
+	}
+	return true, nil
+}
+
+// RestoreQuota 创建任务失败时退回 1 次配额（仅应在 CheckAndConsumeQuota 返回 consumed=true 时调用）。
+// 若用户已不存在则 no-op，避免回滚拖垮主错误返回。
+func (s *Service) RestoreQuota(ctx context.Context, id int64) error {
 	u, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
 	if u == nil {
-		return response.NewBizErrorWithDetail(response.ParamsError, "用户不存在")
+		return nil
 	}
-	if u.Quota <= 0 {
-		return response.NewBizErrorWithDetail(response.ParamsError, "配额不足")
+	// VIP/Admin 理论上不应走到这里（consumed=false）
+	if u.UserRole == RoleVIP || u.UserRole == RoleAdmin {
+		return nil
 	}
-	u.Quota--
-	_, err = s.repo.Update(ctx, u.ID, UpdateRepoParams{
-		Quota: &u.Quota,
-	})
+	_, err = s.repo.IncrementQuota(ctx, id)
 	return err
 }
 

@@ -7,6 +7,13 @@ import (
 	"wood-passage-creator/internal/port"
 )
 
+// UserQuota 文章创建时的配额扣减/回滚（由 user.Service 实现）。
+// consumed=true 表示确实扣了 1 次，创建失败时必须 RestoreQuota。
+type UserQuota interface {
+	CheckAndConsumeQuota(ctx context.Context, id int64) (consumed bool, err error)
+	RestoreQuota(ctx context.Context, id int64) error
+}
+
 // Repository 文章持久化端口。
 type Repository interface {
 	Create(ctx context.Context, params CreateArticleParams) (*Article, error)

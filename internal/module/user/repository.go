@@ -20,6 +20,13 @@ type Repository interface {
 	Update(ctx context.Context, id int64, in UpdateRepoParams) (*User, error)
 	Delete(ctx context.Context, id int64) error
 	ExistsAccount(ctx context.Context, account string) (bool, error)
+	// DecrementQuota 原子：quota = quota - 1 WHERE id=? AND quota > 0 AND 未删除。
+	// 返回 affected rows（0=不足或用户不存在）。
+	DecrementQuota(ctx context.Context, id int64) (int, error)
+
+	// IncrementQuota 原子：quota = quota + 1 WHERE id=? AND 未删除。
+	// 回滚用；一般 affected 应为 1。
+	IncrementQuota(ctx context.Context, id int64) (int, error)
 }
 
 // CreateRepoParams 仓储创建参数（已哈希密码）。
