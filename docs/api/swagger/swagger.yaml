@@ -160,14 +160,6 @@ definitions:
       PhasePending: 等待处理
       PhaseTitleGenerating: 生成标题中
       PhaseTitleSelecting: 等待选择标题
-    x-enum-descriptions:
-    - 等待处理
-    - 生成标题中
-    - 等待选择标题
-    - 生成大纲中
-    - 等待编辑大纲
-    - 生成正文中
-    - 完成
     x-enum-varnames:
     - PhasePending
     - PhaseTitleGenerating
@@ -304,7 +296,7 @@ definitions:
       sessionId:
         type: string
       status:
-        type: string
+        $ref: '#/definitions/wood-passage-creator_internal_module_payment.RecordStatus'
     type: object
   wood-passage-creator_internal_module_payment.Record:
     properties:
@@ -321,7 +313,7 @@ definitions:
       productType:
         type: string
       status:
-        type: string
+        $ref: '#/definitions/wood-passage-creator_internal_module_payment.RecordStatus'
       stripePaymentIntentId:
         type: string
       stripeSessionId:
@@ -331,6 +323,31 @@ definitions:
       userId:
         type: integer
     type: object
+  wood-passage-creator_internal_module_payment.RecordListData:
+    properties:
+      pageNum:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/wood-passage-creator_internal_module_payment.Record'
+        type: array
+      total:
+        type: integer
+    type: object
+  wood-passage-creator_internal_module_payment.RecordStatus:
+    enum:
+    - PENDING
+    - SUCCEEDED
+    - FAILED
+    - REFUNDED
+    type: string
+    x-enum-varnames:
+    - StatusPending
+    - StatusSucceeded
+    - StatusFailed
+    - StatusRefunded
   wood-passage-creator_internal_module_statistics.Overview:
     properties:
       activeUserCount:
@@ -480,14 +497,6 @@ definitions:
     type: string
     x-enum-comments:
       MethodPicsum: 仅系统 fallback，不可出现在请求中
-    x-enum-descriptions:
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - 仅系统 fallback，不可出现在请求中
     x-enum-varnames:
     - MethodPexels
     - MethodIconify
@@ -571,6 +580,64 @@ paths:
       summary: 分页查询全部文章（管理员）
       tags:
       - admin-article
+  /admin/payment/list:
+    get:
+      description: 全站支付记录列表，仅管理员；支持 pageNum/pageSize/status/userId/productType 查询参数。
+      parameters:
+      - description: 页码，默认 1
+        in: query
+        name: pageNum
+        type: integer
+      - description: 每页条数，默认 10，最大 100
+        in: query
+        name: pageSize
+        type: integer
+      - description: 状态筛选
+        enum:
+        - PENDING
+        - SUCCEEDED
+        - FAILED
+        - REFUNDED
+        in: query
+        name: status
+        type: string
+      - description: 用户 ID
+        in: query
+        name: userId
+        type: integer
+      - description: 产品类型，如 VIP_PERMANENT
+        in: query
+        name: productType
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/wood-passage-creator_internal_module_payment.RecordListData'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
+        "403":
+          description: 无权限
+          schema:
+            $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
+      security:
+      - SessionAuth: []
+      summary: 分页查询支付记录（管理员）
+      tags:
+      - admin-payment
   /admin/statistics/overview:
     get:
       description: 今日/本周/本月创作量、成功率、平均耗时、用户与 VIP、配额使用等。

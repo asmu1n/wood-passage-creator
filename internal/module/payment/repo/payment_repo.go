@@ -8,15 +8,15 @@ import (
 	"wood-passage-creator/internal/module/payment"
 )
 
-type PaymentRepo struct {
+type repo struct {
 	client *ent.Client
 }
 
 func New(client *ent.Client) payment.Repository {
-	return &PaymentRepo{client: client}
+	return &repo{client: client}
 }
 
-func (r *PaymentRepo) CreatePending(ctx context.Context, userID int64, sessionID, productType, currency string, amount float64, desc string) (*payment.Record, error) {
+func (r *repo) CreatePending(ctx context.Context, userID int64, sessionID, productType, currency string, amount float64, desc string) (*payment.Record, error) {
 	b := r.client.PaymentRecord.Create().
 		SetUserID(userID).
 		SetStripeSessionID(sessionID).
@@ -34,7 +34,7 @@ func (r *PaymentRepo) CreatePending(ctx context.Context, userID int64, sessionID
 	return toDomain(row), nil
 }
 
-func (r *PaymentRepo) GetBySessionID(ctx context.Context, sessionID string) (*payment.Record, error) {
+func (r *repo) GetBySessionID(ctx context.Context, sessionID string) (*payment.Record, error) {
 	row, err := r.client.PaymentRecord.Query().
 		Where(entgen.StripeSessionIDEQ(sessionID)).
 		Only(ctx)
@@ -47,7 +47,7 @@ func (r *PaymentRepo) GetBySessionID(ctx context.Context, sessionID string) (*pa
 	return toDomain(row), nil
 }
 
-func (r *PaymentRepo) MarkSucceeded(ctx context.Context, id int64, paymentIntentID string) (*payment.Record, error) {
+func (r *repo) MarkSucceeded(ctx context.Context, id int64, paymentIntentID string) (*payment.Record, error) {
 	b := r.client.PaymentRecord.UpdateOneID(id).
 		SetStatus(entgen.StatusSUCCEEDED)
 	if paymentIntentID != "" {
@@ -63,6 +63,31 @@ func (r *PaymentRepo) MarkSucceeded(ctx context.Context, id int64, paymentIntent
 	return toDomain(row), nil
 }
 
+func (r *repo) List(ctx context.Context, params payment.ListParams) ([]*payment.Record, int, error) {
+	base := r.client.PaymentRecord.Query()
+	if params.UserID != nil {
+		base = base.Where(entgen.UserIDEQ(*params.UserID))
+	}
+	if params.Status != nil {
+		base = base.Where(entgen.StatusEQ(entgen.Status(*params.Status)))
+	}
+	if params.ProductType != nil {
+		base = base.Where(entgen.ProductTypeEQ(*params.ProductType))
+	}
+
+	count, err := base.Clone().Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := base.Limit(params.PageRequest.Limit()).Offset(params.PageRequest.Offset()).Order(ent.Desc(entgen.FieldCreateTime)).All(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return toDomainList(rows), count, nil
+}
+
 func toDomain(row *ent.PaymentRecord) *payment.Record {
 	if row == nil {
 		return nil
@@ -74,10 +99,21 @@ func toDomain(row *ent.PaymentRecord) *payment.Record {
 		StripePaymentIntentID: row.StripePaymentIntentID,
 		Amount:                row.Amount,
 		Currency:              row.Currency,
-		Status:                string(row.Status),
+		Status:                payment.RecordStatus(row.Status),
 		ProductType:           row.ProductType,
 		Description:           row.Description,
 		CreateTime:            row.CreateTime,
 		UpdateTime:            row.UpdateTime,
 	}
+}
+
+func toDomainList(rows []*ent.PaymentRecord) []*payment.Record {
+	if rows == nil {
+		return nil
+	}
+	domains := make([]*payment.Record, len(rows))
+	for i, row := range rows {
+		domains[i] = toDomain(row)
+	}
+	return domains
 }

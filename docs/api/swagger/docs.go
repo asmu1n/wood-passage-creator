@@ -96,6 +96,99 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/payment/list": {
+            "get": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "全站支付记录列表，仅管理员；支持 pageNum/pageSize/status/userId/productType 查询参数。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-payment"
+                ],
+                "summary": "分页查询支付记录（管理员）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码，默认 1",
+                        "name": "pageNum",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数，默认 10，最大 100",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "PENDING",
+                            "SUCCEEDED",
+                            "FAILED",
+                            "REFUNDED"
+                        ],
+                        "type": "string",
+                        "description": "状态筛选",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "用户 ID",
+                        "name": "userId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "产品类型，如 VIP_PERMANENT",
+                        "name": "productType",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wood-passage-creator_internal_module_payment.RecordListData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "无权限",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/statistics/overview": {
             "get": {
                 "security": [
@@ -1549,15 +1642,6 @@ const docTemplate = `{
                 "PhaseTitleGenerating": "生成标题中",
                 "PhaseTitleSelecting": "等待选择标题"
             },
-            "x-enum-descriptions": [
-                "等待处理",
-                "生成标题中",
-                "等待选择标题",
-                "生成大纲中",
-                "等待编辑大纲",
-                "生成正文中",
-                "完成"
-            ],
             "x-enum-varnames": [
                 "PhasePending",
                 "PhaseTitleGenerating",
@@ -1747,7 +1831,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
-                    "type": "string"
+                    "$ref": "#/definitions/wood-passage-creator_internal_module_payment.RecordStatus"
                 }
             }
         },
@@ -1773,7 +1857,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
-                    "type": "string"
+                    "$ref": "#/definitions/wood-passage-creator_internal_module_payment.RecordStatus"
                 },
                 "stripePaymentIntentId": {
                     "type": "string"
@@ -1788,6 +1872,41 @@ const docTemplate = `{
                     "type": "integer"
                 }
             }
+        },
+        "wood-passage-creator_internal_module_payment.RecordListData": {
+            "type": "object",
+            "properties": {
+                "pageNum": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wood-passage-creator_internal_module_payment.Record"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "wood-passage-creator_internal_module_payment.RecordStatus": {
+            "type": "string",
+            "enum": [
+                "PENDING",
+                "SUCCEEDED",
+                "FAILED",
+                "REFUNDED"
+            ],
+            "x-enum-varnames": [
+                "StatusPending",
+                "StatusSucceeded",
+                "StatusFailed",
+                "StatusRefunded"
+            ]
         },
         "wood-passage-creator_internal_module_statistics.Overview": {
             "type": "object",
@@ -1998,15 +2117,6 @@ const docTemplate = `{
             "x-enum-comments": {
                 "MethodPicsum": "仅系统 fallback，不可出现在请求中"
             },
-            "x-enum-descriptions": [
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "仅系统 fallback，不可出现在请求中"
-            ],
             "x-enum-varnames": [
                 "MethodPexels",
                 "MethodIconify",

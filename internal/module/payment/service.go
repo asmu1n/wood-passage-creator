@@ -100,7 +100,7 @@ func (s *Service) CompleteMockVIP(ctx context.Context, actor user.Actor, session
 		}, nil
 	}
 	if rec.Status != StatusPending {
-		return nil, response.NewBizErrorWithDetail(response.ParamsError, "支付状态不允许完成: "+rec.Status)
+		return nil, response.NewBizErrorWithDetail(response.ParamsError, "支付状态不允许完成: "+string(rec.Status))
 	}
 
 	intentID := "mock_pi_" + uuid.NewString()
@@ -125,4 +125,14 @@ func (s *Service) CompleteMockVIP(ctx context.Context, actor user.Actor, session
 		UserID: rec.UserID,
 		IsVIP:  u != nil && (u.UserRole == user.RoleVIP || u.UserRole == user.RoleAdmin),
 	}, nil
+}
+
+func (s *Service) AdminList(ctx context.Context, actor user.Actor, req AdminListRequest) ([]*Record, int, error) {
+	err := actor.RequireAdmin()
+	if err != nil {
+		return nil, 0, err
+	}
+	return s.repo.List(ctx, ListParams{
+		AdminListRequest: req,
+	})
 }

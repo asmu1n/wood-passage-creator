@@ -11,9 +11,17 @@ import (
 // Register 挂载开发态支付/Mock VIP 路由。
 func Register(api *echo.Group, svc *payment.Service, userSvc *user.Service) {
 	h := NewHandler(svc)
-	g := api.Group("/payment", middleware.AuthWithRoleRequired(userSvc, false))
+
 	{
-		g.POST("/vip/mock-session", h.CreateMockVIPSession)
-		g.POST("/vip/mock-complete", h.CompleteMockVIP)
+		vip := api.Group("/payment", middleware.AuthWithRoleRequired(userSvc, false))
+		vip.POST("/vip/mock-session", h.CreateMockVIPSession)
+		vip.POST("/vip/mock-complete", h.CompleteMockVIP)
 	}
+
+	{
+		admin := api.Group("/admin/payment", middleware.AuthWithRoleRequired(userSvc, true))
+
+		admin.GET("/list", h.AdminList)
+	}
+
 }
