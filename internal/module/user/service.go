@@ -43,7 +43,7 @@ func (s *Service) invalidateStatsOverview(ctx context.Context) {
 // GrantVIP 领域授 VIP（支付成功、系统任务等调用；不做 admin 校验）。
 // 已是 VIP 幂等返回；admin 账号无需 VIP，原样返回。
 func (s *Service) GrantVIP(ctx context.Context, userID int64) (*User, error) {
-	u, err := s.repo.FindByID(ctx, userID)
+	u, err := s.repo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (s *Service) AdminRevokeVIP(ctx context.Context, actor Actor, targetID int6
 	if err := actor.RequireAdmin(); err != nil {
 		return nil, err
 	}
-	u, err := s.repo.FindByID(ctx, targetID)
+	u, err := s.repo.GetByID(ctx, targetID)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (s *Service) AdminRevokeVIP(ctx context.Context, actor Actor, targetID int6
 }
 
 func (s *Service) CheckAndConsumeQuota(ctx context.Context, id int64) error {
-	u, err := s.repo.FindByID(ctx, id)
+	u, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -182,7 +182,7 @@ func (s *Service) Register(ctx context.Context, in RegisterRequest) (*User, erro
 }
 
 func (s *Service) Login(ctx context.Context, in LoginRequest) (*User, error) {
-	row, err := s.repo.FindByAccount(ctx, in.UserAccount)
+	row, err := s.repo.GetByAccount(ctx, in.UserAccount)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +204,7 @@ func (s *Service) Login(ctx context.Context, in LoginRequest) (*User, error) {
 }
 
 func (s *Service) GetByID(ctx context.Context, id int64) (*User, error) {
-	u, err := s.repo.FindByID(ctx, id)
+	u, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -214,11 +214,11 @@ func (s *Service) GetByID(ctx context.Context, id int64) (*User, error) {
 	return u, nil
 }
 
-func (s *Service) AdminQueryList(ctx context.Context, actor Actor, params page.PageRequest) ([]*User, int, error) {
+func (s *Service) ListAll(ctx context.Context, actor Actor, params page.PageRequest) ([]*User, int, error) {
 	if err := actor.RequireAdmin(); err != nil {
 		return nil, 0, err
 	}
-	users, total, err := s.repo.QueryList(ctx, params)
+	users, total, err := s.repo.List(ctx, params)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -230,7 +230,7 @@ func (s *Service) Update(ctx context.Context, actor Actor, targetID int64, in Up
 		return nil, err
 	}
 
-	existing, err := s.repo.FindByID(ctx, targetID)
+	existing, err := s.repo.GetByID(ctx, targetID)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +274,7 @@ func (s *Service) AdminDelete(ctx context.Context, actor Actor, targetID int64) 
 	if actor.ID == targetID {
 		return response.NewBizErrorWithDetail(response.ParamsError, "不能删除自己")
 	}
-	u, err := s.repo.FindByID(ctx, targetID)
+	u, err := s.repo.GetByID(ctx, targetID)
 	if err != nil {
 		return err
 	}

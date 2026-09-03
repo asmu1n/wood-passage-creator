@@ -104,7 +104,7 @@ func (h *Handler) Me(c *echo.Context) error {
 	return c.JSON(http.StatusOK, response.OK(u))
 }
 
-// List godoc
+// AdminList godoc
 // @Summary      分页查询用户列表（管理员）
 // @Tags         admin-users
 // @Produce      json
@@ -116,7 +116,7 @@ func (h *Handler) Me(c *echo.Context) error {
 // @Failure      403 {object} response.Response "无权限"
 // @Security     SessionAuth
 // @Router       /admin/users/list [get]
-func (h *Handler) List(c *echo.Context) error {
+func (h *Handler) AdminList(c *echo.Context) error {
 	var req page.PageRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
@@ -125,7 +125,7 @@ func (h *Handler) List(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
-	users, total, err := h.svc.AdminQueryList(c.Request().Context(), actor, req)
+	users, total, err := h.svc.ListAll(c.Request().Context(), actor, req)
 	if err != nil {
 		return err
 	}

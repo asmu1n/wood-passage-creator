@@ -13,9 +13,10 @@ func Register(api *echo.Group, svc *payment.Service, userSvc *user.Service) {
 	h := NewHandler(svc)
 
 	{
-		vip := api.Group("/payment", middleware.AuthWithRoleRequired(userSvc, false))
-		vip.POST("/vip/mock-session", h.CreateMockVIPSession)
-		vip.POST("/vip/mock-complete", h.CompleteMockVIP)
+		payment := api.Group("/payment", middleware.AuthWithRoleRequired(userSvc, false))
+		payment.POST("/vip/mock-session", h.CreateMockVIPSession)
+		payment.POST("/vip/mock-complete", h.CompleteMockVIP)
+		payment.GET("/list", h.GetSelfPaymentRecords)
 	}
 
 	{

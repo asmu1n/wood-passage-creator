@@ -83,7 +83,7 @@ func (h *Handler) CompleteMockVIP(c *echo.Context) error {
 // @Security     SessionAuth
 // @Router       /admin/payment/list [get]
 func (h *Handler) AdminList(c *echo.Context) error {
-	var req payment.AdminListRequest
+	var req payment.ListRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
@@ -91,7 +91,23 @@ func (h *Handler) AdminList(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
-	out, count, err := h.svc.AdminList(c.Request().Context(), actor, req)
+	out, count, err := h.svc.ListAll(c.Request().Context(), actor, req)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, response.OK(page.NewPageResponse(out, count, req.PageRequest)))
+}
+
+func (h *Handler) GetSelfPaymentRecords(c *echo.Context) error {
+	var req payment.ListByUserRequest
+	if err := binding.BindAndValidate(c, &req); err != nil {
+		return err
+	}
+	actor, err := middleware.GetLoginActor(c)
+	if err != nil {
+		return err
+	}
+	out, count, err := h.svc.ListByUser(c.Request().Context(), actor, actor.ID, req)
 	if err != nil {
 		return err
 	}

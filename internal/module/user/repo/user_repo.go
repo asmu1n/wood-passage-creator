@@ -45,7 +45,7 @@ func (r *UserRepo) Create(ctx context.Context, in user.CreateRepoParams) (*user.
 	return toDomain(row), nil
 }
 
-func (r *UserRepo) QueryList(ctx context.Context, params page.PageRequest) ([]*user.User, int, error) {
+func (r *UserRepo) List(ctx context.Context, params page.PageRequest) ([]*user.User, int, error) {
 	base := r.client.User.Query().
 		Where(entgen.IsDeleteEQ(false))
 
@@ -62,7 +62,7 @@ func (r *UserRepo) QueryList(ctx context.Context, params page.PageRequest) ([]*u
 	return toDomainList(rows), count, nil
 }
 
-func (r *UserRepo) FindByID(ctx context.Context, id int64) (*user.User, error) {
+func (r *UserRepo) GetByID(ctx context.Context, id int64) (*user.User, error) {
 	row, err := r.client.User.Query().
 		Where(
 			entgen.IDEQ(id),
@@ -78,7 +78,7 @@ func (r *UserRepo) FindByID(ctx context.Context, id int64) (*user.User, error) {
 	return toDomain(row), nil
 }
 
-func (r *UserRepo) FindByAccount(ctx context.Context, account string) (*user.UserWithSecret, error) {
+func (r *UserRepo) GetByAccount(ctx context.Context, account string) (*user.UserWithSecret, error) {
 	row, err := r.client.User.Query().
 		Where(
 			entgen.UserAccountEQ(account),

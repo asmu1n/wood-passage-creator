@@ -256,7 +256,7 @@ func (s *Service) ListAll(ctx context.Context, actor user.Actor, req QueryArticl
 	if err := actor.RequireAdmin(); err != nil {
 		return nil, 0, err
 	}
-	return s.repo.ListAll(ctx, ListArticlesParams{QueryArticleRequest: req})
+	return s.repo.List(ctx, ListArticlesParams{QueryArticleRequest: req})
 }
 
 func (s *Service) Delete(ctx context.Context, actor user.Actor, id int64) error {
@@ -680,8 +680,9 @@ func truncateErr(err error, max int) string {
 	return msg[:max] + "..."
 }
 
-// resolveEnabledImageMethods 仅处理默认值与 VIP；枚举合法性已在 Bind/Validate 完成。
-// 空：VIP/Admin → nil；普通 → FreeImageMethods。非空：普通用户不得含 VIP 项。
+// resolveEnabledImageMethods 处理默认值、用户可选枚举与 VIP 权限。
+// 空：VIP/Admin → nil（不限制）；普通 → FreeImageMethods。
+// 非空：须为 IsUserMethod；普通用户不得含 VIP 项；返回已 Normalize 的列表。
 func resolveEnabledImageMethods(methods []port.ImageMethod, actor user.Actor) ([]port.ImageMethod, error) {
 	vip := actor.Role == user.RoleVIP || actor.Role == user.RoleAdmin
 	if len(methods) == 0 {
@@ -692,12 +693,17 @@ func resolveEnabledImageMethods(methods []port.ImageMethod, actor user.Actor) ([
 		copy(out, port.FreeImageMethods)
 		return out, nil
 	}
-	if !vip {
-		for _, m := range methods {
-			if m.IsVIPMethod() {
-				return nil, response.NewBizErrorWithDetail(response.Forbidden, "高级配图功能（AI 生图、SVG 图表）仅限 VIP 会员使用")
-			}
+
+	out := make([]port.ImageMethod, 0, len(methods))
+	for _, m := range methods {
+		m = m.Normalize()
+		if !m.IsUserMethod() {
+			return nil, response.NewBizErrorWithDetail(response.ParamsError, "不支持的配图方式: "+string(m))
 		}
+		if !vip && m.IsVIPMethod() {
+			return nil, response.NewBizErrorWithDetail(response.Forbidden, "高级配图功能（AI 生图、SVG 图表）仅限 VIP 会员使用")
+		}
+		out = append(out, m)
 	}
-	return methods, nil
+	return out, nil
 }

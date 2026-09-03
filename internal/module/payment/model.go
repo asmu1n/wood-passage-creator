@@ -58,9 +58,15 @@ type MockCompleteResult struct {
 	IsVIP  bool    `json:"isVip"`
 }
 
-type AdminListRequest struct {
+type ListRequest struct {
 	Status      *RecordStatus `query:"status" validate:"omitempty,oneof=PENDING SUCCEEDED FAILED REFUNDED"`
 	UserID      *int64        `query:"userId" validate:"omitempty,gt=0"`
+	ProductType *string       `query:"productType" validate:"omitempty,max=32"`
+	page.PageRequest
+}
+
+type ListByUserRequest struct {
+	Status      *RecordStatus `query:"status" validate:"omitempty,oneof=PENDING SUCCEEDED FAILED REFUNDED"`
 	ProductType *string       `query:"productType" validate:"omitempty,max=32"`
 	page.PageRequest
 }

@@ -14,9 +14,9 @@ var ErrAccountConflict = errors.New("account conflict")
 // Repository 用户持久化端口。
 type Repository interface {
 	Create(ctx context.Context, in CreateRepoParams) (*User, error)
-	FindByID(ctx context.Context, id int64) (*User, error)
-	FindByAccount(ctx context.Context, account string) (*UserWithSecret, error)
-	QueryList(ctx context.Context, params page.PageRequest) ([]*User, int, error)
+	GetByID(ctx context.Context, id int64) (*User, error)
+	GetByAccount(ctx context.Context, account string) (*UserWithSecret, error)
+	List(ctx context.Context, params page.PageRequest) ([]*User, int, error)
 	Update(ctx context.Context, id int64, in UpdateRepoParams) (*User, error)
 	Delete(ctx context.Context, id int64) error
 	ExistsAccount(ctx context.Context, account string) (bool, error)

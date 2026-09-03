@@ -22,7 +22,7 @@ type Repository interface {
 
 	// ListByUser / ListAll 返回当前页数据与符合条件的总数（供 Service 组装 PageResponse）。
 	ListByUser(ctx context.Context, userID int64, params ListArticlesParams) (items []*Article, total int, err error)
-	ListAll(ctx context.Context, params ListArticlesParams) (items []*Article, total int, err error)
+	List(ctx context.Context, params ListArticlesParams) (items []*Article, total int, err error)
 
 	Delete(ctx context.Context, id int64) error // repo only
 }

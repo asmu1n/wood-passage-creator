@@ -127,12 +127,35 @@ func (s *Service) CompleteMockVIP(ctx context.Context, actor user.Actor, session
 	}, nil
 }
 
-func (s *Service) AdminList(ctx context.Context, actor user.Actor, req AdminListRequest) ([]*Record, int, error) {
+func (s *Service) ListAll(ctx context.Context, actor user.Actor, req ListRequest) ([]*Record, int, error) {
 	err := actor.RequireAdmin()
 	if err != nil {
 		return nil, 0, err
 	}
-	return s.repo.List(ctx, ListParams{
-		AdminListRequest: req,
+	items, total, err := s.repo.List(ctx, ListParams{
+		ListRequest: req,
 	})
+	if err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
+func (s *Service) ListByUser(ctx context.Context, actor user.Actor, userID int64, req ListByUserRequest) ([]*Record, int, error) {
+	err := actor.RequireSelfOrAdmin(userID)
+	if err != nil {
+		return nil, 0, err
+	}
+	rows, total, err := s.repo.List(ctx, ListParams{
+		ListRequest: ListRequest{
+			UserID:      &userID,
+			Status:      req.Status,
+			ProductType: req.ProductType,
+			PageRequest: req.PageRequest,
+		},
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	return rows, total, nil
 }

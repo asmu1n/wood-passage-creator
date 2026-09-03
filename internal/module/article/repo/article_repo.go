@@ -139,7 +139,7 @@ func (r *ArticleRepo) ListByUser(ctx context.Context, userID int64, params artic
 	return listPage(ctx, base, params)
 }
 
-func (r *ArticleRepo) ListAll(ctx context.Context, params article.ListArticlesParams) ([]*article.Article, int, error) {
+func (r *ArticleRepo) List(ctx context.Context, params article.ListArticlesParams) ([]*article.Article, int, error) {
 	base := r.client.Article.Query().
 		Where(entm.IsDeleteEQ(false))
 	if params.Status != nil {
