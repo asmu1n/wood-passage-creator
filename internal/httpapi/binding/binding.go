@@ -13,7 +13,7 @@ import (
 
 // Validator 将 go-playground/validator 接到 Echo#Validator。
 //
-// 通用 tag：hasalpha / hasdigit / hasspecial / image_method
+// 通用 tag：hasalpha / hasdigit / hasspecial / regexp
 // 业务字段规则写在各 module model 的 validate tag 上。
 type Validator struct {
 	v *validator.Validate
@@ -27,7 +27,6 @@ func NewValidator() *Validator {
 	_ = v.RegisterValidation("hasdigit", validateHasDigit)
 	_ = v.RegisterValidation("hasspecial", validateHasSpecial)
 	_ = v.RegisterValidation("regexp", validateRegexp)
-	_ = v.RegisterValidation("image_method", validateImageMethod)
 
 	// 让 oneof / dive 等对 port.ImageMethod 按底层 string 取值
 	v.RegisterCustomTypeFunc(func(field reflect.Value) any {
@@ -58,18 +57,6 @@ func BindAndValidate(c *echo.Context, dst any) error {
 		return err
 	}
 	return c.Validate(dst)
-}
-
-// validateImageMethod：用户可选配图枚举白名单（已在 Unmarshal 后规范化）。
-func validateImageMethod(fl validator.FieldLevel) bool {
-	switch v := fl.Field().Interface().(type) {
-	case port.ImageMethod:
-		return v.IsUserMethod()
-	case string:
-		return port.ImageMethod(v).IsUserMethod()
-	default:
-		return false
-	}
 }
 
 func validateRegexp(fl validator.FieldLevel) bool {

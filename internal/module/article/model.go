@@ -111,7 +111,7 @@ type ArticleListData struct {
 type CreateArticleRequest struct {
 	Topic               string             `json:"topic" validate:"required,min=1,max=512"`
 	Style               *ArticleStyle      `json:"style" validate:"omitempty"`
-	EnabledImageMethods []port.ImageMethod `json:"enabledImageMethods" validate:"omitempty,dive,image_method"` // 空=按角色默认；仅大写枚举
+	EnabledImageMethods []port.ImageMethod `json:"enabledImageMethods" validate:"omitempty,dive"` // 空=按角色默认；枚举/VIP 在 Service 校验
 }
 
 // QueryArticleRequest 查询文章入参（query；分页字段来自嵌入的 PageRequest）。
