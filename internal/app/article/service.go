@@ -29,7 +29,6 @@ type overviewCacheInvalidator interface {
 
 // Service 文章应用用例（编排 agent 仍在 module/article）。
 type Service struct {
-	tx           port.TxManager
 	repo         module.Repository
 	agentLogs    module.AgentLogRepository
 	userQuota    UserQuota
@@ -40,7 +39,6 @@ type Service struct {
 }
 
 func NewService(
-	tx port.TxManager,
 	repo module.Repository,
 	agentLogs module.AgentLogRepository,
 	userQuota UserQuota,
@@ -49,7 +47,6 @@ func NewService(
 	statsCache overviewCacheInvalidator,
 ) *Service {
 	return &Service{
-		tx:           tx,
 		repo:         repo,
 		agentLogs:    agentLogs,
 		userQuota:    userQuota,
@@ -196,11 +193,7 @@ func (s *Service) Create(ctx context.Context, actor moduser.Actor, req CreateArt
 	if err != nil {
 		return "", err
 	}
-	if s.tx == nil {
-		return "", response.NewBizErrorWithDetail(response.SystemError, "tx manager unavailable")
-	}
-
-	err = s.tx.WithinTx(ctx, func(ctx context.Context) error {
+	err = port.WithinTx(ctx, func(ctx context.Context) error {
 		if _, err := s.userQuota.CheckAndConsumeQuota(ctx, actor.ID); err != nil {
 			return err
 		}

@@ -19,6 +19,13 @@ func NewTxManager(client *ent.Client) port.TxManager {
 	return &txManager{client: client}
 }
 
+// InitTxManager 创建并注册为 port 全局 TxManager（类 logger.Init）。
+func InitTxManager(client *ent.Client) port.TxManager {
+	m := NewTxManager(client)
+	port.SetTxManager(m)
+	return m
+}
+
 // ClientFrom 解析当前应使用的 ent Client：
 // 若 ctx 由 WithinTx 注入了事务 Client 则用之，否则回退到 fallback（进程级根 Client）。
 // 所有 module/*/repo 读写均应经此函数取 Client，以便日后跨 module 共享事务。

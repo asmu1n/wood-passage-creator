@@ -38,8 +38,6 @@ func (s *Service) invalidateStatsOverview(ctx context.Context) {
 	s.statsCache.InvalidateOverview(ctx)
 }
 
-func rolePtr(r module.UserRole) *module.UserRole { return &r }
-
 func (s *Service) GrantVIP(ctx context.Context, userID int64) (*module.User, error) {
 	u, err := s.repo.GetByID(ctx, userID)
 	if err != nil {
@@ -53,7 +51,7 @@ func (s *Service) GrantVIP(ctx context.Context, userID int64) (*module.User, err
 	}
 	now := time.Now()
 	out, err := s.repo.Update(ctx, u.ID, module.UpdateRepoParams{
-		UserRole: rolePtr(module.RoleVIP),
+		UserRole: new(module.RoleVIP),
 		VipTime:  &now,
 	})
 	if err != nil {
@@ -105,7 +103,7 @@ func (s *Service) AdminRevokeVIP(ctx context.Context, actor module.Actor, target
 		return u, nil
 	}
 	out, err := s.repo.Update(ctx, u.ID, module.UpdateRepoParams{
-		UserRole:     rolePtr(module.RoleUser),
+		UserRole:     new(module.RoleUser),
 		ClearVipTime: true,
 	})
 	if err != nil {

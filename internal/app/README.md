@@ -12,4 +12,4 @@ HTTP 在 `httpapi/api`，**只依赖 app**。
 | `payment` | Mock 支付 / 列表 |
 | `statistics` | 管理端概览 |
 
-跨 module 本地事务：`article.Create`（配额+插文）、`payment.CompleteMockVIP`（标已付+GrantVIP）已用 `WithinTx`。
+跨 module 本地事务：`port.WithinTx` 全局访问（main `database.InitTxManager`）；`article.Create`、`payment.CompleteMockVIP` 已使用。

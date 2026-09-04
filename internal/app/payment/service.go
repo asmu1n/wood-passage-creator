@@ -22,15 +22,13 @@ type UserVIP interface {
 
 // Service 开发态 mock 支付 + 与 VIP 升级打通。
 type Service struct {
-	tx    port.TxManager
 	repo  module.Repository
 	users UserVIP
 	log   *slog.Logger
 }
 
-func NewService(tx port.TxManager, repo module.Repository, users UserVIP) *Service {
+func NewService(repo module.Repository, users UserVIP) *Service {
 	return &Service{
-		tx:    tx,
 		repo:  repo,
 		users: users,
 		log:   logger.Module("app.payment"),
@@ -105,14 +103,10 @@ func (s *Service) CompleteMockVIP(ctx context.Context, actor moduser.Actor, sess
 	if rec.Status != module.StatusPending {
 		return nil, response.NewBizErrorWithDetail(response.ParamsError, "支付状态不允许完成: "+string(rec.Status))
 	}
-	if s.tx == nil {
-		return nil, response.NewBizErrorWithDetail(response.SystemError, "tx manager unavailable")
-	}
-
 	intentID := "mock_pi_" + uuid.NewString()
 	var updated *module.Record
 	var u *moduser.User
-	err = s.tx.WithinTx(ctx, func(ctx context.Context) error {
+	err = port.WithinTx(ctx, func(ctx context.Context) error {
 		var err error
 		updated, err = s.repo.MarkSucceeded(ctx, rec.ID, intentID)
 		if err != nil {

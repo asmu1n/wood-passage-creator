@@ -96,21 +96,20 @@ func main() {
 	}
 
 	// 装配：module=领域+repo；app=全部用例；httpapi/api 只依赖 app。
-	// 跨 module 强一致写：app 内 TxManager.WithinTx + repo ClientFrom。
-	txm := database.NewTxManager(db.Client)
+	// 跨 module 强一致写：port.WithinTx（全局 TxManager，类 logger）+ repo ClientFrom。
+	database.InitTxManager(db.Client)
 	cacheClient := cache.New(redisClient)
 	ssehub := sse.NewHub()
 	userRepo := userrepo.New(db.Client)
 	statsSvc := appstat.NewService(statisticsrepo.New(db.Client), cacheClient)
 	userSvc := appuser.NewService(userRepo, statsSvc)
 	authSvc := auth.NewService(userRepo, statsSvc)
-	paymentSvc := apppay.NewService(txm, paymentrepo.New(db.Client), userSvc)
+	paymentSvc := apppay.NewService(paymentrepo.New(db.Client), userSvc)
 	imgGen := image.NewGenerator(cfg, chatModal)
 	articleRepo := articlerepo.NewArticleRepo(db.Client)
 	agentLogRepo := articlerepo.NewAgentLogRepo(db.Client)
 	agentLogRecorder := modart.NewAgentLogRecorder(agentLogRepo)
 	articleSvc := appart.NewService(
-		txm,
 		articleRepo,
 		agentLogRepo,
 		userSvc,
