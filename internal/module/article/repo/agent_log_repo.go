@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"wood-passage-creator/ent"
+	"wood-passage-creator/internal/infra/database"
 	entlog "wood-passage-creator/ent/agentlog"
 	"wood-passage-creator/internal/module/article"
 )
@@ -16,8 +17,13 @@ func NewAgentLogRepo(client *ent.Client) article.AgentLogRepository {
 	return &AgentLogRepo{client: client}
 }
 
+func (r *AgentLogRepo) ent(ctx context.Context) *ent.Client {
+	return database.ClientFrom(ctx, r.client)
+}
+
+
 func (r *AgentLogRepo) Create(ctx context.Context, params article.CreateAgentLogParams) error {
-	b := r.client.AgentLog.Create().
+	b := r.ent(ctx).AgentLog.Create().
 		SetArticleID(params.ArticleID).
 		SetTaskID(params.TaskID).
 		SetAgentName(params.AgentName).
@@ -43,7 +49,7 @@ func (r *AgentLogRepo) Create(ctx context.Context, params article.CreateAgentLog
 }
 
 func (r *AgentLogRepo) ListByTaskID(ctx context.Context, taskID string) ([]*article.AgentLog, error) {
-	rows, err := r.client.AgentLog.Query().
+	rows, err := r.ent(ctx).AgentLog.Query().
 		Where(
 			entlog.TaskIDEQ(taskID),
 			entlog.IsDeleteEQ(false),

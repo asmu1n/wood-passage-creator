@@ -5,20 +5,21 @@ import (
 	"log/slog"
 	"time"
 
-	"wood-passage-creator/internal/module/user"
+	module "wood-passage-creator/internal/module/statistics"
+	moduser "wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/port"
 )
 
 // Service 管理端统计概览。
 type Service struct {
-	repo  Repository
+	repo  module.Repository
 	cache port.Cache
 	log   *slog.Logger
 	loc   *time.Location
 }
 
-func NewService(repo Repository, cache port.Cache) *Service {
+func NewService(repo module.Repository, cache port.Cache) *Service {
 	loc, err := time.LoadLocation("Asia/Shanghai")
 	if err != nil {
 		loc = time.Local
@@ -26,7 +27,7 @@ func NewService(repo Repository, cache port.Cache) *Service {
 	return &Service{
 		repo:  repo,
 		cache: cache,
-		log:   logger.Module("statistics"),
+		log:   logger.Module("app.statistics"),
 		loc:   loc,
 	}
 }
@@ -37,34 +38,34 @@ func (s *Service) InvalidateOverview(ctx context.Context) {
 	if s == nil || s.cache == nil {
 		return
 	}
-	if err := s.cache.Delete(ctx, OverviewCacheKey); err != nil {
+	if err := s.cache.Delete(ctx, module.OverviewCacheKey); err != nil {
 		s.log.Warn("invalidate overview cache failed",
 			logger.FieldPurpose, logger.PurposeCache,
 			logger.FieldEvent, "statistics.overview.invalidate_failed",
 			logger.FieldErr, err,
-			"key", OverviewCacheKey,
+			"key", module.OverviewCacheKey,
 		)
 		return
 	}
 	s.log.Info("overview cache invalidated",
 		logger.FieldPurpose, logger.PurposeCache,
 		logger.FieldEvent, "statistics.overview.invalidated",
-		"key", OverviewCacheKey,
+		"key", module.OverviewCacheKey,
 	)
 }
 
 // GetOverview 聚合系统概览；需管理员。命中缓存则跳过 DB 聚合。
-func (s *Service) GetOverview(ctx context.Context, actor user.Actor) (*Overview, error) {
+func (s *Service) GetOverview(ctx context.Context, actor moduser.Actor) (*module.Overview, error) {
 	if err := actor.RequireAdmin(); err != nil {
 		return nil, err
 	}
 
-	return port.TryFetch(ctx, s.cache, OverviewCacheKey, OverviewCacheTTL, func() (*Overview, error) {
+	return port.TryFetch(ctx, s.cache, module.OverviewCacheKey, module.OverviewCacheTTL, func() (*module.Overview, error) {
 		return s.computeOverview(ctx, actor.ID)
 	})
 }
 
-func (s *Service) computeOverview(ctx context.Context, actorID int64) (*Overview, error) {
+func (s *Service) computeOverview(ctx context.Context, actorID int64) (*module.Overview, error) {
 	now := time.Now().In(s.loc)
 	todayStart := startOfDay(now)
 	weekStart := startOfWeek(now)
@@ -102,11 +103,11 @@ func (s *Service) computeOverview(ctx context.Context, actorID int64) (*Overview
 	if err != nil {
 		return nil, err
 	}
-	vipCount, err := s.repo.CountUsersByRole(ctx, user.RoleVIP)
+	vipCount, err := s.repo.CountUsersByRole(ctx, moduser.RoleVIP)
 	if err != nil {
 		return nil, err
 	}
-	remaining, normalCount, err := s.repo.SumQuotaByRole(ctx, user.RoleUser)
+	remaining, normalCount, err := s.repo.SumQuotaByRole(ctx, moduser.RoleUser)
 	if err != nil {
 		return nil, err
 	}
@@ -115,12 +116,12 @@ func (s *Service) computeOverview(ctx context.Context, actorID int64) (*Overview
 	if total > 0 {
 		successRate = float64(completed) / float64(total) * 100
 	}
-	quotaUsed := normalCount*DefaultUserQuota - remaining
+	quotaUsed := normalCount*module.DefaultUserQuota - remaining
 	if quotaUsed < 0 {
 		quotaUsed = 0
 	}
 
-	out := &Overview{
+	out := &module.Overview{
 		TodayCount:      today,
 		WeekCount:       week,
 		MonthCount:      month,

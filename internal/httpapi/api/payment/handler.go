@@ -1,11 +1,11 @@
-package http
+package paymentapi
 
 import (
 	"net/http"
 
+	app "wood-passage-creator/internal/app/payment"
 	"wood-passage-creator/internal/httpapi/binding"
 	"wood-passage-creator/internal/httpapi/middleware"
-	"wood-passage-creator/internal/module/payment"
 	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/pkg/response"
 
@@ -13,10 +13,10 @@ import (
 )
 
 type Handler struct {
-	svc *payment.Service
+	svc *app.Service
 }
 
-func NewHandler(svc *payment.Service) *Handler {
+func NewHandler(svc *app.Service) *Handler {
 	return &Handler{svc: svc}
 }
 
@@ -51,7 +51,7 @@ func (h *Handler) CreateMockVIPSession(c *echo.Context) error {
 // @Security     SessionAuth
 // @Router       /payment/vip/mock-complete [post]
 func (h *Handler) CompleteMockVIP(c *echo.Context) error {
-	var req payment.MockCompleteRequest
+	var req app.MockCompleteRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (h *Handler) CompleteMockVIP(c *echo.Context) error {
 // @Security     SessionAuth
 // @Router       /admin/payment/list [get]
 func (h *Handler) AdminList(c *echo.Context) error {
-	var req payment.ListRequest
+	var req app.ListRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
@@ -98,8 +98,19 @@ func (h *Handler) AdminList(c *echo.Context) error {
 	return c.JSON(http.StatusOK, response.OK(page.NewPageResponse(out, count, req.PageRequest)))
 }
 
+// ListBySelf godoc
+// @Summary      我的支付记录
+// @Tags         payment
+// @Produce      json
+// @Param        pageNum     query int    false "页码，默认 1"
+// @Param        pageSize    query int    false "每页条数，默认 10，最大 100"
+// @Param        status      query string false "状态筛选" Enums(PENDING, SUCCEEDED, FAILED, REFUNDED)
+// @Param        productType query string false "产品类型"
+// @Success      200 {object} response.Response{data=payment.RecordListData} "成功"
+// @Security     SessionAuth
+// @Router       /payment/list [get]
 func (h *Handler) ListBySelf(c *echo.Context) error {
-	var req payment.ListByUserRequest
+	var req app.ListByUserRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"wood-passage-creator/ent"
+	"wood-passage-creator/internal/infra/database"
 	entm "wood-passage-creator/ent/article"
 	"wood-passage-creator/internal/module/article"
 )
@@ -17,8 +18,13 @@ func NewArticleRepo(client *ent.Client) article.Repository {
 	return &ArticleRepo{client: client}
 }
 
+func (r *ArticleRepo) ent(ctx context.Context) *ent.Client {
+	return database.ClientFrom(ctx, r.client)
+}
+
+
 func (r *ArticleRepo) Create(ctx context.Context, params article.CreateArticleParams) (*article.Article, error) {
-	row, err := r.client.Article.Create().
+	row, err := r.ent(ctx).Article.Create().
 		SetUserID(params.UserID).
 		SetTaskID(params.TaskID).
 		SetTopic(params.Topic).
@@ -32,14 +38,14 @@ func (r *ArticleRepo) Create(ctx context.Context, params article.CreateArticlePa
 }
 
 func (r *ArticleRepo) Delete(ctx context.Context, id int64) error {
-	_, err := r.client.Article.UpdateOneID(id).
+	_, err := r.ent(ctx).Article.UpdateOneID(id).
 		SetIsDelete(true).
 		Save(ctx)
 	return err
 }
 
 func (r *ArticleRepo) GetByID(ctx context.Context, id int64) (*article.Article, error) {
-	row, err := r.client.Article.Query().
+	row, err := r.ent(ctx).Article.Query().
 		Where(entm.IDEQ(id), entm.IsDeleteEQ(false)).
 		Only(ctx)
 	if err != nil {
@@ -52,7 +58,7 @@ func (r *ArticleRepo) GetByID(ctx context.Context, id int64) (*article.Article, 
 }
 
 func (r *ArticleRepo) GetByTaskID(ctx context.Context, taskID string) (*article.Article, error) {
-	row, err := r.client.Article.Query().
+	row, err := r.ent(ctx).Article.Query().
 		Where(entm.TaskIDEQ(taskID), entm.IsDeleteEQ(false)).
 		Only(ctx)
 	if err != nil {
@@ -65,7 +71,7 @@ func (r *ArticleRepo) GetByTaskID(ctx context.Context, taskID string) (*article.
 }
 
 func (r *ArticleRepo) Update(ctx context.Context, id int64, params article.UpdateArticleParams) (*article.Article, error) {
-	b := r.client.Article.UpdateOneID(id).
+	b := r.ent(ctx).Article.UpdateOneID(id).
 		Where(entm.IsDeleteEQ(false))
 	if err := applyUpdate(b, params); err != nil {
 		return nil, err
@@ -82,7 +88,7 @@ func (r *ArticleRepo) Update(ctx context.Context, id int64, params article.Updat
 
 func (r *ArticleRepo) UpdateByTaskID(ctx context.Context, taskID string, params article.UpdateArticleParams) (*article.Article, error) {
 	// 先定位主键，复用 UpdateOne 的返回实体；避免 Update().Save 只返回 affected。
-	id, err := r.client.Article.Query().
+	id, err := r.ent(ctx).Article.Query().
 		Where(entm.TaskIDEQ(taskID), entm.IsDeleteEQ(false)).
 		OnlyID(ctx)
 	if err != nil {
@@ -131,7 +137,7 @@ func (r *ArticleRepo) UpdateSubTitle(ctx context.Context, taskID string, subTitl
 
 func (r *ArticleRepo) ListByUser(ctx context.Context, userID int64, params article.ListArticlesParams) ([]*article.Article, int, error) {
 	// 基础查询只放过滤条件；Count 与分页列表必须分开，避免 Limit/Offset 污染 total。
-	base := r.client.Article.Query().
+	base := r.ent(ctx).Article.Query().
 		Where(entm.UserIDEQ(userID), entm.IsDeleteEQ(false))
 	if params.Status != nil {
 		base = base.Where(entm.StatusEQ(entm.Status(*params.Status)))
@@ -140,7 +146,7 @@ func (r *ArticleRepo) ListByUser(ctx context.Context, userID int64, params artic
 }
 
 func (r *ArticleRepo) List(ctx context.Context, params article.ListArticlesParams) ([]*article.Article, int, error) {
-	base := r.client.Article.Query().
+	base := r.ent(ctx).Article.Query().
 		Where(entm.IsDeleteEQ(false))
 	if params.Status != nil {
 		base = base.Where(entm.StatusEQ(entm.Status(*params.Status)))

@@ -8,8 +8,18 @@ import (
 	"os/signal"
 	"syscall"
 
+	appart "wood-passage-creator/internal/app/article"
+	"wood-passage-creator/internal/app/auth"
+	apppay "wood-passage-creator/internal/app/payment"
+	appstat "wood-passage-creator/internal/app/statistics"
+	appuser "wood-passage-creator/internal/app/user"
 	"wood-passage-creator/internal/config"
 	"wood-passage-creator/internal/httpapi"
+	articleapi "wood-passage-creator/internal/httpapi/api/article"
+	authapi "wood-passage-creator/internal/httpapi/api/auth"
+	paymentapi "wood-passage-creator/internal/httpapi/api/payment"
+	statisticsapi "wood-passage-creator/internal/httpapi/api/statistics"
+	userapi "wood-passage-creator/internal/httpapi/api/user"
 	"wood-passage-creator/internal/httpapi/binding"
 	httpmw "wood-passage-creator/internal/httpapi/middleware"
 	"wood-passage-creator/internal/infra/cache"
@@ -17,14 +27,11 @@ import (
 	"wood-passage-creator/internal/infra/image"
 	"wood-passage-creator/internal/infra/llm"
 	"wood-passage-creator/internal/infra/redis"
-	"wood-passage-creator/internal/module/article"
+	modart "wood-passage-creator/internal/module/article"
 	articleagent "wood-passage-creator/internal/module/article/agent"
 	articlerepo "wood-passage-creator/internal/module/article/repo"
-	"wood-passage-creator/internal/module/payment"
 	paymentrepo "wood-passage-creator/internal/module/payment/repo"
-	"wood-passage-creator/internal/module/statistics"
 	statisticsrepo "wood-passage-creator/internal/module/statistics/repo"
-	"wood-passage-creator/internal/module/user"
 	userrepo "wood-passage-creator/internal/module/user/repo"
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/pkg/sse"
@@ -37,7 +44,7 @@ import (
 	_ "wood-passage-creator/docs/api/swagger"
 )
 
-// @title           Wood Passage Creator API
+// @title// @title           Wood Passage Creator API
 // @version         1.0
 // @description     AI 文章生成后端：用户/会话、文章三阶段流水线（SSE 进度）、配图、Agent 日志；开发态 VIP Mock 支付与管理端升降 VIP。
 // @host            localhost:8080
@@ -88,19 +95,22 @@ func main() {
 		logger.Fatal("init chat model failed", logger.FieldErr, err)
 	}
 
-	// 业务装配：user 模块（可按需再注入 cache/lock）
-	// locker := lock.New(redisClient)
+	// 装配：module=领域+repo；app=全部用例；httpapi/api 只依赖 app。
+	// 跨 module 强一致写：app 内 TxManager.WithinTx + repo ClientFrom。
+	txm := database.NewTxManager(db.Client)
 	cacheClient := cache.New(redisClient)
-	// _ = redisClient
 	ssehub := sse.NewHub()
-	statsSvc := statistics.NewService(statisticsrepo.New(db.Client), cacheClient)
-	userSvc := user.NewService(userrepo.New(db.Client), statsSvc)
-	paymentSvc := payment.NewService(paymentrepo.New(db.Client), userSvc)
+	userRepo := userrepo.New(db.Client)
+	statsSvc := appstat.NewService(statisticsrepo.New(db.Client), cacheClient)
+	userSvc := appuser.NewService(userRepo, statsSvc)
+	authSvc := auth.NewService(userRepo, statsSvc)
+	paymentSvc := apppay.NewService(txm, paymentrepo.New(db.Client), userSvc)
 	imgGen := image.NewGenerator(cfg, chatModal)
 	articleRepo := articlerepo.NewArticleRepo(db.Client)
 	agentLogRepo := articlerepo.NewAgentLogRepo(db.Client)
-	agentLogRecorder := article.NewAgentLogRecorder(agentLogRepo)
-	articleSvc := article.NewService(
+	agentLogRecorder := modart.NewAgentLogRecorder(agentLogRepo)
+	articleSvc := appart.NewService(
+		txm,
 		articleRepo,
 		agentLogRepo,
 		userSvc,
@@ -118,7 +128,13 @@ func main() {
 
 	e.GET("/swagger/*", echo.WrapHandler(httpSwagger.WrapHandler))
 
-	httpapi.RegisterRouter(e, userSvc, articleSvc, paymentSvc, statsSvc)
+	httpapi.RegisterRouter(e,
+		authapi.NewRegistrar(authSvc),
+		userapi.NewRegistrar(userSvc),
+		articleapi.NewRegistrar(articleSvc, userSvc),
+		paymentapi.NewRegistrar(paymentSvc, userSvc),
+		statisticsapi.NewRegistrar(statsSvc, userSvc),
+	)
 
 	logger.Info("http server starting",
 		logger.FieldPurpose, logger.PurposeInfra,

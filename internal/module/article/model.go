@@ -2,7 +2,6 @@ package article
 
 import (
 	"time"
-	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/port"
 )
 
@@ -94,53 +93,7 @@ type ArticleState struct {
 	Images                  []port.ImageResult      `json:"images"`
 }
 
-// ---------- Swagger 响应辅助类型（仅文档；运行时仍用 page.PageResponse）----------
 
-// ArticleListData 文章分页 data 形态，供 swag 展示（泛型 PageResponse 无法直接被 swag 解析）。
-type ArticleListData struct {
-	Records  []*Article `json:"records"`
-	Total    int        `json:"total"`
-	PageSize int        `json:"pageSize"`
-	PageNum  int        `json:"pageNum"`
-}
-
-// ---------- API 入参（Handler 直接 BindAndValidate 到这些类型）----------
-// Echo + go-playground/validator：校验用 validate tag（不是 gin 的 binding）。
-
-// CreateArticleRequest 创建文章入参（JSON body）。
-type CreateArticleRequest struct {
-	Topic               string             `json:"topic" validate:"required,min=1,max=512"`
-	Style               *ArticleStyle      `json:"style" validate:"omitempty"`
-	EnabledImageMethods []port.ImageMethod `json:"enabledImageMethods" validate:"omitempty,dive"` // 空=按角色默认；枚举/VIP 在 Service 校验
-}
-
-// QueryArticleRequest 查询文章入参（query；分页字段来自嵌入的 PageRequest）。
-type QueryArticleRequest struct {
-	Status *ArticleStatus `json:"status" query:"status" validate:"omitempty,oneof=PENDING PROCESSING COMPLETED FAILED"`
-	page.PageRequest
-}
-
-// ConfirmTitleRequest 确认标题入参（JSON body）。
-type ConfirmTitleRequest struct {
-	TaskID            string  `json:"taskId" validate:"required,min=1,max=64"`
-	SelectedMainTitle string  `json:"selectedMainTitle" validate:"required,min=1,max=512"`
-	SelectedSubTitle  string  `json:"selectedSubTitle" validate:"required,min=1,max=512"`
-	UserDescription   *string `json:"userDescription" validate:"omitempty,max=4000"` // 可选
-}
-
-// ConfirmOutlineRequest 确认大纲入参（JSON body）。
-type ConfirmOutlineRequest struct {
-	TaskID  string           `json:"taskId" validate:"required,min=1,max=64"`
-	Outline []OutlineSection `json:"outline" validate:"required,min=1,dive"`
-}
-
-// AiModifyOutlineRequest AI 修改大纲入参（JSON body）。
-type AiModifyOutlineRequest struct {
-	TaskID           string `json:"taskId" validate:"required,min=1,max=64"`
-	ModifySuggestion string `json:"modifySuggestion" validate:"required,min=1,max=4000"`
-}
-
-// ---------- Agent 执行日志 ----------
 
 type AgentLogStatus string
 

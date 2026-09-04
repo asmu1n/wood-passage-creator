@@ -6,7 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"wood-passage-creator/internal/module/user"
+	module "wood-passage-creator/internal/module/article"
+	moduser "wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/pkg/response"
 	"wood-passage-creator/internal/pkg/sse"
@@ -15,37 +16,47 @@ import (
 	"github.com/google/uuid"
 )
 
-type Service struct {
-	repo         Repository
-	agentLogs    AgentLogRepository
-	userQuota    UserQuota
-	orchestrator AgentOrchestrator
-	sse          sse.SSEHub
-	statsCache   overviewCacheInvalidator // 可选：文章变更时失效统计概览
-	log          *slog.Logger
+// UserQuota 文章创建时的配额扣减（由 app/user.Service 实现；须在同一 ctx/事务内调用）。
+// RestoreQuota 保留给非事务场景或运维补偿，Create 已改 WithinTx 后不再依赖回滚。
+type UserQuota interface {
+	CheckAndConsumeQuota(ctx context.Context, id int64) (consumed bool, err error)
+	RestoreQuota(ctx context.Context, id int64) error
 }
 
-// overviewCacheInvalidator 避免 article → statistics 具体类型依赖。
 type overviewCacheInvalidator interface {
 	InvalidateOverview(ctx context.Context)
 }
 
+// Service 文章应用用例（编排 agent 仍在 module/article）。
+type Service struct {
+	tx           port.TxManager
+	repo         module.Repository
+	agentLogs    module.AgentLogRepository
+	userQuota    UserQuota
+	orchestrator module.AgentOrchestrator
+	sse          sse.SSEHub
+	statsCache   overviewCacheInvalidator
+	log          *slog.Logger
+}
+
 func NewService(
-	repo Repository,
-	agentLogs AgentLogRepository,
+	tx port.TxManager,
+	repo module.Repository,
+	agentLogs module.AgentLogRepository,
 	userQuota UserQuota,
-	orch AgentOrchestrator,
-	sse sse.SSEHub,
+	orch module.AgentOrchestrator,
+	sseHub sse.SSEHub,
 	statsCache overviewCacheInvalidator,
 ) *Service {
 	return &Service{
+		tx:           tx,
 		repo:         repo,
 		agentLogs:    agentLogs,
 		userQuota:    userQuota,
 		orchestrator: orch,
-		sse:          sse,
+		sse:          sseHub,
 		statsCache:   statsCache,
-		log:          logger.Module("article"),
+		log:          logger.Module("app.article"),
 	}
 }
 
@@ -57,7 +68,7 @@ func (s *Service) invalidateStatsOverview(ctx context.Context) {
 }
 
 // ensureArticleAccess 校验登录用户是否可访问文章（管理员或作者）。
-func (s *Service) ensureArticleAccess(article *Article, actor user.Actor) error {
+func (s *Service) ensureArticleAccess(article *module.Article, actor moduser.Actor) error {
 	if article == nil {
 		return response.NewBizErrorWithDetail(response.NotFound, "文章不存在")
 	}
@@ -66,7 +77,7 @@ func (s *Service) ensureArticleAccess(article *Article, actor user.Actor) error 
 
 // loadAccessibleByTaskID 按 taskID 加载文章并校验访问权。
 // 不存在 → NotFound；非管理员且非作者 → NoAuth。
-func (s *Service) loadAccessibleByTaskID(ctx context.Context, taskID string, actor user.Actor) (*Article, error) {
+func (s *Service) loadAccessibleByTaskID(ctx context.Context, taskID string, actor moduser.Actor) (*module.Article, error) {
 	if taskID == "" {
 		return nil, response.NewBizErrorWithDetail(response.ParamsError, "任务ID不能为空")
 	}
@@ -85,7 +96,7 @@ func (s *Service) loadAccessibleByTaskID(ctx context.Context, taskID string, act
 
 // loadAccessibleByID 按 ID 加载文章并校验访问权。
 // 不存在 → NotFound；非管理员且非作者 → NoAuth。
-func (s *Service) loadAccessibleByID(ctx context.Context, id int64, actor user.Actor) (*Article, error) {
+func (s *Service) loadAccessibleByID(ctx context.Context, id int64, actor moduser.Actor) (*module.Article, error) {
 	if id == 0 {
 		return nil, response.NewBizErrorWithDetail(response.ParamsError, "文章ID不能为空")
 	}
@@ -103,16 +114,16 @@ func (s *Service) loadAccessibleByID(ctx context.Context, id int64, actor user.A
 }
 
 // ConfirmOutline agent 大纲生成完毕后，确认并更新文章大纲。
-func (s *Service) ConfirmOutline(ctx context.Context, actor user.Actor, taskID string, outline []OutlineSection) error {
+func (s *Service) ConfirmOutline(ctx context.Context, actor moduser.Actor, taskID string, outline []module.OutlineSection) error {
 	article, err := s.loadAccessibleByTaskID(ctx, taskID, actor)
 	if err != nil {
 		return err
 	}
-	if article.Phase != PhaseOutlineEditing {
+	if article.Phase != module.PhaseOutlineEditing {
 		return response.NewBizErrorWithDetail(response.ParamsError, "当前阶段不允许确认大纲")
 	}
 
-	article, err = s.repo.Update(ctx, article.ID, UpdateArticleParams{
+	article, err = s.repo.Update(ctx, article.ID, module.UpdateArticleParams{
 		Outline: outline,
 	})
 	if err != nil {
@@ -140,16 +151,16 @@ func (s *Service) ConfirmOutline(ctx context.Context, actor user.Actor, taskID s
 }
 
 // ConfirmTitle agent 标题生成完毕后，确认主/副标题。
-func (s *Service) ConfirmTitle(ctx context.Context, actor user.Actor, params ConfirmTitleRequest) error {
+func (s *Service) ConfirmTitle(ctx context.Context, actor moduser.Actor, params ConfirmTitleRequest) error {
 	article, err := s.loadAccessibleByTaskID(ctx, params.TaskID, actor)
 	if err != nil {
 		return err
 	}
-	if article.Phase != PhaseTitleSelecting {
+	if article.Phase != module.PhaseTitleSelecting {
 		return response.NewBizErrorWithDetail(response.Forbidden, "当前阶段不允许确认标题")
 	}
 
-	article, err = s.repo.Update(ctx, article.ID, UpdateArticleParams{
+	article, err = s.repo.Update(ctx, article.ID, module.UpdateArticleParams{
 		MainTitle:       &params.SelectedMainTitle,
 		SubTitle:        &params.SelectedSubTitle,
 		UserDescription: params.UserDescription,
@@ -177,36 +188,34 @@ func (s *Service) ConfirmTitle(ctx context.Context, actor user.Actor, params Con
 }
 
 // Create 创建文章任务并异步启动 Phase1（生成标题方案）。
-func (s *Service) Create(ctx context.Context, actor user.Actor, req CreateArticleRequest) (string, error) {
+// 扣配额与插入文章在同一本地事务中；失败整笔回滚，无需 RestoreQuota。
+func (s *Service) Create(ctx context.Context, actor moduser.Actor, req CreateArticleRequest) (string, error) {
 	taskID := uuid.NewString()
 
 	enabledMethods, err := resolveEnabledImageMethods(req.EnabledImageMethods, actor)
 	if err != nil {
 		return "", err
 	}
-	consumed, err := s.userQuota.CheckAndConsumeQuota(ctx, actor.ID)
-	if err != nil {
-		return "", err
+	if s.tx == nil {
+		return "", response.NewBizErrorWithDetail(response.SystemError, "tx manager unavailable")
 	}
 
-	if _, err := s.repo.Create(ctx, CreateArticleParams{
-		UserID:              actor.ID,
-		TaskID:              taskID,
-		Topic:               req.Topic,
-		Style:               req.Style,
-		EnabledImageMethods: enabledMethods,
-	}); err != nil {
-		if consumed {
-			if rerr := s.userQuota.RestoreQuota(ctx, actor.ID); rerr != nil {
-				s.log.Error("restore quota failed",
-					logger.FieldPurpose, logger.PurposeBiz,
-					logger.FieldEvent, "article.quota.restore_failed",
-					logger.FieldErr, rerr,
-					"user_id", actor.ID,
-					"task_id", taskID,
-				)
-			}
+	err = s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		if _, err := s.userQuota.CheckAndConsumeQuota(ctx, actor.ID); err != nil {
+			return err
 		}
+		if _, err := s.repo.Create(ctx, module.CreateArticleParams{
+			UserID:              actor.ID,
+			TaskID:              taskID,
+			Topic:               req.Topic,
+			Style:               req.Style,
+			EnabledImageMethods: enabledMethods,
+		}); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		s.log.Error("create article failed",
 			logger.FieldPurpose, logger.PurposeBiz,
 			logger.FieldEvent, "article.create.failed",
@@ -226,53 +235,54 @@ func (s *Service) Create(ctx context.Context, actor user.Actor, req CreateArticl
 		"topic", req.Topic,
 	)
 
+	// 提交后再失效缓存 / 启动异步，避免长事务与脏缓存
 	s.invalidateStatsOverview(ctx)
 	go s.runPhase1Async(taskID, req.Topic, req.Style)
 
 	return taskID, nil
 }
 
-func (s *Service) GetByTaskID(ctx context.Context, taskID string, actor user.Actor) (*Article, error) {
+func (s *Service) GetByTaskID(ctx context.Context, taskID string, actor moduser.Actor) (*module.Article, error) {
 	return s.loadAccessibleByTaskID(ctx, taskID, actor)
 }
 
-func (s *Service) GetByID(ctx context.Context, id int64) (*Article, error) {
+func (s *Service) GetByID(ctx context.Context, id int64) (*module.Article, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
-func (s *Service) Update(ctx context.Context, id int64, params UpdateArticleParams) (*Article, error) {
+func (s *Service) Update(ctx context.Context, id int64, params module.UpdateArticleParams) (*module.Article, error) {
 	return s.repo.Update(ctx, id, params)
 }
 
-func (s *Service) UpdateByTaskID(ctx context.Context, taskID string, params UpdateArticleParams) (*Article, error) {
+func (s *Service) UpdateByTaskID(ctx context.Context, taskID string, params module.UpdateArticleParams) (*module.Article, error) {
 	return s.repo.UpdateByTaskID(ctx, taskID, params)
 }
 
-func (s *Service) UpdateStatus(ctx context.Context, taskID string, status ArticleStatus) error {
+func (s *Service) UpdateStatus(ctx context.Context, taskID string, status module.ArticleStatus) error {
 	return s.repo.UpdateStatus(ctx, taskID, status)
 }
 
-func (s *Service) UpdatePhase(ctx context.Context, taskID string, phase ArticlePhase) error {
+func (s *Service) UpdatePhase(ctx context.Context, taskID string, phase module.ArticlePhase) error {
 	return s.repo.UpdatePhase(ctx, taskID, phase)
 }
 
-func (s *Service) UpdateTitleOptions(ctx context.Context, taskID string, titleOptions []TitleOption) error {
+func (s *Service) UpdateTitleOptions(ctx context.Context, taskID string, titleOptions []module.TitleOption) error {
 	return s.repo.UpdateTitleOptions(ctx, taskID, titleOptions)
 }
 
-func (s *Service) ListByUser(ctx context.Context, actor user.Actor, req QueryArticleRequest) ([]*Article, int, error) {
+func (s *Service) ListByUser(ctx context.Context, actor moduser.Actor, req QueryArticleRequest) ([]*module.Article, int, error) {
 	// 仅查询执行者自己的文章（admin 也走 list/self 时同样只看自己）
-	return s.repo.ListByUser(ctx, actor.ID, ListArticlesParams{QueryArticleRequest: req})
+	return s.repo.ListByUser(ctx, actor.ID, module.ListArticlesParams{Status: req.Status, PageRequest: req.PageRequest})
 }
 
-func (s *Service) ListAll(ctx context.Context, actor user.Actor, req QueryArticleRequest) ([]*Article, int, error) {
+func (s *Service) ListAll(ctx context.Context, actor moduser.Actor, req QueryArticleRequest) ([]*module.Article, int, error) {
 	if err := actor.RequireAdmin(); err != nil {
 		return nil, 0, err
 	}
-	return s.repo.List(ctx, ListArticlesParams{QueryArticleRequest: req})
+	return s.repo.List(ctx, module.ListArticlesParams{Status: req.Status, PageRequest: req.PageRequest})
 }
 
-func (s *Service) Delete(ctx context.Context, actor user.Actor, id int64) error {
+func (s *Service) Delete(ctx context.Context, actor moduser.Actor, id int64) error {
 	if _, err := s.loadAccessibleByID(ctx, id, actor); err != nil {
 		return err
 	}
@@ -286,7 +296,7 @@ func (s *Service) Delete(ctx context.Context, actor user.Actor, id int64) error 
 // runPhase1Async 异步执行阶段 1：生成标题方案。
 // 成功：TitleOptions + phase=TITLE_SELECTING。
 // 失败/panic：status=FAILED + errorMessage；成功路径不会标记失败。
-func (s *Service) runPhase1Async(taskID string, topic string, style *ArticleStyle) {
+func (s *Service) runPhase1Async(taskID string, topic string, style *module.ArticleStyle) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
@@ -303,11 +313,11 @@ func (s *Service) runPhase1Async(taskID string, topic string, style *ArticleStyl
 		"topic", topic,
 	)
 
-	if err := s.repo.UpdateStatus(ctx, taskID, StatusProcessing); err != nil {
+	if err := s.repo.UpdateStatus(ctx, taskID, module.StatusProcessing); err != nil {
 		s.failPhase1(ctx, taskID, fmt.Errorf("update status to processing: %w", err))
 		return
 	}
-	if err := s.repo.UpdatePhase(ctx, taskID, PhaseTitleGenerating); err != nil {
+	if err := s.repo.UpdatePhase(ctx, taskID, module.PhaseTitleGenerating); err != nil {
 		s.failPhase1(ctx, taskID, fmt.Errorf("update phase to title_generating: %w", err))
 		return
 	}
@@ -321,12 +331,12 @@ func (s *Service) runPhase1Async(taskID string, topic string, style *ArticleStyl
 		return
 	}
 
-	state := &ArticleState{
+	state := &module.ArticleState{
 		ArticleID: art.ID,
 		TaskID:    taskID,
 		Topic:     topic,
 		Style:     style,
-		Phase:     PhaseTitleGenerating,
+		Phase:     module.PhaseTitleGenerating,
 	}
 
 	if err := s.orchestrator.RunPhase1(ctx, state); err != nil {
@@ -342,13 +352,13 @@ func (s *Service) runPhase1Async(taskID string, topic string, style *ArticleStyl
 		s.failPhase1(ctx, taskID, fmt.Errorf("save title options: %w", err))
 		return
 	}
-	if err := s.repo.UpdatePhase(ctx, taskID, PhaseTitleSelecting); err != nil {
+	if err := s.repo.UpdatePhase(ctx, taskID, module.PhaseTitleSelecting); err != nil {
 		s.failPhase1(ctx, taskID, fmt.Errorf("update phase to title_selecting: %w", err))
 		return
 	}
 
-	s.publish(taskID, EventTitlesDone, TitlesDonePayload{
-		Phase:        PhaseTitleSelecting,
+	s.publish(taskID, module.EventTitlesDone, module.TitlesDonePayload{
+		Phase:        module.PhaseTitleSelecting,
 		TitleOptions: state.TitleOptions,
 	})
 
@@ -374,8 +384,8 @@ func (s *Service) failPhase1(ctx context.Context, taskID string, err error) {
 	)
 
 	msg := truncateErr(err, 1000)
-	status := StatusFailed
-	if _, uerr := s.repo.UpdateByTaskID(ctx, taskID, UpdateArticleParams{
+	status := module.StatusFailed
+	if _, uerr := s.repo.UpdateByTaskID(ctx, taskID, module.UpdateArticleParams{
 		Status:       &status,
 		ErrorMessage: &msg,
 	}); uerr != nil {
@@ -391,7 +401,7 @@ func (s *Service) failPhase1(ctx context.Context, taskID string, err error) {
 	s.publishSSEError(taskID, msg)
 }
 
-func (s *Service) runPhase2Async(article *Article) {
+func (s *Service) runPhase2Async(article *module.Article) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
@@ -401,16 +411,16 @@ func (s *Service) runPhase2Async(article *Article) {
 		}
 	}()
 
-	if err := s.repo.UpdatePhase(ctx, article.TaskID, PhaseOutlineGenerating); err != nil {
+	if err := s.repo.UpdatePhase(ctx, article.TaskID, module.PhaseOutlineGenerating); err != nil {
 		s.failPhase2(ctx, article.TaskID, fmt.Errorf("update phase to outline_generating: %w", err))
 		return
 	}
 
-	state := &ArticleState{
+	state := &module.ArticleState{
 		ArticleID: article.ID,
 		TaskID:    article.TaskID,
 		Style:     article.Style,
-		Phase:     PhaseOutlineGenerating,
+		Phase:     module.PhaseOutlineGenerating,
 		MainTitle: article.MainTitle,
 		SubTitle:  article.SubTitle,
 	}
@@ -433,13 +443,13 @@ func (s *Service) runPhase2Async(article *Article) {
 		return
 	}
 
-	if err := s.repo.UpdatePhase(ctx, taskID, PhaseOutlineEditing); err != nil {
+	if err := s.repo.UpdatePhase(ctx, taskID, module.PhaseOutlineEditing); err != nil {
 		s.failPhase2(ctx, taskID, err)
 		return
 	}
 
-	s.publish(taskID, EventOutlineDone, OutlineDonePayload{
-		Phase:   PhaseOutlineEditing,
+	s.publish(taskID, module.EventOutlineDone, module.OutlineDonePayload{
+		Phase:   module.PhaseOutlineEditing,
 		Outline: state.Outline,
 	})
 
@@ -465,8 +475,8 @@ func (s *Service) failPhase2(ctx context.Context, taskID string, err error) {
 	)
 
 	msg := truncateErr(err, 1000)
-	status := StatusFailed
-	if _, uerr := s.repo.UpdateByTaskID(ctx, taskID, UpdateArticleParams{
+	status := module.StatusFailed
+	if _, uerr := s.repo.UpdateByTaskID(ctx, taskID, module.UpdateArticleParams{
 		Status:       &status,
 		ErrorMessage: &msg,
 	}); uerr != nil {
@@ -482,7 +492,7 @@ func (s *Service) failPhase2(ctx context.Context, taskID string, err error) {
 	s.publishSSEError(taskID, msg)
 }
 
-func (s *Service) runPhase3Async(article *Article, userRole user.UserRole) {
+func (s *Service) runPhase3Async(article *module.Article, userRole moduser.UserRole) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
@@ -492,19 +502,19 @@ func (s *Service) runPhase3Async(article *Article, userRole user.UserRole) {
 		}
 	}()
 
-	if err := s.UpdatePhase(ctx, article.TaskID, PhaseContentGenerating); err != nil {
+	if err := s.UpdatePhase(ctx, article.TaskID, module.PhaseContentGenerating); err != nil {
 		s.failPhase3(ctx, article.TaskID, err)
 		return
 	}
 
-	state := &ArticleState{
+	state := &module.ArticleState{
 		ArticleID:           article.ID,
 		TaskID:              article.TaskID,
 		MainTitle:           article.MainTitle,
 		SubTitle:            article.SubTitle,
 		Style:               article.Style,
 		Outline:             article.Outline,
-		Phase:               PhaseContentGenerating,
+		Phase:               module.PhaseContentGenerating,
 		EnabledImageMethods: article.EnabledImageMethods,
 	}
 
@@ -517,11 +527,11 @@ func (s *Service) runPhase3Async(article *Article, userRole user.UserRole) {
 		return
 	}
 
-	if _, err := s.Update(ctx, article.ID, UpdateArticleParams{
+	if _, err := s.Update(ctx, article.ID, module.UpdateArticleParams{
 		Content:       &state.Content,
 		FullContent:   &state.FullContent,
-		Status:        new(StatusCompleted),
-		Phase:         new(PhaseCompleted),
+		Status:        new(module.StatusCompleted),
+		Phase:         new(module.PhaseCompleted),
 		Images:        state.Images,
 		CompletedTime: new(time.Now()),
 	}); err != nil {
@@ -535,9 +545,9 @@ func (s *Service) runPhase3Async(article *Article, userRole user.UserRole) {
 		return
 	}
 
-	s.publish(taskID, EventContentDone, ContentDonePayload{
-		Phase:  PhaseCompleted,
-		Status: StatusCompleted,
+	s.publish(taskID, module.EventContentDone, module.ContentDonePayload{
+		Phase:  module.PhaseCompleted,
+		Status: module.StatusCompleted,
 	})
 
 	s.invalidateStatsOverview(ctx)
@@ -563,8 +573,8 @@ func (s *Service) failPhase3(ctx context.Context, taskID string, err error) {
 	)
 
 	msg := truncateErr(err, 1000)
-	status := StatusFailed
-	if _, uerr := s.repo.UpdateByTaskID(ctx, taskID, UpdateArticleParams{
+	status := module.StatusFailed
+	if _, uerr := s.repo.UpdateByTaskID(ctx, taskID, module.UpdateArticleParams{
 		Status:       &status,
 		ErrorMessage: &msg,
 	}); uerr != nil {
@@ -580,7 +590,7 @@ func (s *Service) failPhase3(ctx context.Context, taskID string, err error) {
 	s.publishSSEError(taskID, msg)
 }
 
-func (s *Service) ModifyOutline(ctx context.Context, actor user.Actor, req AiModifyOutlineRequest) ([]OutlineSection, error) {
+func (s *Service) ModifyOutline(ctx context.Context, actor moduser.Actor, req AiModifyOutlineRequest) ([]module.OutlineSection, error) {
 	if err := actor.RequireVipOrAdmin(); err != nil {
 		return nil, err
 	}
@@ -597,11 +607,11 @@ func (s *Service) ModifyOutline(ctx context.Context, actor user.Actor, req AiMod
 		return nil, err
 	}
 
-	if article.Phase != PhaseOutlineEditing {
+	if article.Phase != module.PhaseOutlineEditing {
 		return nil, response.NewBizErrorWithDetail(response.Forbidden, "当前阶段不允许修改大纲")
 	}
 
-	state := &ArticleState{
+	state := &module.ArticleState{
 		ArticleID: article.ID,
 		TaskID:    article.TaskID,
 		MainTitle: article.MainTitle,
@@ -622,7 +632,7 @@ func (s *Service) ModifyOutline(ctx context.Context, actor user.Actor, req AiMod
 	}
 
 	// 写回修改后的大纲
-	if _, err := s.repo.Update(ctx, article.ID, UpdateArticleParams{Outline: newOutline}); err != nil {
+	if _, err := s.repo.Update(ctx, article.ID, module.UpdateArticleParams{Outline: newOutline}); err != nil {
 		return nil, err
 	}
 
@@ -630,16 +640,16 @@ func (s *Service) ModifyOutline(ctx context.Context, actor user.Actor, req AiMod
 }
 
 // GetExecutionLogs 按 taskId 返回 agent 执行日志与汇总（需能访问该任务）。
-func (s *Service) GetExecutionLogs(ctx context.Context, actor user.Actor, taskID string) (*AgentExecutionStats, error) {
+func (s *Service) GetExecutionLogs(ctx context.Context, actor moduser.Actor, taskID string) (*module.AgentExecutionStats, error) {
 	if _, err := s.loadAccessibleByTaskID(ctx, taskID, actor); err != nil {
 		return nil, err
 	}
 	if s.agentLogs == nil {
-		return &AgentExecutionStats{
+		return &module.AgentExecutionStats{
 			TaskID:         taskID,
 			OverallStatus:  "NOT_FOUND",
 			AgentDurations: map[string]int{},
-			Logs:           []*AgentLog{},
+			Logs:           []*module.AgentLog{},
 		}, nil
 	}
 	logs, err := s.agentLogs.ListByTaskID(ctx, taskID)
@@ -647,11 +657,11 @@ func (s *Service) GetExecutionLogs(ctx context.Context, actor user.Actor, taskID
 		return nil, err
 	}
 	if len(logs) == 0 {
-		return &AgentExecutionStats{
+		return &module.AgentExecutionStats{
 			TaskID:         taskID,
 			OverallStatus:  "NOT_FOUND",
 			AgentDurations: map[string]int{},
-			Logs:           []*AgentLog{},
+			Logs:           []*module.AgentLog{},
 		}, nil
 	}
 
@@ -664,15 +674,15 @@ func (s *Service) GetExecutionLogs(ctx context.Context, actor user.Actor, taskID
 			durations[entry.AgentName] = *entry.DurationMs
 		}
 		switch entry.Status {
-		case AgentLogFailed:
+		case module.AgentLogFailed:
 			overall = "FAILED"
-		case AgentLogRunning:
+		case module.AgentLogRunning:
 			if overall != "FAILED" {
 				overall = "RUNNING"
 			}
 		}
 	}
-	return &AgentExecutionStats{
+	return &module.AgentExecutionStats{
 		TaskID:          taskID,
 		TotalDurationMs: total,
 		AgentCount:      len(logs),
@@ -696,8 +706,8 @@ func truncateErr(err error, max int) string {
 // resolveEnabledImageMethods 处理默认值、用户可选枚举与 VIP 权限。
 // 空：VIP/Admin → nil（不限制）；普通 → FreeImageMethods。
 // 非空：须为 IsUserMethod；普通用户不得含 VIP 项；返回已 Normalize 的列表。
-func resolveEnabledImageMethods(methods []port.ImageMethod, actor user.Actor) ([]port.ImageMethod, error) {
-	vip := actor.Role == user.RoleVIP || actor.Role == user.RoleAdmin
+func resolveEnabledImageMethods(methods []port.ImageMethod, actor moduser.Actor) ([]port.ImageMethod, error) {
+	vip := actor.Role == moduser.RoleVIP || actor.Role == moduser.RoleAdmin
 	if len(methods) == 0 {
 		if vip {
 			return nil, nil

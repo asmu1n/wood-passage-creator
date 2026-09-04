@@ -1,31 +1,30 @@
-package http
+package statisticsapi
 
 import (
 	"net/http"
 
+	app "wood-passage-creator/internal/app/statistics"
 	"wood-passage-creator/internal/httpapi/middleware"
-	"wood-passage-creator/internal/module/statistics"
 	"wood-passage-creator/internal/pkg/response"
 
 	"github.com/labstack/echo/v5"
 )
 
 type Handler struct {
-	svc *statistics.Service
+	svc *app.Service
 }
 
-func NewHandler(svc *statistics.Service) *Handler {
+func NewHandler(svc *app.Service) *Handler {
 	return &Handler{svc: svc}
 }
 
 // Overview godoc
-// @Summary      系统统计概览（管理员）
-// @Description  今日/本周/本月创作量、成功率、平均耗时、用户与 VIP、配额使用等。
+// @Summary      系统概览统计（管理员）
 // @Tags         admin-statistics
 // @Produce      json
-// @Success      200 {object} response.Response{data=statistics.Overview}
-// @Failure      401 {object} response.Response "未登录"
-// @Failure      403 {object} response.Response "无权限"
+// @Success      200 {object} response.Response{data=statistics.Overview} "成功"
+// @Failure      401 {object} response.Response
+// @Failure      403 {object} response.Response
 // @Security     SessionAuth
 // @Router       /admin/statistics/overview [get]
 func (h *Handler) Overview(c *echo.Context) error {

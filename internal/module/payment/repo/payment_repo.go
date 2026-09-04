@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"wood-passage-creator/ent"
+	"wood-passage-creator/internal/infra/database"
 	entgen "wood-passage-creator/ent/paymentrecord"
 	"wood-passage-creator/internal/module/payment"
 )
@@ -16,8 +17,13 @@ func New(client *ent.Client) payment.Repository {
 	return &repo{client: client}
 }
 
+func (r *repo) ent(ctx context.Context) *ent.Client {
+	return database.ClientFrom(ctx, r.client)
+}
+
+
 func (r *repo) CreatePending(ctx context.Context, userID int64, sessionID, productType, currency string, amount float64, desc string) (*payment.Record, error) {
-	b := r.client.PaymentRecord.Create().
+	b := r.ent(ctx).PaymentRecord.Create().
 		SetUserID(userID).
 		SetStripeSessionID(sessionID).
 		SetAmount(amount).
@@ -35,7 +41,7 @@ func (r *repo) CreatePending(ctx context.Context, userID int64, sessionID, produ
 }
 
 func (r *repo) GetBySessionID(ctx context.Context, sessionID string) (*payment.Record, error) {
-	row, err := r.client.PaymentRecord.Query().
+	row, err := r.ent(ctx).PaymentRecord.Query().
 		Where(entgen.StripeSessionIDEQ(sessionID)).
 		Only(ctx)
 	if err != nil {
@@ -48,7 +54,7 @@ func (r *repo) GetBySessionID(ctx context.Context, sessionID string) (*payment.R
 }
 
 func (r *repo) MarkSucceeded(ctx context.Context, id int64, paymentIntentID string) (*payment.Record, error) {
-	b := r.client.PaymentRecord.UpdateOneID(id).
+	b := r.ent(ctx).PaymentRecord.UpdateOneID(id).
 		SetStatus(entgen.StatusSUCCEEDED)
 	if paymentIntentID != "" {
 		b.SetStripePaymentIntentID(paymentIntentID)
@@ -64,7 +70,7 @@ func (r *repo) MarkSucceeded(ctx context.Context, id int64, paymentIntentID stri
 }
 
 func (r *repo) List(ctx context.Context, params payment.ListParams) ([]*payment.Record, int, error) {
-	base := r.client.PaymentRecord.Query()
+	base := r.ent(ctx).PaymentRecord.Query()
 	if params.UserID != nil {
 		base = base.Where(entgen.UserIDEQ(*params.UserID))
 	}
@@ -80,7 +86,7 @@ func (r *repo) List(ctx context.Context, params payment.ListParams) ([]*payment.
 		return nil, 0, err
 	}
 
-	rows, err := base.Limit(params.PageRequest.Limit()).Offset(params.PageRequest.Offset()).Order(ent.Desc(entgen.FieldCreateTime)).All(ctx)
+	rows, err := base.Limit(params.Limit()).Offset(params.Offset()).Order(ent.Desc(entgen.FieldCreateTime)).All(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
