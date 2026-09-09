@@ -13,3 +13,18 @@ HTTP 在 `httpapi/api`，**只依赖 app**。
 | `statistics` | 管理端概览 |
 
 跨 module 本地事务：`port.WithinTx` 全局访问（main `database.InitTxManager`）；`article.Create`、`payment.CompleteMockVIP` 已使用。
+
+
+## 包名约定（重要）
+
+app 目录下的 Go **package 名**必须与 module 领域包名错开，便于 swag 与 import 消歧：
+
+| 目录 | package |
+|------|---------|
+| `app/auth` | `authapp` |
+| `app/user` | `userapp` |
+| `app/article` | `articleapp` |
+| `app/payment` | `paymentapp` |
+| `app/statistics` | `statsapp` |
+
+module 侧保持领域名：`user` / `article` / `payment` / `statistics`。

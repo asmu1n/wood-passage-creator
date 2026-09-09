@@ -1,15 +1,17 @@
-package user
+package userapp
 
-import "wood-passage-creator/internal/module/user"
+import (
+	moduser "wood-passage-creator/internal/module/user"
+)
 
 // ---------- Swagger 响应辅助（仅文档；运行时仍用 page.PageResponse）----------
 
 // UserListData 用户分页 data 形态，供 swag 展示。
 type UserListData struct {
-	Records  []*user.User `json:"records"`
-	Total    int          `json:"total"`
-	PageSize int          `json:"pageSize"`
-	PageNum  int          `json:"pageNum"`
+	Records  []*moduser.User `json:"records"`
+	Total    int             `json:"total"`
+	PageSize int             `json:"pageSize"`
+	PageNum  int             `json:"pageNum"`
 }
 
 // UpdateRequest 部分更新；指针 nil 表示不修改该字段。

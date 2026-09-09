@@ -1,7 +1,7 @@
 package authapi
 
 import (
-	"wood-passage-creator/internal/app/auth"
+	authapp "wood-passage-creator/internal/app/auth"
 	"wood-passage-creator/internal/httpapi/middleware"
 
 	"github.com/labstack/echo/v5"
@@ -12,7 +12,7 @@ type Registrar struct {
 	h *Handler
 }
 
-func NewRegistrar(authSvc *auth.Service) *Registrar {
+func NewRegistrar(authSvc *authapp.Service) *Registrar {
 	return &Registrar{h: NewHandler(authSvc)}
 }
 

@@ -5,23 +5,24 @@ import (
 	"strconv"
 	"time"
 
-	app "wood-passage-creator/internal/app/article"
+	articleapp "wood-passage-creator/internal/app/article"
 	"wood-passage-creator/internal/httpapi/binding"
 	"wood-passage-creator/internal/httpapi/middleware"
-	module "wood-passage-creator/internal/module/article"
+	article "wood-passage-creator/internal/module/article"
 	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/pkg/response"
 	"wood-passage-creator/internal/pkg/sse"
+
 
 	"github.com/labstack/echo/v5"
 )
 
 // Handler 文章 HTTP 传输层。
 type Handler struct {
-	svc *app.Service
+	svc *articleapp.Service
 }
 
-func NewHandler(svc *app.Service) *Handler {
+func NewHandler(svc *articleapp.Service) *Handler {
 	return &Handler{svc: svc}
 }
 
@@ -31,14 +32,14 @@ func NewHandler(svc *app.Service) *Handler {
 // @Tags         article
 // @Accept       json
 // @Produce      json
-// @Param        body body appart.CreateArticleRequest true "创建参数"
+// @Param        body body articleapp.CreateArticleRequest true "创建参数"
 // @Success      200 {object} response.Response{data=article.Article} "成功"
 // @Failure      400 {object} response.Response "参数错误"
 // @Failure      401 {object} response.Response "未登录"
 // @Security     SessionAuth
 // @Router       /article/create [post]
 func (h *Handler) Create(c *echo.Context) error {
-	var req app.CreateArticleRequest
+	var req articleapp.CreateArticleRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
@@ -59,7 +60,7 @@ func (h *Handler) Create(c *echo.Context) error {
 // @Tags         article
 // @Accept       json
 // @Produce      json
-// @Param        body body appart.ConfirmTitleRequest true "确认标题参数"
+// @Param        body body articleapp.ConfirmTitleRequest true "确认标题参数"
 // @Success      200 {object} response.Response "成功（data 一般为 null）"
 // @Failure      400 {object} response.Response "参数错误/阶段不允许"
 // @Failure      401 {object} response.Response "未登录"
@@ -68,7 +69,7 @@ func (h *Handler) Create(c *echo.Context) error {
 // @Security     SessionAuth
 // @Router       /article/confirm-title [post]
 func (h *Handler) ConfirmTitle(c *echo.Context) error {
-	var req app.ConfirmTitleRequest
+	var req articleapp.ConfirmTitleRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
@@ -88,7 +89,7 @@ func (h *Handler) ConfirmTitle(c *echo.Context) error {
 // @Tags         article
 // @Accept       json
 // @Produce      json
-// @Param        body body appart.ConfirmOutlineRequest true "确认大纲参数"
+// @Param        body body articleapp.ConfirmOutlineRequest true "确认大纲参数"
 // @Success      200 {object} response.Response "成功（data 一般为 null）"
 // @Failure      400 {object} response.Response "参数错误/阶段不允许"
 // @Failure      401 {object} response.Response "未登录"
@@ -97,7 +98,7 @@ func (h *Handler) ConfirmTitle(c *echo.Context) error {
 // @Security     SessionAuth
 // @Router       /article/confirm-outline [post]
 func (h *Handler) ConfirmOutline(c *echo.Context) error {
-	var req app.ConfirmOutlineRequest
+	var req articleapp.ConfirmOutlineRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
@@ -162,13 +163,13 @@ func (h *Handler) GetByID(c *echo.Context) error {
 // @Param        pageNum  query int    false "页码，默认 1"
 // @Param        pageSize query int    false "每页条数，默认 10，最大 100"
 // @Param        status   query string false "状态筛选" Enums(PENDING, PROCESSING, COMPLETED, FAILED)
-// @Success      200 {object} response.Response{data=appart.ArticleListData} "成功"
+// @Success      200 {object} response.Response{data=articleapp.ArticleListData} "成功"
 // @Failure      400 {object} response.Response "参数错误"
 // @Failure      401 {object} response.Response "未登录"
 // @Security     SessionAuth
 // @Router       /article/list/self [get]
 func (h *Handler) ListBySelf(c *echo.Context) error {
-	var req app.QueryArticleRequest
+	var req articleapp.QueryArticleRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
@@ -192,14 +193,14 @@ func (h *Handler) ListBySelf(c *echo.Context) error {
 // @Param        pageNum  query int    false "页码，默认 1"
 // @Param        pageSize query int    false "每页条数，默认 10，最大 100"
 // @Param        status   query string false "状态筛选" Enums(PENDING, PROCESSING, COMPLETED, FAILED)
-// @Success      200 {object} response.Response{data=appart.ArticleListData} "成功"
+// @Success      200 {object} response.Response{data=articleapp.ArticleListData} "成功"
 // @Failure      400 {object} response.Response "参数错误"
 // @Failure      401 {object} response.Response "未登录"
 // @Failure      403 {object} response.Response "无权限"
 // @Security     SessionAuth
 // @Router       /admin/article/list [get]
 func (h *Handler) ListAll(c *echo.Context) error {
-	var req app.QueryArticleRequest
+	var req articleapp.QueryArticleRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
@@ -314,7 +315,7 @@ func (h *Handler) GetProgress(c *echo.Context) error {
 			}
 
 			// 本段终态：结束 SSE 连接
-			if module.IsTerminalSSEEvent(msg.Name) {
+			if article.IsTerminalSSEEvent(msg.Name) {
 				return nil
 			}
 
@@ -328,7 +329,7 @@ func (h *Handler) GetProgress(c *echo.Context) error {
 // @Tags         article
 // @Accept       json
 // @Produce      json
-// @Param        body body appart.AiModifyOutlineRequest true "任务 ID 与修改建议"
+// @Param        body body articleapp.AiModifyOutlineRequest true "任务 ID 与修改建议"
 // @Success      200 {object} response.Response{data=[]article.OutlineSection}
 // @Failure      400 {object} response.Response
 // @Failure      401 {object} response.Response
@@ -336,7 +337,7 @@ func (h *Handler) GetProgress(c *echo.Context) error {
 // @Security     SessionAuth
 // @Router       /article/modify-outline [post]
 func (h *Handler) ModifyOutline(c *echo.Context) error {
-	var req app.AiModifyOutlineRequest
+	var req articleapp.AiModifyOutlineRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}

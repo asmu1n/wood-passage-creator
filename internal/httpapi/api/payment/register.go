@@ -1,8 +1,8 @@
 package paymentapi
 
 import (
-	apppay "wood-passage-creator/internal/app/payment"
-	appuser "wood-passage-creator/internal/app/user"
+	paymentapp "wood-passage-creator/internal/app/payment"
+	userapp "wood-passage-creator/internal/app/user"
 	"wood-passage-creator/internal/httpapi/middleware"
 
 	"github.com/labstack/echo/v5"
@@ -10,10 +10,10 @@ import (
 
 type Registrar struct {
 	h       *Handler
-	userSvc *appuser.Service
+	userSvc *userapp.Service
 }
 
-func NewRegistrar(svc *apppay.Service, userSvc *appuser.Service) *Registrar {
+func NewRegistrar(svc *paymentapp.Service, userSvc *userapp.Service) *Registrar {
 	return &Registrar{h: NewHandler(svc), userSvc: userSvc}
 }
 

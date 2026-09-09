@@ -1,4 +1,4 @@
-package user
+package userapp
 
 import (
 	"context"
@@ -16,7 +16,7 @@ type overviewCacheInvalidator interface {
 	InvalidateOverview(ctx context.Context)
 }
 
-// Service 用户应用用例（资料/管理/配额/VIP；注册登录见 app/auth）。
+// Service 用户应用用例（资料/管理/配额/VIP；注册登录见 authapp）。
 type Service struct {
 	repo       module.Repository
 	statsCache overviewCacheInvalidator

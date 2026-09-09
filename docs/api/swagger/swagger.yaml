@@ -1,5 +1,174 @@
 basePath: /api
 definitions:
+  wood-passage-creator_internal_app_article.AiModifyOutlineRequest:
+    properties:
+      modifySuggestion:
+        maxLength: 4000
+        minLength: 1
+        type: string
+      taskId:
+        maxLength: 64
+        minLength: 1
+        type: string
+    required:
+    - modifySuggestion
+    - taskId
+    type: object
+  wood-passage-creator_internal_app_article.ArticleListData:
+    properties:
+      pageNum:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/wood-passage-creator_internal_module_article.Article'
+        type: array
+      total:
+        type: integer
+    type: object
+  wood-passage-creator_internal_app_article.ConfirmOutlineRequest:
+    properties:
+      outline:
+        items:
+          $ref: '#/definitions/wood-passage-creator_internal_module_article.OutlineSection'
+        minItems: 1
+        type: array
+      taskId:
+        maxLength: 64
+        minLength: 1
+        type: string
+    required:
+    - outline
+    - taskId
+    type: object
+  wood-passage-creator_internal_app_article.ConfirmTitleRequest:
+    properties:
+      selectedMainTitle:
+        maxLength: 512
+        minLength: 1
+        type: string
+      selectedSubTitle:
+        maxLength: 512
+        minLength: 1
+        type: string
+      taskId:
+        maxLength: 64
+        minLength: 1
+        type: string
+      userDescription:
+        maxLength: 4000
+        type: string
+    required:
+    - selectedMainTitle
+    - selectedSubTitle
+    - taskId
+    type: object
+  wood-passage-creator_internal_app_article.CreateArticleRequest:
+    properties:
+      enabledImageMethods:
+        items:
+          $ref: '#/definitions/wood-passage-creator_internal_port.ImageMethod'
+        type: array
+      style:
+        $ref: '#/definitions/wood-passage-creator_internal_module_article.ArticleStyle'
+      topic:
+        maxLength: 512
+        minLength: 1
+        type: string
+    required:
+    - topic
+    type: object
+  wood-passage-creator_internal_app_auth.LoginRequest:
+    properties:
+      userAccount:
+        maxLength: 20
+        minLength: 3
+        type: string
+      userPassword:
+        maxLength: 20
+        minLength: 6
+        type: string
+    required:
+    - userAccount
+    - userPassword
+    type: object
+  wood-passage-creator_internal_app_auth.RegisterRequest:
+    properties:
+      userAccount:
+        maxLength: 20
+        minLength: 3
+        type: string
+      userAvatar:
+        maxLength: 1024
+        type: string
+      userName:
+        maxLength: 256
+        minLength: 1
+        type: string
+      userPassword:
+        maxLength: 20
+        minLength: 6
+        type: string
+      userProfile:
+        maxLength: 512
+        type: string
+    required:
+    - userAccount
+    - userPassword
+    type: object
+  wood-passage-creator_internal_app_payment.MockCompleteRequest:
+    properties:
+      sessionId:
+        maxLength: 128
+        minLength: 8
+        type: string
+    required:
+    - sessionId
+    type: object
+  wood-passage-creator_internal_app_payment.RecordListData:
+    properties:
+      pageNum:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/wood-passage-creator_internal_module_payment.Record'
+        type: array
+      total:
+        type: integer
+    type: object
+  wood-passage-creator_internal_app_user.UpdateRequest:
+    properties:
+      userAvatar:
+        maxLength: 1024
+        type: string
+      userName:
+        maxLength: 256
+        minLength: 1
+        type: string
+      userPassword:
+        maxLength: 20
+        minLength: 6
+        type: string
+      userProfile:
+        maxLength: 512
+        type: string
+    type: object
+  wood-passage-creator_internal_app_user.UserListData:
+    properties:
+      pageNum:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/wood-passage-creator_internal_module_user.User'
+        type: array
+      total:
+        type: integer
+    type: object
   wood-passage-creator_internal_module_article.AgentExecutionStats:
     properties:
       agentCount:
@@ -59,20 +228,6 @@ definitions:
     - AgentLogRunning
     - AgentLogSuccess
     - AgentLogFailed
-  wood-passage-creator_internal_module_article.AiModifyOutlineRequest:
-    properties:
-      modifySuggestion:
-        maxLength: 4000
-        minLength: 1
-        type: string
-      taskId:
-        maxLength: 64
-        minLength: 1
-        type: string
-    required:
-    - modifySuggestion
-    - taskId
-    type: object
   wood-passage-creator_internal_module_article.Article:
     properties:
       completedTime:
@@ -129,19 +284,6 @@ definitions:
       userId:
         type: integer
     type: object
-  wood-passage-creator_internal_module_article.ArticleListData:
-    properties:
-      pageNum:
-        type: integer
-      pageSize:
-        type: integer
-      records:
-        items:
-          $ref: '#/definitions/wood-passage-creator_internal_module_article.Article'
-        type: array
-      total:
-        type: integer
-    type: object
   wood-passage-creator_internal_module_article.ArticlePhase:
     enum:
     - PENDING
@@ -192,60 +334,6 @@ definitions:
     - StyleEmotional
     - StyleEducational
     - StyleHumorous
-  wood-passage-creator_internal_module_article.ConfirmOutlineRequest:
-    properties:
-      outline:
-        items:
-          $ref: '#/definitions/wood-passage-creator_internal_module_article.OutlineSection'
-        minItems: 1
-        type: array
-      taskId:
-        maxLength: 64
-        minLength: 1
-        type: string
-    required:
-    - outline
-    - taskId
-    type: object
-  wood-passage-creator_internal_module_article.ConfirmTitleRequest:
-    properties:
-      selectedMainTitle:
-        maxLength: 512
-        minLength: 1
-        type: string
-      selectedSubTitle:
-        maxLength: 512
-        minLength: 1
-        type: string
-      taskId:
-        maxLength: 64
-        minLength: 1
-        type: string
-      userDescription:
-        description: 可选
-        maxLength: 4000
-        type: string
-    required:
-    - selectedMainTitle
-    - selectedSubTitle
-    - taskId
-    type: object
-  wood-passage-creator_internal_module_article.CreateArticleRequest:
-    properties:
-      enabledImageMethods:
-        description: 空=按角色默认；仅大写枚举
-        items:
-          $ref: '#/definitions/wood-passage-creator_internal_port.ImageMethod'
-        type: array
-      style:
-        $ref: '#/definitions/wood-passage-creator_internal_module_article.ArticleStyle'
-      topic:
-        maxLength: 512
-        minLength: 1
-        type: string
-    required:
-    - topic
-    type: object
   wood-passage-creator_internal_module_article.OutlineSection:
     properties:
       points:
@@ -264,15 +352,6 @@ definitions:
       subTitle:
         type: string
     type: object
-  wood-passage-creator_internal_module_payment.MockCompleteRequest:
-    properties:
-      sessionId:
-        maxLength: 128
-        minLength: 8
-        type: string
-    required:
-    - sessionId
-    type: object
   wood-passage-creator_internal_module_payment.MockCompleteResult:
     properties:
       isVip:
@@ -287,7 +366,6 @@ definitions:
       amount:
         type: number
       checkoutUrl:
-        description: 假地址，仅便于前端联调展示
         type: string
       currency:
         type: string
@@ -321,19 +399,6 @@ definitions:
       updateTime:
         type: string
       userId:
-        type: integer
-    type: object
-  wood-passage-creator_internal_module_payment.RecordListData:
-    properties:
-      pageNum:
-        type: integer
-      pageSize:
-        type: integer
-      records:
-        items:
-          $ref: '#/definitions/wood-passage-creator_internal_module_payment.Record'
-        type: array
-      total:
         type: integer
     type: object
   wood-passage-creator_internal_module_payment.RecordStatus:
@@ -373,62 +438,6 @@ definitions:
       weekCount:
         type: integer
     type: object
-  wood-passage-creator_internal_module_user.LoginRequest:
-    properties:
-      userAccount:
-        maxLength: 20
-        minLength: 3
-        type: string
-      userPassword:
-        maxLength: 20
-        minLength: 6
-        type: string
-    required:
-    - userAccount
-    - userPassword
-    type: object
-  wood-passage-creator_internal_module_user.RegisterRequest:
-    properties:
-      userAccount:
-        description: 字母开头，后仅字母数字下划线；长度 3–20
-        maxLength: 20
-        minLength: 3
-        type: string
-      userAvatar:
-        maxLength: 1024
-        type: string
-      userName:
-        maxLength: 256
-        minLength: 1
-        type: string
-      userPassword:
-        maxLength: 20
-        minLength: 6
-        type: string
-      userProfile:
-        maxLength: 512
-        type: string
-    required:
-    - userAccount
-    - userPassword
-    type: object
-  wood-passage-creator_internal_module_user.UpdateRequest:
-    properties:
-      userAvatar:
-        maxLength: 1024
-        type: string
-      userName:
-        maxLength: 256
-        minLength: 1
-        type: string
-      userPassword:
-        maxLength: 20
-        minLength: 6
-        type: string
-      userProfile:
-        maxLength: 512
-        type: string
-    type: object
   wood-passage-creator_internal_module_user.User:
     properties:
       createTime:
@@ -453,19 +462,6 @@ definitions:
         $ref: '#/definitions/wood-passage-creator_internal_module_user.UserRole'
       vipTime:
         type: string
-    type: object
-  wood-passage-creator_internal_module_user.UserListData:
-    properties:
-      pageNum:
-        type: integer
-      pageSize:
-        type: integer
-      records:
-        items:
-          $ref: '#/definitions/wood-passage-creator_internal_module_user.User'
-        type: array
-      total:
-        type: integer
     type: object
   wood-passage-creator_internal_module_user.UserRole:
     enum:
@@ -561,7 +557,7 @@ paths:
             - $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/wood-passage-creator_internal_module_article.ArticleListData'
+                  $ref: '#/definitions/wood-passage-creator_internal_app_article.ArticleListData'
               type: object
         "400":
           description: 参数错误
@@ -619,7 +615,7 @@ paths:
             - $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/wood-passage-creator_internal_module_payment.RecordListData'
+                  $ref: '#/definitions/wood-passage-creator_internal_app_payment.RecordListData'
               type: object
         "400":
           description: 参数错误
@@ -640,12 +636,11 @@ paths:
       - admin-payment
   /admin/statistics/overview:
     get:
-      description: 今日/本周/本月创作量、成功率、平均耗时、用户与 VIP、配额使用等。
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 成功
           schema:
             allOf:
             - $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
@@ -654,16 +649,16 @@ paths:
                   $ref: '#/definitions/wood-passage-creator_internal_module_statistics.Overview'
               type: object
         "401":
-          description: 未登录
+          description: Unauthorized
           schema:
             $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
         "403":
-          description: 无权限
+          description: Forbidden
           schema:
             $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
       security:
       - SessionAuth: []
-      summary: 系统统计概览（管理员）
+      summary: 系统概览统计（管理员）
       tags:
       - admin-statistics
   /admin/users/{id}:
@@ -714,7 +709,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 成功
           schema:
             allOf:
             - $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
@@ -751,7 +746,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 成功
           schema:
             allOf:
             - $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
@@ -797,7 +792,7 @@ paths:
             - $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/wood-passage-creator_internal_module_user.UserListData'
+                  $ref: '#/definitions/wood-passage-creator_internal_app_user.UserListData'
               type: object
         "400":
           description: 参数错误
@@ -865,7 +860,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/wood-passage-creator_internal_module_article.ConfirmOutlineRequest'
+          $ref: '#/definitions/wood-passage-creator_internal_app_article.ConfirmOutlineRequest'
       produces:
       - application/json
       responses:
@@ -905,7 +900,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/wood-passage-creator_internal_module_article.ConfirmTitleRequest'
+          $ref: '#/definitions/wood-passage-creator_internal_app_article.ConfirmTitleRequest'
       produces:
       - application/json
       responses:
@@ -945,7 +940,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/wood-passage-creator_internal_module_article.CreateArticleRequest'
+          $ref: '#/definitions/wood-passage-creator_internal_app_article.CreateArticleRequest'
       produces:
       - application/json
       responses:
@@ -1065,7 +1060,7 @@ paths:
             - $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/wood-passage-creator_internal_module_article.ArticleListData'
+                  $ref: '#/definitions/wood-passage-creator_internal_app_article.ArticleListData'
               type: object
         "400":
           description: 参数错误
@@ -1091,7 +1086,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/wood-passage-creator_internal_module_article.AiModifyOutlineRequest'
+          $ref: '#/definitions/wood-passage-creator_internal_app_article.AiModifyOutlineRequest'
       produces:
       - application/json
       responses:
@@ -1167,7 +1162,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/wood-passage-creator_internal_module_user.LoginRequest'
+          $ref: '#/definitions/wood-passage-creator_internal_app_auth.LoginRequest'
       produces:
       - application/json
       responses:
@@ -1243,7 +1238,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/wood-passage-creator_internal_module_user.RegisterRequest'
+          $ref: '#/definitions/wood-passage-creator_internal_app_auth.RegisterRequest'
       produces:
       - application/json
       responses:
@@ -1263,6 +1258,47 @@ paths:
       summary: 注册
       tags:
       - auth
+  /payment/list:
+    get:
+      parameters:
+      - description: 页码，默认 1
+        in: query
+        name: pageNum
+        type: integer
+      - description: 每页条数，默认 10，最大 100
+        in: query
+        name: pageSize
+        type: integer
+      - description: 状态筛选
+        enum:
+        - PENDING
+        - SUCCEEDED
+        - FAILED
+        - REFUNDED
+        in: query
+        name: status
+        type: string
+      - description: 产品类型
+        in: query
+        name: productType
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/wood-passage-creator_internal_app_payment.RecordListData'
+              type: object
+      security:
+      - SessionAuth: []
+      summary: 我的支付记录
+      tags:
+      - payment
   /payment/vip/mock-complete:
     post:
       consumes:
@@ -1274,7 +1310,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/wood-passage-creator_internal_module_payment.MockCompleteRequest'
+          $ref: '#/definitions/wood-passage-creator_internal_app_payment.MockCompleteRequest'
       produces:
       - application/json
       responses:
@@ -1363,7 +1399,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/wood-passage-creator_internal_module_user.UpdateRequest'
+          $ref: '#/definitions/wood-passage-creator_internal_app_user.UpdateRequest'
       produces:
       - application/json
       responses:

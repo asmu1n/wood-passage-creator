@@ -1,4 +1,4 @@
-package statistics
+package statsapp
 
 import (
 	"context"

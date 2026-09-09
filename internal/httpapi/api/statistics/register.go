@@ -1,8 +1,8 @@
 package statisticsapi
 
 import (
-	appstat "wood-passage-creator/internal/app/statistics"
-	appuser "wood-passage-creator/internal/app/user"
+	statsapp "wood-passage-creator/internal/app/statistics"
+	userapp "wood-passage-creator/internal/app/user"
 	"wood-passage-creator/internal/httpapi/middleware"
 
 	"github.com/labstack/echo/v5"
@@ -10,10 +10,10 @@ import (
 
 type Registrar struct {
 	h       *Handler
-	userSvc *appuser.Service
+	userSvc *userapp.Service
 }
 
-func NewRegistrar(svc *appstat.Service, userSvc *appuser.Service) *Registrar {
+func NewRegistrar(svc *statsapp.Service, userSvc *userapp.Service) *Registrar {
 	return &Registrar{h: NewHandler(svc), userSvc: userSvc}
 }
 

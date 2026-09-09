@@ -1,7 +1,7 @@
 # Redis 缓存策略说明
 
 本文描述模板中 **已落地** 的 Redis 使用方式与缓存能力，供协作与排障对照。  
-具体业务 key / TTL 由各 `module` 自行约定（可在模块内另写 `CACHE.md`）。
+具体业务 key / TTL 由各业务约定（如 `module/statistics/cache.go` 的概览缓存）；写路径在 **app** 用例成功后失效。
 
 ---
 
@@ -9,7 +9,7 @@
 
 | 角色             | 用途                       | 主要代码                     | 说明                         |
 | ---------------- | -------------------------- | ---------------------------- | ---------------------------- |
-| **业务缓存**     | 读穿写缓存、防击穿         | `infra/cache` + `port.Cache` | 业务按需注入使用             |
+| **业务缓存**     | 读穿写缓存、防击穿         | `infra/cache` + `port.Cache` | app 按需注入 `port.Cache` 使用             |
 | **Session 存储** | 登录态                     | `infra/redis/session.go`     | Echo + gorilla/sessions + Redis store |
 | **分布式锁**     | 跨实例互斥                 | `infra/lock` + `port.Locker` | SetNX / Lua 释放             |
 

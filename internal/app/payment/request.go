@@ -1,4 +1,4 @@
-package payment
+package paymentapp
 
 import (
 	modpay "wood-passage-creator/internal/module/payment"

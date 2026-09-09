@@ -3,18 +3,20 @@ package statisticsapi
 import (
 	"net/http"
 
-	app "wood-passage-creator/internal/app/statistics"
+	statsapp "wood-passage-creator/internal/app/statistics"
 	"wood-passage-creator/internal/httpapi/middleware"
+	_ "wood-passage-creator/internal/module/statistics"
 	"wood-passage-creator/internal/pkg/response"
+
 
 	"github.com/labstack/echo/v5"
 )
 
 type Handler struct {
-	svc *app.Service
+	svc *statsapp.Service
 }
 
-func NewHandler(svc *app.Service) *Handler {
+func NewHandler(svc *statsapp.Service) *Handler {
 	return &Handler{svc: svc}
 }
 

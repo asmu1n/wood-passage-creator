@@ -1,4 +1,4 @@
-package article
+package articleapp
 
 import (
 	"context"

@@ -1,7 +1,7 @@
 package userapi
 
 import (
-	appuser "wood-passage-creator/internal/app/user"
+	userapp "wood-passage-creator/internal/app/user"
 	"wood-passage-creator/internal/httpapi/middleware"
 
 	"github.com/labstack/echo/v5"
@@ -12,7 +12,7 @@ type Registrar struct {
 	h *Handler
 }
 
-func NewRegistrar(svc *appuser.Service) *Registrar {
+func NewRegistrar(svc *userapp.Service) *Registrar {
 	return &Registrar{h: NewHandler(svc)}
 }
 

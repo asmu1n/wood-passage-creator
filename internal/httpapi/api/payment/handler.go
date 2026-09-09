@@ -3,20 +3,22 @@ package paymentapi
 import (
 	"net/http"
 
-	app "wood-passage-creator/internal/app/payment"
+	paymentapp "wood-passage-creator/internal/app/payment"
 	"wood-passage-creator/internal/httpapi/binding"
 	"wood-passage-creator/internal/httpapi/middleware"
+	_ "wood-passage-creator/internal/module/payment"
 	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/pkg/response"
+
 
 	"github.com/labstack/echo/v5"
 )
 
 type Handler struct {
-	svc *app.Service
+	svc *paymentapp.Service
 }
 
-func NewHandler(svc *app.Service) *Handler {
+func NewHandler(svc *paymentapp.Service) *Handler {
 	return &Handler{svc: svc}
 }
 
@@ -46,12 +48,12 @@ func (h *Handler) CreateMockVIPSession(c *echo.Context) error {
 // @Tags         payment
 // @Accept       json
 // @Produce      json
-// @Param        body body payment.MockCompleteRequest true "sessionId"
+// @Param        body body paymentapp.MockCompleteRequest true "sessionId"
 // @Success      200 {object} response.Response{data=payment.MockCompleteResult}
 // @Security     SessionAuth
 // @Router       /payment/vip/mock-complete [post]
 func (h *Handler) CompleteMockVIP(c *echo.Context) error {
-	var req app.MockCompleteRequest
+	var req paymentapp.MockCompleteRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
@@ -76,14 +78,14 @@ func (h *Handler) CompleteMockVIP(c *echo.Context) error {
 // @Param        status      query string false "状态筛选" Enums(PENDING, SUCCEEDED, FAILED, REFUNDED)
 // @Param        userId      query int    false "用户 ID"
 // @Param        productType query string false "产品类型，如 VIP_PERMANENT"
-// @Success      200 {object} response.Response{data=payment.RecordListData} "成功"
+// @Success      200 {object} response.Response{data=paymentapp.RecordListData} "成功"
 // @Failure      400 {object} response.Response "参数错误"
 // @Failure      401 {object} response.Response "未登录"
 // @Failure      403 {object} response.Response "无权限"
 // @Security     SessionAuth
 // @Router       /admin/payment/list [get]
 func (h *Handler) AdminList(c *echo.Context) error {
-	var req app.ListRequest
+	var req paymentapp.ListRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
@@ -106,11 +108,11 @@ func (h *Handler) AdminList(c *echo.Context) error {
 // @Param        pageSize    query int    false "每页条数，默认 10，最大 100"
 // @Param        status      query string false "状态筛选" Enums(PENDING, SUCCEEDED, FAILED, REFUNDED)
 // @Param        productType query string false "产品类型"
-// @Success      200 {object} response.Response{data=payment.RecordListData} "成功"
+// @Success      200 {object} response.Response{data=paymentapp.RecordListData} "成功"
 // @Security     SessionAuth
 // @Router       /payment/list [get]
 func (h *Handler) ListBySelf(c *echo.Context) error {
-	var req app.ListByUserRequest
+	var req paymentapp.ListByUserRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}

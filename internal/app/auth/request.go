@@ -1,4 +1,4 @@
-package auth
+package authapp
 
 // RegisterRequest 注册入参。
 type RegisterRequest struct {

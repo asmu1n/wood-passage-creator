@@ -1,3 +1,6 @@
+# 主配置（非密钥）。密钥与口令见 .env.example → .env（APP_* / POSTGRES_*）。
+# 本地默认连 localhost Postgres/Redis；compose 内 app 会覆盖 HOST 为服务名。
+
 name: "wood-passage-creator"
 env: "local" # local | production
 log_level: "debug" # debug | info | warn | error

@@ -1,6 +1,6 @@
 # SSE 进度推送说明（Wood Passage Creator）
 
-> 与实现保持同步的契约笔记。权威事件名与 payload 见 `internal/module/article/sse.go`。  
+> 与实现保持同步的契约笔记。权威事件名与 payload 见 `internal/module/article/sse.go`；订阅/推送在 `internal/app/article`。  
 > 最后对齐代码日期：以仓库当前 `sse.go` / `pkg/sse` 为准。
 
 ---
@@ -31,10 +31,10 @@ Accept: text/event-stream
 Browser (EventSource)
     │  GET /api/article/progress/:taskId
     ▼
-Handler.GetProgress          ← 头、读 channel、写帧、心跳、终态退出
-    │  Service.SubscribeProgress
+httpapi/api/article.GetProgress ← 头、读 channel、写帧、心跳、终态退出
+    │  app/article.SubscribeProgress
     ▼
-article.Service              ← 鉴权、publish
+app/article.Service         ← 鉴权、publish（事件常量仍在 module/article/sse.go）
     │
 pkg/sse.Hub                  ← topic=taskId，fan-out（多页同订互不踢）
     ▲

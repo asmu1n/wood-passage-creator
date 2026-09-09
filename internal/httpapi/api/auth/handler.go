@@ -3,20 +3,22 @@ package authapi
 import (
 	"net/http"
 
-	"wood-passage-creator/internal/app/auth"
+	authapp "wood-passage-creator/internal/app/auth"
 	"wood-passage-creator/internal/httpapi/binding"
 	"wood-passage-creator/internal/httpapi/middleware"
+	_ "wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/response"
+
 
 	"github.com/labstack/echo/v5"
 )
 
 // Handler 认证 HTTP；依赖 app/auth，Me 依赖 app/user.GetByID。
 type Handler struct {
-	auth *auth.Service
+	auth *authapp.Service
 }
 
-func NewHandler(authSvc *auth.Service) *Handler {
+func NewHandler(authSvc *authapp.Service) *Handler {
 	return &Handler{auth: authSvc}
 }
 
@@ -25,12 +27,12 @@ func NewHandler(authSvc *auth.Service) *Handler {
 // @Tags         auth
 // @Accept       json
 // @Produce      json
-// @Param        body body auth.RegisterRequest true "注册信息"
+// @Param        body body authapp.RegisterRequest true "注册信息"
 // @Success      200 {object} response.Response{data=user.User} "成功"
 // @Failure      400 {object} response.Response "参数错误/账号冲突"
 // @Router       /auth/register [post]
 func (h *Handler) Register(c *echo.Context) error {
-	var req auth.RegisterRequest
+	var req authapp.RegisterRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}
@@ -46,12 +48,12 @@ func (h *Handler) Register(c *echo.Context) error {
 // @Tags         auth
 // @Accept       json
 // @Produce      json
-// @Param        body body auth.LoginRequest true "登录信息"
+// @Param        body body authapp.LoginRequest true "登录信息"
 // @Success      200 {object} response.Response{data=user.User} "成功"
 // @Failure      400 {object} response.Response "参数错误/账号或密码错误"
 // @Router       /auth/login [post]
 func (h *Handler) Login(c *echo.Context) error {
-	var req auth.LoginRequest
+	var req authapp.LoginRequest
 	if err := binding.BindAndValidate(c, &req); err != nil {
 		return err
 	}

@@ -8,11 +8,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	appart "wood-passage-creator/internal/app/article"
-	"wood-passage-creator/internal/app/auth"
-	apppay "wood-passage-creator/internal/app/payment"
-	appstat "wood-passage-creator/internal/app/statistics"
-	appuser "wood-passage-creator/internal/app/user"
+	articleapp "wood-passage-creator/internal/app/article"
+	authapp "wood-passage-creator/internal/app/auth"
+	paymentapp "wood-passage-creator/internal/app/payment"
+	statsapp "wood-passage-creator/internal/app/statistics"
+	userapp "wood-passage-creator/internal/app/user"
 	"wood-passage-creator/internal/config"
 	"wood-passage-creator/internal/httpapi"
 	articleapi "wood-passage-creator/internal/httpapi/api/article"
@@ -21,6 +21,7 @@ import (
 	statisticsapi "wood-passage-creator/internal/httpapi/api/statistics"
 	userapi "wood-passage-creator/internal/httpapi/api/user"
 	"wood-passage-creator/internal/httpapi/binding"
+	"wood-passage-creator/internal/httpapi/docsui"
 	httpmw "wood-passage-creator/internal/httpapi/middleware"
 	"wood-passage-creator/internal/infra/cache"
 	"wood-passage-creator/internal/infra/database"
@@ -39,12 +40,10 @@ import (
 	"github.com/labstack/echo-contrib/v5/session"
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"
-	httpSwagger "github.com/swaggo/http-swagger/v2"
-
 	_ "wood-passage-creator/docs/api/swagger"
 )
 
-// @title// @title           Wood Passage Creator API
+// @title           Wood Passage Creator API
 // @version         1.0
 // @description     AI 文章生成后端：用户/会话、文章三阶段流水线（SSE 进度）、配图、Agent 日志；开发态 VIP Mock 支付与管理端升降 VIP。
 // @host            localhost:8080
@@ -101,15 +100,15 @@ func main() {
 	cacheClient := cache.New(redisClient)
 	ssehub := sse.NewHub()
 	userRepo := userrepo.New(db.Client)
-	statsSvc := appstat.NewService(statisticsrepo.New(db.Client), cacheClient)
-	userSvc := appuser.NewService(userRepo, statsSvc)
-	authSvc := auth.NewService(userRepo, statsSvc)
-	paymentSvc := apppay.NewService(paymentrepo.New(db.Client), userSvc)
+	statsSvc := statsapp.NewService(statisticsrepo.New(db.Client), cacheClient)
+	userSvc := userapp.NewService(userRepo, statsSvc)
+	authSvc := authapp.NewService(userRepo, statsSvc)
+	paymentSvc := paymentapp.NewService(paymentrepo.New(db.Client), userSvc)
 	imgGen := image.NewGenerator(cfg, chatModal)
 	articleRepo := articlerepo.NewArticleRepo(db.Client)
 	agentLogRepo := articlerepo.NewAgentLogRepo(db.Client)
 	agentLogRecorder := modart.NewAgentLogRecorder(agentLogRepo)
-	articleSvc := appart.NewService(
+	articleSvc := articleapp.NewService(
 		articleRepo,
 		agentLogRepo,
 		userSvc,
@@ -125,7 +124,7 @@ func main() {
 
 	e.Use(session.Middleware(store))
 
-	e.GET("/swagger/*", echo.WrapHandler(httpSwagger.WrapHandler))
+	docsui.Register(e)
 
 	httpapi.RegisterRouter(e,
 		authapi.NewRegistrar(authSvc),

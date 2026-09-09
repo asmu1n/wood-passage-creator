@@ -1,4 +1,4 @@
-package article
+package articleapp
 
 import (
 	module "wood-passage-creator/internal/module/article"

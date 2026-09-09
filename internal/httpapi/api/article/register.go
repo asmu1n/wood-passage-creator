@@ -1,8 +1,8 @@
 package articleapi
 
 import (
-	appart "wood-passage-creator/internal/app/article"
-	appuser "wood-passage-creator/internal/app/user"
+	articleapp "wood-passage-creator/internal/app/article"
+	userapp "wood-passage-creator/internal/app/user"
 	"wood-passage-creator/internal/httpapi/middleware"
 
 	"github.com/labstack/echo/v5"
@@ -10,10 +10,10 @@ import (
 
 type Registrar struct {
 	h       *Handler
-	userSvc *appuser.Service
+	userSvc *userapp.Service
 }
 
-func NewRegistrar(svc *appart.Service, userSvc *appuser.Service) *Registrar {
+func NewRegistrar(svc *articleapp.Service, userSvc *userapp.Service) *Registrar {
 	return &Registrar{h: NewHandler(svc), userSvc: userSvc}
 }
 
