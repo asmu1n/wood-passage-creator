@@ -38,9 +38,9 @@
 │   ├── httpapi/             # 协议基建 + api/* Handler（只依赖 app）
 │   │   ├── api/             # auth/user/article/payment/statistics
 │   │   └── docsui/          # Scalar 文档页
-│   ├── port/                # Cache / Locker / TxManager（含全局 WithinTx）
-│   ├── infra/               # DB/Redis/LLM/Image 等实现
-│   ├── pkg/                 # logger、page、response、sse、objectstore
+│   ├── port/                # Cache / Locker / ObjectStore / TxManager（含全局 WithinTx）
+│   ├── infra/               # DB/Redis/LLM/Image/ObjectStore 等实现
+│   ├── pkg/                 # logger、page、response、sse、llmkit
 │   └── config/
 ├── config.yml               # 非密钥配置主文件
 ├── .env.example             # 仅密钥与 compose 基础设施口令
@@ -56,9 +56,9 @@
 | `internal/module/*` | 实体、Repository、repo（`ClientFrom`）；**无** Service/HTTP |
 | `internal/module/article/agent` | 生成流水线（标题/大纲/正文/配图），暂留 module |
 | `internal/httpapi` | middleware、binding、error、health；`api/*` 只调 app |
-| `internal/port` | 技术端口；`port.WithinTx` 为全局事务入口（类 logger） |
-| `internal/infra` | port 实现（含 ent Tx） |
-| `internal/pkg` | 与领域无关的工具库 |
+| `internal/port` | 技术端口（Cache / Locker / ObjectStore / Tx…）；`port.WithinTx` 为全局事务入口 |
+| `internal/infra` | port 实现（DB/Redis/LLM/Image/ObjectStore 等） |
+| `internal/pkg` | 与领域无关的工具库（logger、page、response、sse…） |
 
 约定见：[`internal/app/README.md`](internal/app/README.md)、[`internal/module/README.md`](internal/module/README.md)、[`docs/SSE_NOTES.md`](docs/SSE_NOTES.md)、[`docs/REDIS_CACHE.md`](docs/REDIS_CACHE.md)、[`docs/TRANSACTIONS.md`](docs/TRANSACTIONS.md)
 
@@ -190,10 +190,10 @@ swag init -g cmd/server/main.go -o docs/api/swagger --parseDependency --parseInt
 2. `app/<name>`：新增用例方法与 `*Request`。  
 3. `httpapi/api/<name>`：Handler + Swagger 注释 + Registrar 挂路由。  
 
-### C. 需要缓存 / 分布式锁
+### C. 需要缓存 / 分布式锁 / 对象存储
 
-- 业务侧使用 `port.Cache` / `port.Locker`。  
-- 实现已在 `infra/cache`、`infra/lock`；一般只需在 `NewService` 注入，无需业务包 import infra。
+- 业务侧使用 `port.Cache` / `port.Locker` / `port.ObjectStore`。  
+- 实现已在 `infra/cache`、`infra/lock`、`infra/objectstore`；由 `cmd` 装配注入，业务包不 import infra。
 
 ---
 
@@ -203,7 +203,7 @@ swag init -g cmd/server/main.go -o docs/api/swagger --parseDependency --parseInt
 | ------------------------------------ | -------------------------------- |
 | 某业务的用例、模型、该业务 API       | `module/<name>/`                 |
 | 全局路由挂载、登录态中间件           | `httpapi`                        |
-| 「我需要锁/缓存，不关心 Redis」      | `port` 接口 + `infra` 实现       |
+| 「我需要锁/缓存/对象存储，不关心 Redis/R2」 | `port` 接口 + `infra` 实现  |
 | 分页、统一 JSON 响应、跨模块基础类型 | `pkg`                            |
 | 结构化业务/任务/审计日志             | `pkg/logger`（Service/Job 打点） |
 | 仅某一业务用的算法                   | 留在该 `module`，不要进 `pkg`    |

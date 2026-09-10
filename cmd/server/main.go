@@ -26,6 +26,7 @@ import (
 	"wood-passage-creator/internal/infra/cache"
 	"wood-passage-creator/internal/infra/database"
 	"wood-passage-creator/internal/infra/image"
+	"wood-passage-creator/internal/infra/objectstore"
 	"wood-passage-creator/internal/infra/llm"
 	"wood-passage-creator/internal/infra/redis"
 	modart "wood-passage-creator/internal/module/article"
@@ -104,7 +105,8 @@ func main() {
 	userSvc := userapp.NewService(userRepo, statsSvc)
 	authSvc := authapp.NewService(userRepo, statsSvc)
 	paymentSvc := paymentapp.NewService(paymentrepo.New(db.Client), userSvc)
-	imgGen := image.NewGenerator(cfg, chatModal)
+	objStore := objectstore.NewFromConfig(cfg.R2)
+	imgGen := image.NewGenerator(cfg, chatModal, objStore)
 	articleRepo := articlerepo.NewArticleRepo(db.Client)
 	agentLogRepo := articlerepo.NewAgentLogRepo(db.Client)
 	agentLogRecorder := modart.NewAgentLogRecorder(agentLogRepo)

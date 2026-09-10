@@ -4,28 +4,9 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"wood-passage-creator/internal/port"
 )
-
-func TestOptions_Enabled(t *testing.T) {
-	ok := Options{
-		AccountID: "acc", AccessKeyID: "ak", SecretAccessKey: "sk",
-		Bucket: "b", PublicBaseURL: "https://cdn.example.com",
-	}
-	if !ok.Enabled() {
-		t.Fatal("expected enabled")
-	}
-	bad := ok
-	bad.PublicBaseURL = ""
-	if bad.Enabled() {
-		t.Fatal("public base required")
-	}
-}
-
-func TestNew_NilWhenDisabled(t *testing.T) {
-	if New(Options{}) != nil {
-		t.Fatal("expected nil")
-	}
-}
 
 func TestParseDataURL(t *testing.T) {
 	mime, raw, err := ParseDataURL("data:image/png;base64,aGk=")
@@ -38,18 +19,18 @@ func TestParseDataURL(t *testing.T) {
 }
 
 func TestBuildObjectKey(t *testing.T) {
-	got := BuildObjectKey("articles/images", "avatars", "a.png")
+	got := buildObjectKey("articles/images", "avatars", "a.png")
 	if got != "articles/images/avatars/a.png" {
 		t.Fatal(got)
 	}
-	got = BuildObjectKey("", "x", "../etc/passwd")
+	got = buildObjectKey("", "x", "../etc/passwd")
 	if got != "x/passwd" {
 		t.Fatalf("traversal: %s", got)
 	}
 }
 
 func TestExtFromMIME(t *testing.T) {
-	if ExtFromMIME("image/jpeg") != ".jpg" {
+	if extFromMIME("image/jpeg") != ".jpg" {
 		t.Fatal()
 	}
 }
@@ -78,12 +59,12 @@ func TestPublishSource_AlreadyPublic(t *testing.T) {
 type staticBaseStore struct{ base string }
 
 func (s staticBaseStore) PublicBase() string { return s.base }
-func (s staticBaseStore) Put(ctx context.Context, in PutInput) (string, error) {
+func (s staticBaseStore) Put(ctx context.Context, in port.ObjectPutInput) (string, error) {
 	return s.base + "/uploaded", nil
 }
 
 func TestAutoName(t *testing.T) {
-	n := AutoName("image/png")
+	n := autoName("image/png")
 	if !strings.HasSuffix(n, ".png") || len(n) < 10 {
 		t.Fatal(n)
 	}

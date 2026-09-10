@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 
 	"wood-passage-creator/internal/config"
+	"wood-passage-creator/internal/infra/objectstore"
 	"wood-passage-creator/internal/pkg/logger"
-	"wood-passage-creator/internal/pkg/objectstore"
 	"wood-passage-creator/internal/port"
 
 	"golang.org/x/sync/errgroup"
@@ -23,29 +23,22 @@ type Generator struct {
 	log         *slog.Logger
 	providers   map[port.ImageMethod]Provider
 	fallback    Provider
-	store       objectstore.Store
+	store       port.ObjectStore
 	concurrency int
 }
 
 // NewGenerator 按完整配置注册可用 Provider。
 // llm 用于 SVG_DIAGRAM；可 nil（则不注册 SVG）。
-// store 可选：传入已构造的 objectstore.Store（与头像等共用同一实例）；
-// 未传时按 cfg.R2 自行 New；未配置则为 nil，fetch 时跳过转存。
-func NewGenerator(cfg *config.Config, llm port.ChatModel, store ...objectstore.Store) port.ImageGenerator {
+// store 为 port.ObjectStore（cmd 装配；未配置可为 nil，fetch 时跳过转存）。
+func NewGenerator(cfg *config.Config, llm port.ChatModel, store port.ObjectStore) port.ImageGenerator {
 	if cfg == nil {
 		cfg = &config.Config{}
-	}
-	var st objectstore.Store
-	if len(store) > 0 && store[0] != nil {
-		st = store[0]
-	} else {
-		st = newObjectStore(cfg)
 	}
 	g := &Generator{
 		log:         logger.Module("infra.image"),
 		providers:   make(map[port.ImageMethod]Provider),
 		fallback:    NewPicsum(),
-		store:       st,
+		store:       store,
 		concurrency: defaultConcurrency,
 	}
 
@@ -241,19 +234,3 @@ func (g *Generator) tryProvider(ctx context.Context, method port.ImageMethod, re
 	return u, p.Method(), nil
 }
 
-func newObjectStore(cfg *config.Config) objectstore.Store {
-	if cfg == nil {
-		return nil
-	}
-	r := cfg.R2
-	return objectstore.New(objectstore.Options{
-		Provider:        "r2",
-		AccountID:       r.AccountID,
-		AccessKeyID:     r.AccessKeyID,
-		SecretAccessKey: r.SecretAccessKey,
-		Bucket:          r.Bucket,
-		Endpoint:        r.Endpoint,
-		PublicBaseURL:   r.PublicBaseURL,
-		KeyPrefix:       r.KeyPrefix,
-	})
-}

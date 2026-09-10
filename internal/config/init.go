@@ -89,9 +89,9 @@ type NanoBananaConfig struct {
 	AspectRatio string `mapstructure:"aspect_ratio"`
 }
 
-// R2Config Cloudflare R2 应用配置（写入 objectstore.Options）。
+// R2Config Cloudflare R2 应用配置（写入 infra/objectstore.Options）。
 // 密钥走 env：APP_R2_ACCESS_KEY_ID / APP_R2_SECRET_ACCESS_KEY
-// 具体上传实现见 internal/pkg/objectstore，可复用于配图、头像等。
+// 端口见 port.ObjectStore；实现见 internal/infra/objectstore，可复用于配图、头像等。
 type R2Config struct {
 	AccountID       string `mapstructure:"account_id"`
 	AccessKeyID     string `mapstructure:"access_key_id"`
@@ -158,7 +158,7 @@ func (c NanoBananaConfig) Normalized() NanoBananaConfig {
 	return out
 }
 
-// Enabled 配置是否足以启用对象存储（与 objectstore.Options.Enabled 对齐）。
+// Enabled 配置是否足以启用对象存储（与 infra/objectstore.Options.Enabled 对齐）。
 func (c R2Config) Enabled() bool {
 	if c.AccessKeyID == "" || c.SecretAccessKey == "" || c.Bucket == "" {
 		return false

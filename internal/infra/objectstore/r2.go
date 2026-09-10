@@ -7,6 +7,8 @@ import (
 	"io"
 	"strings"
 
+	"wood-passage-creator/internal/port"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -48,7 +50,7 @@ func (s *r2Store) PublicBase() string {
 	return s.publicBaseURL
 }
 
-func (s *r2Store) Put(ctx context.Context, in PutInput) (string, error) {
+func (s *r2Store) Put(ctx context.Context, in port.ObjectPutInput) (string, error) {
 	if s == nil || s.client == nil {
 		return "", fmt.Errorf("objectstore: r2 not configured")
 	}
@@ -61,9 +63,9 @@ func (s *r2Store) Put(ctx context.Context, in PutInput) (string, error) {
 	}
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
-		name = AutoName(ct)
+		name = autoName(ct)
 	}
-	key := BuildObjectKey(s.keyPrefix, in.Folder, name)
+	key := buildObjectKey(s.keyPrefix, in.Folder, name)
 
 	var (
 		body io.Reader

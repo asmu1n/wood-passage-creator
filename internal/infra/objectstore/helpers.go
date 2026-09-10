@@ -1,5 +1,3 @@
-// Package objectstore 提供与业务无关的对象存储抽象。
-// 当前实现 Cloudflare R2（S3 兼容）；配图、头像等均可复用。
 package objectstore
 
 import (
@@ -13,77 +11,17 @@ import (
 	"strings"
 	"time"
 
+	"wood-passage-creator/internal/port"
+
 	"github.com/google/uuid"
 )
 
-// Store 对象存储。未配置时 New 返回 nil，调用方 if store != nil 再上传即可。
-type Store interface {
-	// Put 上传对象，返回可公开访问的 URL。
-	Put(ctx context.Context, in PutInput) (publicURL string, err error)
-	// PublicBase 公开访问前缀（无尾斜杠）。
-	PublicBase() string
-}
-
-// PutInput 一次上传请求。
-type PutInput struct {
-	// Folder 逻辑目录，如 "pexels"、"avatars"；会拼在 KeyPrefix 之后。
-	Folder string
-	// Name 对象文件名；空则自动 uuid + 扩展名。
-	Name string
-	// ContentType MIME，建议填写。
-	ContentType string
-	// Body 内容流。
-	Body io.Reader
-	// Size 可选；>0 时部分实现可少一次缓冲。
-	Size int64
-}
-
-// Options 构造参数（不依赖 internal/config）。
-type Options struct {
-	// Provider 预留："r2"；空视为 r2。
-	Provider string
-
-	AccountID       string
-	AccessKeyID     string
-	SecretAccessKey string
-	Bucket          string
-	Endpoint        string // 空则按 AccountID 推导 R2 endpoint
-	PublicBaseURL   string // 对外 URL 前缀，必需才能启用
-	KeyPrefix       string // 全局 key 前缀，如 articles/images
-}
-
-// Enabled 判断配置是否齐全能真正上传。
-func (o Options) Enabled() bool {
-	if strings.TrimSpace(o.AccessKeyID) == "" || strings.TrimSpace(o.SecretAccessKey) == "" {
-		return false
-	}
-	if strings.TrimSpace(o.Bucket) == "" || strings.TrimSpace(o.PublicBaseURL) == "" {
-		return false
-	}
-	if strings.TrimSpace(o.Endpoint) == "" && strings.TrimSpace(o.AccountID) == "" {
-		return false
-	}
-	return true
-}
-
-// New 按 Options 创建 Store；未配齐或未知 Provider 时返回 nil。
-func New(opt Options) Store {
-	if !opt.Enabled() {
-		return nil
-	}
-	provider := strings.ToLower(strings.TrimSpace(opt.Provider))
-	if provider == "" || provider == "r2" {
-		return newR2(opt)
-	}
-	return nil
-}
-
 // PutBytes 上传字节切片。s 为 nil 时返回错误。
-func PutBytes(ctx context.Context, s Store, folder, contentType string, data []byte) (string, error) {
+func PutBytes(ctx context.Context, s port.ObjectStore, folder, contentType string, data []byte) (string, error) {
 	if s == nil {
 		return "", fmt.Errorf("objectstore: not configured")
 	}
-	return s.Put(ctx, PutInput{
+	return s.Put(ctx, port.ObjectPutInput{
 		Folder:      folder,
 		ContentType: contentType,
 		Body:        bytes.NewReader(data),
@@ -91,11 +29,13 @@ func PutBytes(ctx context.Context, s Store, folder, contentType string, data []b
 	})
 }
 
-// PublishSource 将 http(s) 或 data: URL 转存到 Store，返回公开 URL。
+// PublishSource 将 http(s) 或 data: URL 转存到 ObjectStore，返回公开 URL。
 // s == nil 时原样返回 source（表示未启用对象存储）。
 // 若 source 已位于 PublicBase 下则原样返回。
 // maxBytes <=0 时默认 16MiB。
-func PublishSource(ctx context.Context, s Store, source, folder string, maxBytes int64) (string, error) {
+//
+// 这是业务侧转存编排（下载/解析 + Put），不是 R2/S3 原生能力。
+func PublishSource(ctx context.Context, s port.ObjectStore, source, folder string, maxBytes int64) (string, error) {
 	if s == nil {
 		return source, nil
 	}
@@ -195,8 +135,8 @@ func downloadURL(ctx context.Context, rawURL string, maxBytes int64) (mime strin
 	return mime, limited, nil
 }
 
-// BuildObjectKey 拼 key：{keyPrefix}/{folder}/{name}
-func BuildObjectKey(keyPrefix, folder, name string) string {
+// buildObjectKey 拼 key：{keyPrefix}/{folder}/{name}
+func buildObjectKey(keyPrefix, folder, name string) string {
 	parts := make([]string, 0, 3)
 	if p := strings.Trim(strings.ReplaceAll(keyPrefix, "\\", "/"), "/"); p != "" {
 		parts = append(parts, p)
@@ -213,8 +153,7 @@ func BuildObjectKey(keyPrefix, folder, name string) string {
 	return path.Join(parts...)
 }
 
-// ExtFromMIME 常见 MIME → 扩展名。
-func ExtFromMIME(mime string) string {
+func extFromMIME(mime string) string {
 	switch strings.ToLower(strings.TrimSpace(mime)) {
 	case "image/png":
 		return ".png"
@@ -233,7 +172,6 @@ func ExtFromMIME(mime string) string {
 	}
 }
 
-// AutoName 按 MIME 生成 uuid 文件名。
-func AutoName(contentType string) string {
-	return uuid.New().String() + ExtFromMIME(contentType)
+func autoName(contentType string) string {
+	return uuid.New().String() + extFromMIME(contentType)
 }
