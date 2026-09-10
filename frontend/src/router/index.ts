@@ -62,6 +62,11 @@ const router = createRouter({
       name: '会员购买',
       component: () => import('@/pages/VipPage.vue'),
     },
+    {
+      path: '/payment/records',
+      name: '我的支付记录',
+      component: () => import('@/pages/user/PaymentRecordsPage.vue'),
+    },
   ],
 })
 

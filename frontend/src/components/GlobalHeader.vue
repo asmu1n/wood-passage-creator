@@ -49,7 +49,11 @@
                   <CrownOutlined />
                   <span>永久会员权益</span>
                 </a-menu-item>
-                <a-menu-divider v-if="isVip" />
+                <a-menu-item key="payment-records" class="dropdown-item" @click="router.push('/payment/records')">
+                  <PayCircleOutlined />
+                  <span>我的支付记录</span>
+                </a-menu-item>
+                <a-menu-divider />
                 <a-menu-item @click="doLogout" class="dropdown-item">
                   <LogoutOutlined />
                   <span>退出登录</span>

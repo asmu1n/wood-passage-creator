@@ -54,6 +54,9 @@
             </template>
             {{ isVip ? '您已是永久会员' : '立即升级' }}
           </a-button>
+          <div class="records-link-wrap">
+            <RouterLink to="/payment/records" class="records-link">查看我的支付记录</RouterLink>
+          </div>
 
           <div class="security-notice">
             <SafetyOutlined />
@@ -232,7 +235,7 @@ const handlePurchase = async () => {
       message.error(res.data.message || '创建支付失败')
       return
     }
-    // 开发态 mock：创建会话后直接 complete，无需跳转 Stripe
+    // 开发态 mock：创建会话后直接 complete
     const done = await completeMockVipPayment({ sessionId: res.data.data.sessionId })
     if (done.data.code !== 0) {
       message.error(done.data.message || '确认支付失败')
@@ -653,5 +656,18 @@ const handlePurchase = async () => {
   .faq-section {
     padding: 24px;
   }
+}
+
+.records-link-wrap {
+  margin-top: 12px;
+  text-align: center;
+}
+.records-link {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+}
+.records-link:hover {
+  color: var(--color-primary);
 }
 </style>
