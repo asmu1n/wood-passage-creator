@@ -11,7 +11,6 @@ import (
 	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/pkg/response"
 
-
 	"github.com/labstack/echo/v5"
 )
 
@@ -22,6 +21,35 @@ type Handler struct {
 
 func NewHandler(svc *userapp.Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+// AdminAdd godoc
+// @Summary      管理端创建用户
+// @Description  仅管理员。默认密码 12345678；角色 user/admin（默认 user）。对齐旧 POST /user/add。
+// @Tags         admin-users
+// @Accept       json
+// @Produce      json
+// @Param        body body userapp.AdminAddRequest true "开户参数"
+// @Success      200 {object} response.Response "成功，data 为用户对象"
+// @Failure      400 {object} response.Response
+// @Failure      401 {object} response.Response
+// @Failure      403 {object} response.Response
+// @Security     SessionAuth
+// @Router       /admin/users [post]
+func (h *Handler) AdminAdd(c *echo.Context) error {
+	var req userapp.AdminAddRequest
+	if err := binding.BindAndValidate(c, &req); err != nil {
+		return err
+	}
+	actor, err := middleware.GetLoginActor(c)
+	if err != nil {
+		return err
+	}
+	u, err := h.svc.AdminAdd(c.Request().Context(), actor, req)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, response.OK(u))
 }
 
 // AdminList godoc

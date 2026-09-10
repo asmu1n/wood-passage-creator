@@ -27,3 +27,13 @@ func (in UpdateRequest) HasUpdates() bool {
 	return in.UserPassword != nil || in.UserName != nil ||
 		in.UserAvatar != nil || in.UserProfile != nil
 }
+
+// AdminAddRequest 管理端创建用户（对齐旧 POST /user/add）。
+// 默认密码 12345678；角色仅允许 user / admin（不含 vip，升 VIP 走 upgrade-vip）。
+type AdminAddRequest struct {
+	UserAccount string  `json:"userAccount" validate:"required,min=3,max=20,regexp=^[a-zA-Z][a-zA-Z0-9_]*$"`
+	UserName    *string `json:"userName" validate:"omitempty,min=1,max=256"`
+	UserAvatar  *string `json:"userAvatar" validate:"omitempty,url,max=1024"`
+	UserProfile *string `json:"userProfile" validate:"omitempty,max=512"`
+	UserRole    string  `json:"userRole" validate:"omitempty,oneof=user admin"`
+}

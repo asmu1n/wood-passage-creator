@@ -18,6 +18,7 @@ type Article struct {
 	Content             *string            `json:"content"`
 	FullContent         *string            `json:"fullContent"`
 	Images              []port.ImageResult `json:"images"`
+	CoverImage          *string            `json:"coverImage,omitempty"`
 	Status              ArticleStatus      `json:"status"`
 	Phase               ArticlePhase       `json:"phase"` // 当前阶段
 	ErrorMessage        *string            `json:"errorMessage"`
@@ -25,6 +26,22 @@ type Article struct {
 	EnabledImageMethods []port.ImageMethod `json:"enabledImageMethods,omitempty"` // 空=不限制
 	CreateTime          time.Time          `json:"createTime"`
 	CompletedTime       *time.Time         `json:"completedTime"`
+}
+
+// FillCoverImage 从配图列表派生封面 URL（对齐旧 saveArticleContent：position == 1）。
+func (a *Article) FillCoverImage() {
+	if a == nil {
+		return
+	}
+	a.CoverImage = nil
+	for i := range a.Images {
+		img := a.Images[i]
+		if img.Position == 1 && img.URL != "" {
+			u := img.URL
+			a.CoverImage = &u
+			return
+		}
+	}
 }
 
 type ArticleStatus string
@@ -92,8 +109,6 @@ type ArticleState struct {
 	ImageRequirements       []port.ImageRequirement `json:"imageRequirements"`
 	Images                  []port.ImageResult      `json:"images"`
 }
-
-
 
 type AgentLogStatus string
 

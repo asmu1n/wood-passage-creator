@@ -29,6 +29,14 @@
                 搜索
               </a-button>
             </a-form-item>
+            <a-form-item>
+              <a-button type="default" class="search-btn" @click="openAddModal">
+                <template #icon>
+                  <PlusOutlined />
+                </template>
+                新建用户
+              </a-button>
+            </a-form-item>
           </a-form>
         </div>
 
@@ -47,12 +55,9 @@
               <a-avatar :src="record.userAvatar" :size="48" class="user-avatar" />
             </template>
             <template v-else-if="column.dataIndex === 'userRole'">
-              <a-tag v-if="record.userRole === 'admin'" color="purple" class="role-tag">
-                管理员
-              </a-tag>
-              <a-tag v-else color="blue" class="role-tag">
-                普通用户
-              </a-tag>
+              <a-tag v-if="record.userRole === 'admin'" color="purple" class="role-tag">管理员</a-tag>
+              <a-tag v-else-if="record.userRole === 'vip'" color="gold" class="role-tag">VIP</a-tag>
+              <a-tag v-else color="blue" class="role-tag">普通用户</a-tag>
             </template>
             <template v-else-if="column.dataIndex === 'createTime'">
               <span class="time-text">{{ dayjs(record.createTime).format('YYYY-MM-DD HH:mm:ss') }}</span>
@@ -70,14 +75,50 @@
           </template>
         </a-table>
       </a-card>
+
+      <a-modal
+        v-model:open="addVisible"
+        title="新建用户"
+        ok-text="创建"
+        cancel-text="取消"
+        :confirm-loading="addLoading"
+        @ok="submitAdd"
+        destroy-on-close
+      >
+        <a-form layout="vertical" :model="addForm" class="add-form">
+          <a-form-item label="账号" required>
+            <a-input v-model:value="addForm.userAccount" placeholder="字母开头，3-20 位" />
+          </a-form-item>
+          <a-form-item label="用户名">
+            <a-input v-model:value="addForm.userName" placeholder="可选" />
+          </a-form-item>
+          <a-form-item label="头像 URL">
+            <a-input v-model:value="addForm.userAvatar" placeholder="可选，需为 URL" />
+          </a-form-item>
+          <a-form-item label="简介">
+            <a-textarea v-model:value="addForm.userProfile" placeholder="可选" :rows="2" />
+          </a-form-item>
+          <a-form-item label="角色">
+            <a-select v-model:value="addForm.userRole" placeholder="默认普通用户">
+              <a-select-option value="user">普通用户</a-select-option>
+              <a-select-option value="admin">管理员</a-select-option>
+            </a-select>
+          </a-form-item>
+          <a-alert
+            type="info"
+            show-icon
+            message="初始密码固定为 12345678（与旧项目一致），用户登录后可自行修改。"
+          />
+        </a-form>
+      </a-modal>
     </div>
   </div>
 </template>
 <script lang="ts" setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { deleteUser, listUserVoByPage } from '@/api/userController.ts'
+import { addUser, deleteUser, listUserVoByPage } from '@/api/userController.ts'
 import { message } from 'ant-design-vue'
-import { SearchOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 
 const columns = [
@@ -116,7 +157,7 @@ const columns = [
 ]
 
 // 展示的数据
-const data = ref<API.UserVO[]>([])
+const data = ref<API.User[]>([])
 const total = ref(0)
 
 // 搜索条件
@@ -164,17 +205,70 @@ const doSearch = () => {
 }
 
 // 删除数据
-const doDelete = async (id: string) => {
+const doDelete = async (id: string | number) => {
   if (!id) {
     return
   }
-  const res = await deleteUser({ id: Number(id) })
-  if (res.data.code === 0) {
-    message.success('删除成功')
-    // 刷新数据
-    fetchData()
-  } else {
-    message.error('删除失败')
+  try {
+    const res = await deleteUser({ id: Number(id) })
+    if (res.data.code === 0) {
+      message.success('删除成功')
+      fetchData()
+    } else {
+      message.error('删除失败，' + (res.data.message || ''))
+    }
+  } catch (e) {
+    message.error('删除失败，' + (e instanceof Error ? e.message : ''))
+  }
+}
+
+// —— 新建用户（对齐旧 POST /user/add）——
+const addVisible = ref(false)
+const addLoading = ref(false)
+const addForm = reactive<API.UserAddRequest>({
+  userAccount: '',
+  userName: '',
+  userAvatar: '',
+  userProfile: '',
+  userRole: 'user',
+})
+
+const openAddModal = () => {
+  addForm.userAccount = ''
+  addForm.userName = ''
+  addForm.userAvatar = ''
+  addForm.userProfile = ''
+  addForm.userRole = 'user'
+  addVisible.value = true
+}
+
+const submitAdd = async () => {
+  if (!addForm.userAccount?.trim()) {
+    message.warning('请填写账号')
+    return
+  }
+  addLoading.value = true
+  try {
+    const body: API.UserAddRequest = {
+      userAccount: addForm.userAccount.trim(),
+      userRole: addForm.userRole || 'user',
+    }
+    if (addForm.userName?.trim()) body.userName = addForm.userName.trim()
+    if (addForm.userAvatar?.trim()) body.userAvatar = addForm.userAvatar.trim()
+    if (addForm.userProfile?.trim()) body.userProfile = addForm.userProfile.trim()
+
+    const res = await addUser(body)
+    if (res.data.code === 0) {
+      message.success('创建成功，初始密码 12345678')
+      addVisible.value = false
+      fetchData()
+    } else {
+      message.error('创建失败，' + (res.data.message || ''))
+    }
+  } catch (e) {
+    message.error('创建失败，' + (e instanceof Error ? e.message : ''))
+  } finally {
+    addLoading.value = false
   }
 }
 

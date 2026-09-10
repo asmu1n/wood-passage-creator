@@ -22,6 +22,7 @@ func (r *Registrar) RegisterRoutes(api *echo.Group) {
 	users.PATCH("/:id", r.h.Update)
 
 	admin := api.Group("/admin/users", middleware.AuthWithRoleRequired(r.h.svc, true))
+	admin.POST("", r.h.AdminAdd)
 	admin.GET("/list", r.h.AdminList)
 	admin.DELETE("/:id", r.h.Delete)
 	admin.POST("/:id/upgrade-vip", r.h.UpgradeVIP)

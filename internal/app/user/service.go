@@ -2,6 +2,7 @@ package userapp
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -182,6 +183,63 @@ func (s *Service) ListAll(ctx context.Context, actor module.Actor, params page.P
 		return nil, 0, err
 	}
 	return users, total, nil
+}
+
+// DefaultAdminAddPassword 管理端开户默认明文密码（与旧项目一致）。
+const DefaultAdminAddPassword = "12345678"
+
+// AdminAdd 管理员创建用户；密码固定为 DefaultAdminAddPassword。
+func (s *Service) AdminAdd(ctx context.Context, actor module.Actor, in AdminAddRequest) (*module.User, error) {
+	if err := actor.RequireAdmin(); err != nil {
+		return nil, err
+	}
+	role := module.RoleUser
+	if in.UserRole != "" {
+		role = module.UserRole(in.UserRole)
+	}
+	if role != module.RoleUser && role != module.RoleAdmin {
+		return nil, response.NewBizErrorWithDetail(response.ParamsError, "userRole 仅支持 user 或 admin")
+	}
+
+	exists, err := s.repo.ExistsAccount(ctx, in.UserAccount)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, response.NewBizErrorWithDetail(response.ParamsError, "账号已存在")
+	}
+
+	hash, err := module.HashPassword(DefaultAdminAddPassword)
+	if err != nil {
+		return nil, err
+	}
+
+	u, err := s.repo.Create(ctx, module.CreateRepoParams{
+		UserAccount:  in.UserAccount,
+		UserPassword: hash,
+		UserName:     in.UserName,
+		UserAvatar:   in.UserAvatar,
+		UserProfile:  in.UserProfile,
+		UserRole:     role,
+		Quota:        5,
+	})
+	if err != nil {
+		if errors.Is(err, module.ErrAccountConflict) {
+			return nil, response.NewBizErrorWithDetail(response.ParamsError, "账号已存在")
+		}
+		return nil, err
+	}
+
+	s.log.Info("admin added user",
+		logger.FieldPurpose, logger.PurposeBiz,
+		logger.FieldEvent, "user.admin_add",
+		"user_id", u.ID,
+		"user_account", u.UserAccount,
+		"user_role", u.UserRole,
+		"actor_id", actor.ID,
+	)
+	s.invalidateStatsOverview(ctx)
+	return u, nil
 }
 
 func (s *Service) Update(ctx context.Context, actor module.Actor, targetID int64, in UpdateRequest) (*module.User, error) {

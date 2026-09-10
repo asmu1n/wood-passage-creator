@@ -55,6 +55,17 @@ export async function deleteUser(
   })
 }
 
+
+/** 管理端创建用户 POST /admin/users — 默认密码 12345678 */
+export async function addUser(body: API.UserAddRequest, options?: { [key: string]: any }) {
+  return request<API.BaseResponseUser>('/admin/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+    ...(options || {}),
+  })
+}
+
 /** 管理端升级 VIP POST /admin/users/:id/upgrade-vip */
 export async function upgradeUserVip(id: number, options?: { [key: string]: any }) {
   return request<API.BaseResponseUser>(`/admin/users/${id}/upgrade-vip`, {

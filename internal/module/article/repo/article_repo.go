@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 
 	"wood-passage-creator/ent"
-	"wood-passage-creator/internal/infra/database"
 	entm "wood-passage-creator/ent/article"
+	"wood-passage-creator/internal/infra/database"
 	"wood-passage-creator/internal/module/article"
 )
 
@@ -21,7 +21,6 @@ func NewArticleRepo(client *ent.Client) article.Repository {
 func (r *ArticleRepo) ent(ctx context.Context) *ent.Client {
 	return database.ClientFrom(ctx, r.client)
 }
-
 
 func (r *ArticleRepo) Create(ctx context.Context, params article.CreateArticleParams) (*article.Article, error) {
 	row, err := r.ent(ctx).Article.Create().
@@ -246,6 +245,7 @@ func toDomain(row *ent.Article) *article.Article {
 	if len(row.Images) > 0 {
 		_ = json.Unmarshal(row.Images, &out.Images)
 	}
+	out.FillCoverImage()
 	return out
 }
 
