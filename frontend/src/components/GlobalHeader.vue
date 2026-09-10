@@ -79,7 +79,9 @@ import {
   UnorderedListOutlined,
   SettingOutlined,
   CrownOutlined,
-  BarChartOutlined
+  BarChartOutlined,
+  FileTextOutlined,
+  PayCircleOutlined,
 } from '@ant-design/icons-vue'
 import { isVip as checkIsVip } from '@/utils/permission'
 
@@ -89,7 +91,10 @@ const router = useRouter()
 const selectedKeys = ref<string[]>(['/'])
 // 监听路由变化，更新当前选中菜单
 router.afterEach((to) => {
-  selectedKeys.value = [to.path]
+  // 管理端子路径高亮对应菜单
+  const adminKeys = ['/admin/userManage', '/admin/articles', '/admin/payments', '/admin/statistics']
+  const hit = adminKeys.find((k) => to.path === k || to.path.startsWith(k + '/'))
+  selectedKeys.value = [hit || to.path]
 })
 
 // 判断是否为 VIP（管理员也视为 VIP）
@@ -115,7 +120,19 @@ const originItems = [
   {
     key: '/admin/userManage',
     icon: SettingOutlined,
-    label: '管理',
+    label: '用户',
+    admin: true,
+  },
+  {
+    key: '/admin/articles',
+    icon: FileTextOutlined,
+    label: '文章',
+    admin: true,
+  },
+  {
+    key: '/admin/payments',
+    icon: PayCircleOutlined,
+    label: '支付',
     admin: true,
   },
   {

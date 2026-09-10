@@ -43,6 +43,16 @@ const router = createRouter({
       component: UserManagePage,
     },
     {
+      path: '/admin/articles',
+      name: '文章管理',
+      component: () => import('@/pages/admin/ArticleManagePage.vue'),
+    },
+    {
+      path: '/admin/payments',
+      name: '支付管理',
+      component: () => import('@/pages/admin/PaymentManagePage.vue'),
+    },
+    {
       path: '/admin/statistics',
       name: '数据分析',
       component: () => import('@/pages/admin/StatisticsPage.vue'),

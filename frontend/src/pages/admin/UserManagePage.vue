@@ -48,6 +48,7 @@
           :data-source="data"
           :pagination="pagination"
           @change="doTableChange"
+          row-key="id"
           class="user-table"
         >
           <template #bodyCell="{ column, record }">
@@ -63,14 +64,36 @@
               <span class="time-text">{{ dayjs(record.createTime).format('YYYY-MM-DD HH:mm:ss') }}</span>
             </template>
             <template v-else-if="column.key === 'action'">
-              <a-popconfirm
-                title="确定要删除此用户吗?"
-                ok-text="确定"
-                cancel-text="取消"
-                @confirm="doDelete(record.id)"
-              >
-                <a-button type="link" danger class="delete-btn">删除</a-button>
-              </a-popconfirm>
+              <a-space :size="4" wrap>
+                <a-popconfirm
+                  v-if="record.userRole === 'user'"
+                  title="确认为该用户开通永久 VIP？"
+                  ok-text="开通"
+                  cancel-text="取消"
+                  @confirm="doUpgradeVip(record.id)"
+                >
+                  <a-button type="link" size="small" class="vip-btn">开通 VIP</a-button>
+                </a-popconfirm>
+                <a-popconfirm
+                  v-else-if="record.userRole === 'vip'"
+                  title="确定取消该用户的 VIP？"
+                  ok-text="取消 VIP"
+                  cancel-text="返回"
+                  @confirm="doRevokeVip(record.id)"
+                >
+                  <a-button type="link" size="small" class="vip-btn">取消 VIP</a-button>
+                </a-popconfirm>
+                <a-popconfirm
+                  v-if="record.userRole !== 'admin'"
+                  title="确定要删除此用户吗?"
+                  ok-text="确定"
+                  cancel-text="取消"
+                  @confirm="doDelete(record.id)"
+                >
+                  <a-button type="link" danger size="small" class="delete-btn">删除</a-button>
+                </a-popconfirm>
+                <span v-else class="muted">—</span>
+              </a-space>
             </template>
           </template>
         </a-table>
@@ -116,7 +139,7 @@
 </template>
 <script lang="ts" setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { addUser, deleteUser, listUserVoByPage } from '@/api/userController.ts'
+import { addUser, deleteUser, listUserVoByPage, upgradeUserVip, revokeUserVip } from '@/api/userController.ts'
 import { message } from 'ant-design-vue'
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
@@ -219,6 +242,35 @@ const doDelete = async (id: string | number) => {
     }
   } catch (e) {
     message.error('删除失败，' + (e instanceof Error ? e.message : ''))
+  }
+}
+
+
+const doUpgradeVip = async (id: string | number) => {
+  try {
+    const res = await upgradeUserVip(Number(id))
+    if (res.data.code === 0) {
+      message.success('已开通 VIP')
+      fetchData()
+    } else {
+      message.error(res.data.message || '开通失败')
+    }
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '开通失败')
+  }
+}
+
+const doRevokeVip = async (id: string | number) => {
+  try {
+    const res = await revokeUserVip(Number(id))
+    if (res.data.code === 0) {
+      message.success('已取消 VIP')
+      fetchData()
+    } else {
+      message.error(res.data.message || '取消失败')
+    }
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '取消失败')
   }
 }
 
@@ -427,6 +479,16 @@ onMounted(() => {
   .time-text {
     color: var(--color-text-secondary);
     font-size: 13px;
+  }
+
+  .vip-btn {
+    padding: 0 4px;
+    color: #d48806;
+  }
+
+  .muted {
+    color: var(--color-text-secondary);
+    font-size: 12px;
   }
 
   .delete-btn {
