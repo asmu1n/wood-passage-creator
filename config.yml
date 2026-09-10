@@ -63,10 +63,10 @@ nano_banana:
 
 # Cloudflare R2（S3 兼容）。配齐后配图会转存；缺任一关键项则跳过，保留原始 URL。
 r2:
-  account_id: ""          # Cloudflare Account ID（非密钥，可写 yml）
+  account_id: "51ce6b303efe76db77199b02de31c1f1"          # Cloudflare Account ID（非密钥，可写 yml）
   access_key_id: ""       # APP_R2_ACCESS_KEY_ID
   secret_access_key: ""   # APP_R2_SECRET_ACCESS_KEY
-  bucket: ""
+  bucket: "cloundfile"
   endpoint: ""            # 可选；空则 https://{account_id}.r2.cloudflarestorage.com
-  public_base_url: ""     # 对外访问前缀：自定义域名或 https://pub-xxx.r2.dev
-  key_prefix: "articles/images"
+  public_base_url: "https://bucket.asmu1n.com"     # 对外访问前缀：自定义域名或 https://pub-xxx.r2.dev
+  key_prefix: "passage-creator/images"
