@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	appcore "wood-passage-creator/internal/app"
 	module "wood-passage-creator/internal/module/article"
 	moduser "wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/logger"
@@ -193,7 +194,7 @@ func (s *Service) Create(ctx context.Context, actor moduser.Actor, req CreateArt
 	if err != nil {
 		return "", err
 	}
-	err = port.WithinTx(ctx, func(ctx context.Context) error {
+	err = appcore.CurrentRuntime().WithinTx(ctx, func(ctx context.Context) error {
 		if _, err := s.userQuota.CheckAndConsumeQuota(ctx, actor.ID); err != nil {
 			return err
 		}

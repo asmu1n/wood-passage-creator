@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	appcore "wood-passage-creator/internal/app"
 	module "wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/pkg/page"
@@ -58,12 +59,17 @@ func (s *Service) GrantVIP(ctx context.Context, userID int64) (*module.User, err
 	if err != nil {
 		return nil, err
 	}
-	s.log.Info("user granted vip",
-		logger.FieldPurpose, logger.PurposeBiz,
-		logger.FieldEvent, "user.vip.grant",
-		"user_id", userID,
-	)
-	s.invalidateStatsOverview(ctx)
+	appcore.CurrentRuntime().AfterCommit(ctx, func(ctx context.Context) {
+		s.log.Info("user granted vip",
+			logger.FieldPurpose, logger.PurposeBiz,
+			logger.FieldEvent, "user.vip.grant",
+			"user_id", userID,
+		)
+
+		cacheCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		defer cancel()
+		s.invalidateStatsOverview(cacheCtx)
+	})
 	return out, nil
 }
 

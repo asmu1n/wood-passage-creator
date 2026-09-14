@@ -1,9 +1,9 @@
 package schema
 
 import (
-	"wood-passage-creator/internal/port"
 	"encoding/json"
 	"time"
+	"wood-passage-creator/internal/port"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"

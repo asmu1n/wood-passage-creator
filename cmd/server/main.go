@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	appcore "wood-passage-creator/internal/app"
 	articleapp "wood-passage-creator/internal/app/article"
 	authapp "wood-passage-creator/internal/app/auth"
 	paymentapp "wood-passage-creator/internal/app/payment"
@@ -26,8 +27,8 @@ import (
 	"wood-passage-creator/internal/infra/cache"
 	"wood-passage-creator/internal/infra/database"
 	"wood-passage-creator/internal/infra/image"
-	"wood-passage-creator/internal/infra/objectstore"
 	"wood-passage-creator/internal/infra/llm"
+	"wood-passage-creator/internal/infra/objectstore"
 	"wood-passage-creator/internal/infra/redis"
 	modart "wood-passage-creator/internal/module/article"
 	articleagent "wood-passage-creator/internal/module/article/agent"
@@ -38,10 +39,11 @@ import (
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/pkg/sse"
 
+	_ "wood-passage-creator/docs/api/swagger"
+
 	"github.com/labstack/echo-contrib/v5/session"
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"
-	_ "wood-passage-creator/docs/api/swagger"
 )
 
 // @title           Wood Passage Creator API
@@ -78,6 +80,9 @@ func main() {
 	if err := db.Migrate(ctx); err != nil {
 		logger.Fatal("migrate failed", logger.FieldErr, err)
 	}
+	if err := appcore.InitRuntime(appcore.Runtime{TxManager: db}); err != nil {
+		logger.Fatal("init app runtime failed", logger.FieldErr, err)
+	}
 
 	store, err := redis.NewSessionStore(&cfg.Redis, cfg.Session)
 	if err != nil {
@@ -96,19 +101,18 @@ func main() {
 	}
 
 	// 装配：module=领域+repo；app=全部用例；httpapi/api 只依赖 app。
-	// 跨 module 强一致写：port.WithinTx（全局 TxManager，类 logger）+ repo ClientFrom。
-	database.InitTxManager(db.Client)
+	// 跨 module 强一致写：Runtime.Tx + repo Cli(ctx) 共享同一事务。
 	cacheClient := cache.New(redisClient)
 	ssehub := sse.NewHub()
-	userRepo := userrepo.New(db.Client)
-	statsSvc := statsapp.NewService(statisticsrepo.New(db.Client), cacheClient)
+	userRepo := userrepo.New(db)
+	statsSvc := statsapp.NewService(statisticsrepo.New(db), cacheClient)
 	userSvc := userapp.NewService(userRepo, statsSvc)
 	authSvc := authapp.NewService(userRepo, statsSvc)
-	paymentSvc := paymentapp.NewService(paymentrepo.New(db.Client), userSvc)
+	paymentSvc := paymentapp.NewService(paymentrepo.New(db), userSvc)
 	objStore := objectstore.NewFromConfig(cfg.R2)
 	imgGen := image.NewGenerator(cfg, chatModal, objStore)
-	articleRepo := articlerepo.NewArticleRepo(db.Client)
-	agentLogRepo := articlerepo.NewAgentLogRepo(db.Client)
+	articleRepo := articlerepo.NewArticleRepo(db)
+	agentLogRepo := articlerepo.NewAgentLogRepo(db)
 	agentLogRecorder := modart.NewAgentLogRecorder(agentLogRepo)
 	articleSvc := articleapp.NewService(
 		articleRepo,

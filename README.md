@@ -13,7 +13,7 @@
 |------|------|
 | 业务可扩展 | 用例在 `app/`；领域 + repo 在 `module/`；HTTP 在 `httpapi/api` |
 | 依赖清晰 | app/module 依赖 `port`；不直接依赖 Redis/DB 实现细节 |
-| 跨域强一致 | `port.WithinTx`（全局，类 logger）+ repo `ClientFrom` |
+| 跨域强一致 | 全局 `app.Runtime` 提供事务能力，repo 通过 `Cli(ctx)` 共享事务 |
 | 改动半径可控 | HTTP 只依赖 app；agent 流水线暂留 `module/article` |
 | 入口干净 | `cmd/server` 只做装配与生命周期 |
 | 配置分层 | `config.yml` 主配置；`.env` 仅密钥 |
@@ -38,7 +38,7 @@
 │   ├── httpapi/             # 协议基建 + api/* Handler（只依赖 app）
 │   │   ├── api/             # auth/user/article/payment/statistics
 │   │   └── docsui/          # Scalar 文档页
-│   ├── port/                # Cache / Locker / ObjectStore / TxManager（含全局 WithinTx）
+│   ├── port/                # Cache / Locker / ObjectStore / TxManager 等能力契约
 │   ├── infra/               # DB/Redis/LLM/Image/ObjectStore 等实现
 │   ├── pkg/                 # logger、page、response、sse、llmkit
 │   └── config/
@@ -51,12 +51,12 @@
 
 | 路径 | 职责 |
 |------|------|
-| `cmd/server` | 组装依赖、`logger.Init`、`database.InitTxManager`、注册 `httpapi` Registrar |
-| `internal/app/*` | **全部业务用例**与 HTTP `*Request`；跨 module 写用 `port.WithinTx` |
-| `internal/module/*` | 实体、Repository、repo（`ClientFrom`）；**无** Service/HTTP |
+| `cmd/server` | 组装依赖、初始化 `app.Runtime`、注册 `httpapi` Registrar |
+| `internal/app/*` | **全部业务用例**与 HTTP `*Request`；跨 module 写由 `Runtime` 编排 |
+| `internal/module/*` | 实体、Repository、repo（`Cli(ctx)`）；**无** Service/HTTP |
 | `internal/module/article/agent` | 生成流水线（标题/大纲/正文/配图），暂留 module |
 | `internal/httpapi` | middleware、binding、error、health；`api/*` 只调 app |
-| `internal/port` | 技术端口（Cache / Locker / ObjectStore / Tx…）；`port.WithinTx` 为全局事务入口 |
+| `internal/port` | 技术端口（Cache / Locker / ObjectStore / Tx…） |
 | `internal/infra` | port 实现（DB/Redis/LLM/Image/ObjectStore 等） |
 | `internal/pkg` | 与领域无关的工具库（logger、page、response、sse…） |
 
@@ -72,8 +72,8 @@ cmd/server
     ▼
  httpapi/api/*  →  app/*  →  module（实体 + Repository）
                       │           │
-                      │           └─ repo ── ClientFrom(ctx) ──► 同一 ent Tx
-                      └─ port.WithinTx / Cache / …
+                      │           └─ repo ── Cli(ctx) ──► 同一 ent Tx
+                      └─ Runtime / Cache / …
                                 ▲
  infra 实现 port（TxManager、Cache…）
 ```
@@ -82,7 +82,7 @@ cmd/server
 
 1. HTTP **只依赖 app**，不依赖 repo / infra。  
 2. app 依赖 module 的 **Repository 接口** 与实体；**不** import `infra`。  
-3. 跨 module **强一致写**：app 内 `port.WithinTx` + 多方 repo（同一 ctx）。  
+3. 跨 module **强一致写**：app 内 `CurrentRuntime().WithinTx` + 多方 repo（同一 ctx）。
 4. module **无** Service；agent 例外地放在 `module/article`。  
 5. 避免循环依赖：鉴权在 `httpapi/middleware`。
 
@@ -95,12 +95,14 @@ POST /api/article/create
   → httpapi/api/article.Handler
   → Bind app/article.CreateArticleRequest
   → app/article.Service.Create
-       → port.WithinTx：扣配额 + 插文章
+       → CurrentRuntime().WithinTx：扣配额 + 插文章
+       → Commit 后失效统计缓存
        → go Phase1（事务外）
 
 POST /api/payment/vip/mock-complete
   → app/payment.CompleteMockVIP
-       → port.WithinTx：MarkSucceeded + GrantVIP
+       → CurrentRuntime().WithinTx：MarkSucceeded + GrantVIP
+       → GrantVIP 登记 AfterCommit：失效统计缓存
 
 GET /api/article/progress/:taskId
   → SSE：app SubscribeProgress → pkg/sse.Hub fan-out
@@ -177,7 +179,7 @@ swag init -g cmd/server/main.go -o docs/api/swagger --parseDependency --parseInt
 
 ### A. 新增业务能力（推荐路径）
 
-1. `module/<name>/`：实体 + `Repository` + `repo`（`ClientFrom`）；**package 用领域名**（如 `user`）。  
+1. `module/<name>/`：实体 + `Repository` + `repo`（`Cli(ctx)`）；**package 用领域名**（如 `user`）。
 2. `app/<name>/`：`*Request` + Service；**package 名与 module 错开**（如 `userapp` / `articleapp`）。  
 3. `httpapi/api/<name>/`：Handler + Registrar（只依赖 app）；Swagger 注解直接写 `articleapp.Xxx`、`user.User` 等。  
 4. 如需表结构：`ent/schema` + `go generate ./ent`。  
@@ -230,6 +232,7 @@ swag init -g cmd/server/main.go -o docs/api/swagger --parseDependency --parseInt
 | [internal/module/README.md](internal/module/README.md)         | 业务模块目录约定                    |
 | [internal/pkg/README.md](internal/pkg/README.md)               | 公共库边界                          |
 | [internal/pkg/logger/README.md](internal/pkg/logger/README.md) | **结构化日志约定与 event 表**       |
+| [docs/TRANSACTIONS.md](docs/TRANSACTIONS.md)                   | **事务、Runtime 与提交后动作**      |
 | [docs/REDIS_CACHE.md](docs/REDIS_CACHE.md)                     | **项目级 Redis / 缓存策略**（总览） |
 | [ent/schema/README.md](ent/schema/README.md)                   | Schema 与 generate 约定             |
 

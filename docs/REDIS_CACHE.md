@@ -1,7 +1,7 @@
 # Redis 缓存策略说明
 
 本文描述模板中 **已落地** 的 Redis 使用方式与缓存能力，供协作与排障对照。  
-具体业务 key / TTL 由各业务约定（如 `module/statistics/cache.go` 的概览缓存）；写路径在 **app** 用例成功后失效。
+具体业务 key / TTL 由各业务约定（如 `module/statistics/cache.go` 的概览缓存）。写路径通过 `app.CurrentRuntime().AfterCommit` 在数据库提交成功后失效缓存。
 
 ---
 
@@ -89,11 +89,22 @@
 
 ## 5. 业务接入建议
 
-1. 在 `cmd/server` 创建 `cache.New` / `lock.New`，注入到 `module` 的 `NewService`。  
+1. 在 `cmd/server` 创建 `cache.New` / `lock.New`，注入到 `app` 的 `NewService`。
 2. **不要**在 module 内 import `infra/redis`。  
 3. key 命名建议带业务前缀，例如 `app:<domain>:<id>`，并设合理 TTL。  
 4. 在线路径与预热 / 异步路径若共用同一缓存语义，请保证候选集 / 写入条件一致。  
 5. 复杂缓存策略可在对应 module 下新增 `CACHE.md` 说明。
+
+### 事务与缓存失效
+
+业务方法应拥有自己的缓存失效规则，并通过 `app.CurrentRuntime().AfterCommit` 登记：
+
+- 不在事务中时，数据库原子写已完成，缓存立即失效。
+- 位于事务中时，缓存仅在最外层 Commit 成功后失效。
+- Rollback 时不执行缓存失效。
+- 删除失败只记录日志并依赖 TTL 兜底；需要可靠投递时使用事务 Outbox。
+
+不要在 Commit 前直接删除缓存，否则并发读可能把事务提交前的旧数据重新写入缓存。
 
 ---
 

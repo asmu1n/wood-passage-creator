@@ -6,15 +6,23 @@ import (
 
 	"wood-passage-creator/ent"
 	"wood-passage-creator/internal/config"
+	"wood-passage-creator/internal/port"
 
 	_ "github.com/lib/pq"
 )
 
-type DB struct {
+type DB interface {
+	Migrate(ctx context.Context) error
+	Close() error
+	Cli(context.Context) *ent.Client
+	port.TxManager
+}
+
+type db struct {
 	Client *ent.Client
 }
 
-func New(config *config.DatabaseConfig) (*DB, error) {
+func New(config *config.DatabaseConfig) (*db, error) {
 
 	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		config.Host, config.Port, config.User, config.Password, config.DBName)
@@ -23,16 +31,16 @@ func New(config *config.DatabaseConfig) (*DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
-	return &DB{Client: client}, nil
+	return &db{Client: client}, nil
 }
 
-func (db *DB) Migrate(ctx context.Context) error {
-	return db.Client.Schema.Create(ctx)
+func (d *db) Migrate(ctx context.Context) error {
+	return d.Client.Schema.Create(ctx)
 }
 
-func (db *DB) Close() error {
-	if db.Client != nil {
-		return db.Client.Close()
+func (d *db) Close() error {
+	if d.Client != nil {
+		return d.Client.Close()
 	}
 	return nil
 }

@@ -6,29 +6,24 @@ import (
 	"time"
 
 	"wood-passage-creator/ent"
-	"wood-passage-creator/internal/infra/database"
 	entarticle "wood-passage-creator/ent/article"
 	entuser "wood-passage-creator/ent/user"
+	"wood-passage-creator/internal/infra/database"
 	"wood-passage-creator/internal/module/statistics"
 	"wood-passage-creator/internal/module/user"
 )
 
 // StatisticsRepo 只读聚合，实现 statistics.Repository。
 type StatisticsRepo struct {
-	client *ent.Client
+	database.DB
 }
 
-func New(client *ent.Client) statistics.Repository {
-	return &StatisticsRepo{client: client}
+func New(db database.DB) statistics.Repository {
+	return &StatisticsRepo{db}
 }
-
-func (r *StatisticsRepo) ent(ctx context.Context) *ent.Client {
-	return database.ClientFrom(ctx, r.client)
-}
-
 
 func (r *StatisticsRepo) CountArticlesBetween(ctx context.Context, from, to time.Time) (int64, error) {
-	n, err := r.ent(ctx).Article.Query().
+	n, err := r.Cli(ctx).Article.Query().
 		Where(
 			entarticle.IsDeleteEQ(false),
 			entarticle.CreateTimeGTE(from),
@@ -39,7 +34,7 @@ func (r *StatisticsRepo) CountArticlesBetween(ctx context.Context, from, to time
 }
 
 func (r *StatisticsRepo) CountArticlesTotal(ctx context.Context) (int64, error) {
-	n, err := r.ent(ctx).Article.Query().
+	n, err := r.Cli(ctx).Article.Query().
 		Where(entarticle.IsDeleteEQ(false)).
 		Count(ctx)
 	return int64(n), err
@@ -50,7 +45,7 @@ func (r *StatisticsRepo) CountArticlesByStatus(ctx context.Context, status strin
 	if err := entarticle.StatusValidator(st); err != nil {
 		return 0, fmt.Errorf("invalid article status %q: %w", status, err)
 	}
-	n, err := r.ent(ctx).Article.Query().
+	n, err := r.Cli(ctx).Article.Query().
 		Where(
 			entarticle.IsDeleteEQ(false),
 			entarticle.StatusEQ(st),
@@ -60,7 +55,7 @@ func (r *StatisticsRepo) CountArticlesByStatus(ctx context.Context, status strin
 }
 
 func (r *StatisticsRepo) AvgArticleDurationMs(ctx context.Context) (int, error) {
-	rows, err := r.ent(ctx).Article.Query().
+	rows, err := r.Cli(ctx).Article.Query().
 		Where(
 			entarticle.IsDeleteEQ(false),
 			entarticle.StatusEQ(entarticle.StatusCOMPLETED),
@@ -98,7 +93,7 @@ func (r *StatisticsRepo) CountActiveAuthorsSince(ctx context.Context, since time
 		UserID int64 `json:"user_id"`
 		Count  int   `json:"count"`
 	}
-	err := r.ent(ctx).Article.Query().
+	err := r.Cli(ctx).Article.Query().
 		Where(
 			entarticle.IsDeleteEQ(false),
 			entarticle.CreateTimeGTE(since),
@@ -113,7 +108,7 @@ func (r *StatisticsRepo) CountActiveAuthorsSince(ctx context.Context, since time
 }
 
 func (r *StatisticsRepo) CountUsers(ctx context.Context) (int64, error) {
-	n, err := r.ent(ctx).User.Query().
+	n, err := r.Cli(ctx).User.Query().
 		Where(entuser.IsDeleteEQ(false)).
 		Count(ctx)
 	return int64(n), err
@@ -124,7 +119,7 @@ func (r *StatisticsRepo) CountUsersByRole(ctx context.Context, role user.UserRol
 	if err := entuser.UserRoleValidator(ur); err != nil {
 		return 0, fmt.Errorf("invalid user role %q: %w", role, err)
 	}
-	n, err := r.ent(ctx).User.Query().
+	n, err := r.Cli(ctx).User.Query().
 		Where(
 			entuser.IsDeleteEQ(false),
 			entuser.UserRoleEQ(ur),
@@ -138,7 +133,7 @@ func (r *StatisticsRepo) SumQuotaByRole(ctx context.Context, role user.UserRole)
 	if err := entuser.UserRoleValidator(ur); err != nil {
 		return 0, 0, fmt.Errorf("invalid user role %q: %w", role, err)
 	}
-	rows, err := r.ent(ctx).User.Query().
+	rows, err := r.Cli(ctx).User.Query().
 		Where(
 			entuser.IsDeleteEQ(false),
 			entuser.UserRoleEQ(ur),

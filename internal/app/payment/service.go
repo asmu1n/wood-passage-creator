@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 
+	appcore "wood-passage-creator/internal/app"
 	module "wood-passage-creator/internal/module/payment"
 	moduser "wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/pkg/response"
-	"wood-passage-creator/internal/port"
 
 	"github.com/google/uuid"
 )
@@ -106,7 +106,7 @@ func (s *Service) CompleteMockVIP(ctx context.Context, actor moduser.Actor, sess
 	intentID := "mock_pi_" + uuid.NewString()
 	var updated *module.Record
 	var u *moduser.User
-	err = port.WithinTx(ctx, func(ctx context.Context) error {
+	err = appcore.CurrentRuntime().WithinTx(ctx, func(ctx context.Context) error {
 		var err error
 		updated, err = s.repo.MarkSucceeded(ctx, rec.ID, intentID)
 		if err != nil {

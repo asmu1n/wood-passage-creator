@@ -5,27 +5,22 @@ import (
 	"time"
 
 	"wood-passage-creator/ent"
-	"wood-passage-creator/internal/infra/database"
 	entgen "wood-passage-creator/ent/user"
+	"wood-passage-creator/internal/infra/database"
 	"wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/page"
 )
 
 type UserRepo struct {
-	client *ent.Client
+	database.DB
 }
 
-func New(client *ent.Client) user.Repository {
-	return &UserRepo{client: client}
+func New(db database.DB) user.Repository {
+	return &UserRepo{db}
 }
-
-func (r *UserRepo) ent(ctx context.Context) *ent.Client {
-	return database.ClientFrom(ctx, r.client)
-}
-
 
 func (r *UserRepo) Create(ctx context.Context, in user.CreateRepoParams) (*user.User, error) {
-	b := r.ent(ctx).User.Create().
+	b := r.Cli(ctx).User.Create().
 		SetUserAccount(in.UserAccount).
 		SetUserPassword(in.UserPassword).
 		SetUserRole(entgen.UserRole(in.UserRole)).
@@ -52,7 +47,7 @@ func (r *UserRepo) Create(ctx context.Context, in user.CreateRepoParams) (*user.
 }
 
 func (r *UserRepo) List(ctx context.Context, params page.PageRequest) ([]*user.User, int, error) {
-	base := r.ent(ctx).User.Query().
+	base := r.Cli(ctx).User.Query().
 		Where(entgen.IsDeleteEQ(false))
 
 	count, err := base.Clone().Count(ctx)
@@ -69,7 +64,7 @@ func (r *UserRepo) List(ctx context.Context, params page.PageRequest) ([]*user.U
 }
 
 func (r *UserRepo) GetByID(ctx context.Context, id int64) (*user.User, error) {
-	row, err := r.ent(ctx).User.Query().
+	row, err := r.Cli(ctx).User.Query().
 		Where(
 			entgen.IDEQ(id),
 			entgen.IsDeleteEQ(false),
@@ -85,7 +80,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id int64) (*user.User, error) {
 }
 
 func (r *UserRepo) GetByAccount(ctx context.Context, account string) (*user.UserWithSecret, error) {
-	row, err := r.ent(ctx).User.Query().
+	row, err := r.Cli(ctx).User.Query().
 		Where(
 			entgen.UserAccountEQ(account),
 			entgen.IsDeleteEQ(false),
@@ -102,7 +97,7 @@ func (r *UserRepo) GetByAccount(ctx context.Context, account string) (*user.User
 }
 
 func (r *UserRepo) Update(ctx context.Context, id int64, in user.UpdateRepoParams) (*user.User, error) {
-	b := r.ent(ctx).User.UpdateOneID(id).
+	b := r.Cli(ctx).User.UpdateOneID(id).
 		Where(entgen.IsDeleteEQ(false)).
 		SetEditTime(time.Now())
 
@@ -141,7 +136,7 @@ func (r *UserRepo) Update(ctx context.Context, id int64, in user.UpdateRepoParam
 }
 
 func (r *UserRepo) ExistsAccount(ctx context.Context, account string) (bool, error) {
-	return r.ent(ctx).User.Query().
+	return r.Cli(ctx).User.Query().
 		Where(
 			entgen.UserAccountEQ(account),
 			entgen.IsDeleteEQ(false),
@@ -150,7 +145,7 @@ func (r *UserRepo) ExistsAccount(ctx context.Context, account string) (bool, err
 }
 
 func (r *UserRepo) Delete(ctx context.Context, id int64) error {
-	n, err := r.ent(ctx).User.Update().
+	n, err := r.Cli(ctx).User.Update().
 		Where(entgen.IDEQ(id), entgen.IsDeleteEQ(false)).
 		SetIsDelete(true).
 		SetEditTime(time.Now()).
@@ -165,7 +160,7 @@ func (r *UserRepo) Delete(ctx context.Context, id int64) error {
 }
 
 func (r *UserRepo) DecrementQuota(ctx context.Context, id int64) (int, error) {
-	n, err := r.ent(ctx).User.Update().
+	n, err := r.Cli(ctx).User.Update().
 		Where(
 			entgen.IDEQ(id),
 			entgen.IsDeleteEQ(false),
@@ -177,7 +172,7 @@ func (r *UserRepo) DecrementQuota(ctx context.Context, id int64) (int, error) {
 }
 
 func (r *UserRepo) IncrementQuota(ctx context.Context, id int64) (int, error) {
-	n, err := r.ent(ctx).User.Update().
+	n, err := r.Cli(ctx).User.Update().
 		Where(
 			entgen.IDEQ(id),
 			entgen.IsDeleteEQ(false),
