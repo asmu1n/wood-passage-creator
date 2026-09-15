@@ -370,12 +370,24 @@ func (s *Service) failPhase1(ctx context.Context, taskID string, err error) {
 		return
 	}
 
-	s.log.Error("phase1 failed",
-		logger.FieldPurpose, logger.PurposeJob,
-		logger.FieldEvent, "article.phase1.failed",
-		logger.FieldErr, err,
-		"task_id", taskID,
-	)
+	if ctx.Err() == context.DeadlineExceeded {
+		s.log.Error("phase1 timeout failed",
+			logger.FieldPurpose, logger.PurposeJob,
+			logger.FieldEvent, "article.phase1.timeout",
+			logger.FieldErr, err,
+			"task_id", taskID,
+		)
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		ctx = timeoutCtx
+	} else {
+		s.log.Error("phase1 failed",
+			logger.FieldPurpose, logger.PurposeJob,
+			logger.FieldEvent, "article.phase1.failed",
+			logger.FieldErr, err,
+			"task_id", taskID,
+		)
+	}
 
 	msg := truncateErr(err, 1000)
 	status := module.StatusFailed
@@ -461,12 +473,24 @@ func (s *Service) failPhase2(ctx context.Context, taskID string, err error) {
 		return
 	}
 
-	s.log.Error("phase2 failed",
-		logger.FieldPurpose, logger.PurposeJob,
-		logger.FieldEvent, "article.phase2.failed",
-		logger.FieldErr, err,
-		"task_id", taskID,
-	)
+	if ctx.Err() == context.DeadlineExceeded {
+		s.log.Error("phase2 timeout failed",
+			logger.FieldPurpose, logger.PurposeJob,
+			logger.FieldEvent, "article.phase2.timeout",
+			logger.FieldErr, err,
+			"task_id", taskID,
+		)
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		ctx = timeoutCtx
+	} else {
+		s.log.Error("phase2 failed",
+			logger.FieldPurpose, logger.PurposeJob,
+			logger.FieldEvent, "article.phase2.failed",
+			logger.FieldErr, err,
+			"task_id", taskID,
+		)
+	}
 
 	msg := truncateErr(err, 1000)
 	status := module.StatusFailed
@@ -559,12 +583,24 @@ func (s *Service) failPhase3(ctx context.Context, taskID string, err error) {
 		return
 	}
 
-	s.log.Error("phase3 failed",
-		logger.FieldPurpose, logger.PurposeJob,
-		logger.FieldEvent, "article.phase3.failed",
-		logger.FieldErr, err,
-		"task_id", taskID,
-	)
+	if ctx.Err() == context.DeadlineExceeded {
+		s.log.Error("phase3 timeout failed",
+			logger.FieldPurpose, logger.PurposeJob,
+			logger.FieldEvent, "article.phase3.timeout",
+			logger.FieldErr, err,
+			"task_id", taskID,
+		)
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		ctx = timeoutCtx
+	} else {
+		s.log.Error("phase3 failed",
+			logger.FieldPurpose, logger.PurposeJob,
+			logger.FieldEvent, "article.phase3.failed",
+			logger.FieldErr, err,
+			"task_id", taskID,
+		)
+	}
 
 	msg := truncateErr(err, 1000)
 	status := module.StatusFailed
