@@ -78,7 +78,12 @@ func build(service string, level Level, format Format) *slog.Logger {
 	if format == FormatJSON {
 		h = slog.NewJSONHandler(os.Stderr, opts)
 	} else {
-		h = slog.NewTextHandler(os.Stderr, opts)
+		output := os.Stderr
+		if colorEnabled(output) {
+			h = slog.NewTextHandler(colorWriter{output: output}, opts)
+		} else {
+			h = slog.NewTextHandler(output, opts)
+		}
 	}
 	if service == "" {
 		service = "wood-passage-creator"
