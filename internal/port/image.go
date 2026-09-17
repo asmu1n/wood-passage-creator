@@ -49,7 +49,9 @@ var FreeImageMethods = []ImageMethod{
 	MethodEmojiPack,
 }
 
-func (m ImageMethod) String() string { return string(m) }
+func (m ImageMethod) String() string {
+	return string(m)
+}
 
 func (m ImageMethod) Normalize() ImageMethod {
 	return ImageMethod(strings.ToUpper(strings.TrimSpace(string(m))))
@@ -86,6 +88,25 @@ func (m ImageMethod) IsVIPMethod() bool {
 	}
 }
 
+func (m ImageMethod) MethodMeta() (name, description string) {
+	switch m.Normalize() {
+	case MethodPexels:
+		return "search_pexels_image", "Search Pexels for a realistic stock photo. Use concise English keywords."
+	case MethodIconify:
+		return "search_iconify_icon", "Search Iconify for a clean vector icon. Use a short icon concept as keywords."
+	case MethodEmojiPack:
+		return "search_emoji_image", "Search an emoji/sticker image for a light, expressive illustration."
+	case MethodMermaid:
+		return "render_mermaid_diagram", "Render a Mermaid diagram. The prompt must contain complete valid Mermaid source code."
+	case MethodSVGDiagram:
+		return "generate_svg_diagram", "Generate an SVG information diagram from a precise visual description."
+	case MethodNanoBanana:
+		return "generate_ai_image", "Generate an original AI image from a detailed visual prompt."
+	default:
+		return "", ""
+	}
+}
+
 // Allow 判断 method 是否在 enabled 内；enabled 为空表示不限制。
 func Allow(enabled []ImageMethod, m ImageMethod) bool {
 	if len(enabled) == 0 {
@@ -105,5 +126,13 @@ type ImageProgressFunc func(ctx context.Context, done, total int, img ImageResul
 
 // ImageGenerator 配图生成。
 type ImageGenerator interface {
-	Generate(ctx context.Context, taskID string, reqs []ImageRequirement, onProgress ImageProgressFunc) ([]ImageResult, error)
+	Generate(ctx context.Context, taskID string, reqs []ImageRequirement, allowedMethods []ImageMethod, onProgress ImageProgressFunc) ([]ImageResult, error)
+}
+
+// Provider 单一配图来源。
+// 不要再维护 Available()==false 的“空壳”实现。
+type Provider interface {
+	Method() ImageMethod
+	// Fetch 返回可公开访问的图片 URL，或 data: URL（生成类）。
+	Fetch(ctx context.Context, req ImageRequirement) (url string, err error)
 }

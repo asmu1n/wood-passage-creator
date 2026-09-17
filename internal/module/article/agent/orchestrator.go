@@ -7,27 +7,28 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/cloudwego/eino/components/model"
+
 	"wood-passage-creator/internal/module/article"
-	"wood-passage-creator/internal/pkg/llmkit"
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/port"
 )
 
-// Orchestrator 文章多智能体编排（确定性流水线，非 ReAct）。
+// Orchestrator 文章阶段采用确定性编排；配图执行内部包含有界 tool-calling 循环。
 type Orchestrator struct {
 	log  *slog.Logger
 	logs article.AgentLogRecorder
 
 	title   agent
 	outline agentWithModify
-	content agent
+	content streamingAgent
 	image   agent
 	merge   agent
 	images  port.ImageGenerator
 }
 
 func NewOrchestrator(
-	llm port.ChatModel,
+	llm model.BaseChatModel,
 	imageGenerator port.ImageGenerator,
 	imageMethods []ImageMethodGuide,
 	logs article.AgentLogRecorder,
@@ -137,17 +138,16 @@ func (o *Orchestrator) RunPhase2(ctx context.Context, state *article.ArticleStat
 		logger.FieldEvent, "phase2.start",
 		"task_id", state.TaskID,
 	)
-	ctx = llmkit.WithStreamHandler(ctx, func(ctx context.Context, delta string) error {
+	onDelta := func(delta string) {
 		if delta == "" {
-			return nil
+			return
 		}
 		emit(ctx, onProgress, article.EventOutlineDelta, article.OutlineDeltaPayload{Delta: delta})
-		return nil
-	})
+	}
 	return o.trace(state, string(NameOutlineGenerator),
 		map[string]any{"mainTitle": state.MainTitle, "subTitle": state.SubTitle},
 		func() error {
-			if err := o.outline.Execute(ctx, state); err != nil {
+			if err := o.outline.Execute(ctx, state, onDelta); err != nil {
 				return fmt.Errorf("phase2: %w", err)
 			}
 			return nil
@@ -167,17 +167,16 @@ func (o *Orchestrator) RunPhase3(ctx context.Context, state *article.ArticleStat
 	)
 
 	// 1) 正文
-	ctx = llmkit.WithStreamHandler(ctx, func(ctx context.Context, delta string) error {
+	onDelta := func(delta string) {
 		if delta == "" {
-			return nil
+			return
 		}
 		emit(ctx, onProgress, article.EventContentDelta, article.ContentDeltaPayload{Delta: delta})
-		return nil
-	})
+	}
 	if err := o.trace(state, string(NameContentGenerator),
 		map[string]any{"outlineSections": len(state.Outline)},
 		func() error {
-			if err := o.content.Execute(ctx, state); err != nil {
+			if err := o.content.Execute(ctx, state, onDelta); err != nil {
 				return fmt.Errorf("phase3 content: %w", err)
 			}
 			return nil
@@ -218,7 +217,7 @@ func (o *Orchestrator) RunPhase3(ctx context.Context, state *article.ArticleStat
 		map[string]any{"requirements": len(state.ImageRequirements)},
 		func() error {
 			if o.images != nil && len(state.ImageRequirements) > 0 {
-				imgs, err := o.images.Generate(ctx, state.TaskID, state.ImageRequirements,
+				imgs, err := o.images.Generate(ctx, state.TaskID, state.ImageRequirements, state.EnabledImageMethods,
 					func(ctx context.Context, done, total int, img port.ImageResult) {
 						emit(ctx, onProgress, article.EventImageComplete, article.ImageCompletePayload{
 							Image: img,

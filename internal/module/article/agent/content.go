@@ -4,26 +4,30 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/schema"
 
 	"wood-passage-creator/internal/module/article"
 	"wood-passage-creator/internal/module/article/prompt"
 	"wood-passage-creator/internal/pkg/llmkit"
 	"wood-passage-creator/internal/pkg/logger"
-	"wood-passage-creator/internal/port"
 )
 
 // contentGenerator 阶段 3a：按大纲流式生成 Markdown 正文。
 type contentGenerator struct {
-	llmkit.Helper
+	llm model.BaseChatModel
+	log *slog.Logger
 }
 
-func NewContentGenerator(llm port.ChatModel) agent {
-	return &contentGenerator{llmkit.NewHelper(llm, "article.agent")}
+func NewContentGenerator(llm model.BaseChatModel) streamingAgent {
+	return &contentGenerator{llm: llm, log: logger.Module("article.agent")}
 }
 
 func (a *contentGenerator) Name() Name { return NameContentGenerator }
 
-func (a *contentGenerator) Execute(ctx context.Context, state *article.ArticleState) error {
+func (a *contentGenerator) Execute(ctx context.Context, state *article.ArticleState, onDelta func(string)) error {
 	if err := requireTitle(state); err != nil {
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
@@ -37,13 +41,17 @@ func (a *contentGenerator) Execute(ctx context.Context, state *article.ArticleSt
 	}
 	p := prompt.Content(*state.MainTitle, *state.SubTitle, string(outlineJSON), state.Style)
 
-	a.Log.Info("agent start",
+	a.log.Info("agent start",
 		logger.FieldPurpose, logger.PurposeBiz,
 		logger.FieldEvent, "agent.content.start",
 		"task_id", state.TaskID,
 	)
 
-	text, err := a.StreamWithContext(ctx, p, nil)
+	stream, err := a.llm.Stream(ctx, []*schema.Message{schema.UserMessage(p)})
+	if err != nil {
+		return fmt.Errorf("%s: %w", a.Name(), err)
+	}
+	text, err := llmkit.CollectTextStream(stream, onDelta)
 	if err != nil {
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
@@ -52,7 +60,7 @@ func (a *contentGenerator) Execute(ctx context.Context, state *article.ArticleSt
 	}
 
 	state.Content = text
-	a.Log.Info("agent done",
+	a.log.Info("agent done",
 		logger.FieldPurpose, logger.PurposeBiz,
 		logger.FieldEvent, "agent.content.done",
 		"task_id", state.TaskID,

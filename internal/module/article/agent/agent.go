@@ -20,14 +20,18 @@ const (
 )
 
 // agent 单个任务智能体：读写共享 ArticleState。
-// 阶段 1：只依赖 port.ChatModel，不引入 Eino Graph/ADK。
 type agent interface {
 	Name() Name
 	Execute(ctx context.Context, state *article.ArticleState) error
 }
 
+type streamingAgent interface {
+	Name() Name
+	Execute(ctx context.Context, state *article.ArticleState, onDelta func(string)) error
+}
+
 type agentWithModify interface {
-	agent
+	streamingAgent
 	ExecuteWithModify(ctx context.Context, state *article.ArticleState, modifySuggestion string) error
 }
 

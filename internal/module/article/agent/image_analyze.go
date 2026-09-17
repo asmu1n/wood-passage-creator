@@ -3,7 +3,11 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
+
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/schema"
 
 	"wood-passage-creator/internal/module/article"
 	"wood-passage-creator/internal/module/article/prompt"
@@ -22,11 +26,12 @@ type ImageMethodGuide struct {
 // ImageAnalyzer 阶段 3b：分析配图需求并在正文插入占位符。
 type ImageAnalyzer struct {
 	methods []ImageMethodGuide
-	llmkit.Helper
+	llm     model.BaseChatModel
+	log     *slog.Logger
 }
 
-func NewImageAnalyzer(llm port.ChatModel, methods []ImageMethodGuide) *ImageAnalyzer {
-	return &ImageAnalyzer{methods: methods, Helper: llmkit.NewHelper(llm, "article.agent")}
+func NewImageAnalyzer(llm model.BaseChatModel, methods []ImageMethodGuide) *ImageAnalyzer {
+	return &ImageAnalyzer{methods: methods, llm: llm, log: logger.Module("article.agent")}
 }
 
 func (a *ImageAnalyzer) Name() Name { return NameImageAnalyzer }
@@ -50,7 +55,7 @@ func (a *ImageAnalyzer) Execute(ctx context.Context, state *article.ArticleState
 		// 无可用配图方式：跳过，占位正文=原正文
 		state.ContentWithPlaceholders = state.Content
 		state.ImageRequirements = nil
-		a.Log.Info("agent skip",
+		a.log.Info("agent skip",
 			logger.FieldPurpose, logger.PurposeBiz,
 			logger.FieldEvent, "agent.image_analyze.skip",
 			"task_id", state.TaskID,
@@ -66,17 +71,21 @@ func (a *ImageAnalyzer) Execute(ctx context.Context, state *article.ArticleState
 		formatMethodUsage(guides),
 	)
 
-	a.Log.Info("agent start",
+	a.log.Info("agent start",
 		logger.FieldPurpose, logger.PurposeBiz,
 		logger.FieldEvent, "agent.image_analyze.start",
 		"task_id", state.TaskID,
 		"methods", enabled,
 	)
 
-	raw, err := a.Generate(ctx, p, nil)
+	response, err := a.llm.Generate(ctx, []*schema.Message{schema.UserMessage(p)})
 	if err != nil {
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
+	if response == nil {
+		return fmt.Errorf("%s: empty model response", a.Name())
+	}
+	raw := response.Content
 
 	var result imageAnalyzeResult
 	if err := llmkit.UnmarshalJSON(raw, &result); err != nil {
@@ -100,7 +109,7 @@ func (a *ImageAnalyzer) Execute(ctx context.Context, state *article.ArticleState
 	}
 	state.ImageRequirements = filtered
 
-	a.Log.Info("agent done",
+	a.log.Info("agent done",
 		logger.FieldPurpose, logger.PurposeBiz,
 		logger.FieldEvent, "agent.image_analyze.done",
 		"task_id", state.TaskID,

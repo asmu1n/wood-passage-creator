@@ -95,7 +95,7 @@ func main() {
 	}
 	defer redisClient.Close()
 
-	chatModal, err := llm.NewChatModel(ctx, cfg.LLM)
+	einoModel, err := llm.NewChatModel(ctx, cfg.LLM)
 	if err != nil {
 		logger.Fatal("init chat model failed", logger.FieldErr, err)
 	}
@@ -110,7 +110,7 @@ func main() {
 	authSvc := authapp.NewService(userRepo, statsSvc)
 	paymentSvc := paymentapp.NewService(paymentrepo.New(db), userSvc)
 	objStore := objectstore.NewFromConfig(cfg.R2)
-	imgGen := image.NewGenerator(cfg, chatModal, objStore)
+	imgGen := image.NewToolCallingGenerator(cfg, einoModel, objStore)
 	articleRepo := articlerepo.NewArticleRepo(db)
 	agentLogRepo := articlerepo.NewAgentLogRepo(db)
 	agentLogRecorder := modart.NewAgentLogRecorder(agentLogRepo)
@@ -119,7 +119,7 @@ func main() {
 		agentLogRepo,
 		userSvc,
 		articleagent.NewOrchestrator(
-			chatModal,
+			einoModel,
 			imgGen,
 			articleagent.DefaultImageMethodGuides(),
 			agentLogRecorder,

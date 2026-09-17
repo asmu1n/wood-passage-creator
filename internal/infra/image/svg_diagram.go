@@ -5,16 +5,19 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/schema"
+
 	"wood-passage-creator/internal/config"
 	"wood-passage-creator/internal/port"
 )
 
 type SVGDiagram struct {
-	llm port.ChatModel
+	llm model.BaseChatModel
 }
 
 // NewSVGDiagram 未启用或无 llm 时返回 nil。
-func NewSVGDiagram(cfg config.SVGDiagramConfig, llm port.ChatModel) *SVGDiagram {
+func NewSVGDiagram(cfg config.SVGDiagramConfig, llm model.BaseChatModel) *SVGDiagram {
 	if !cfg.Enabled || llm == nil {
 		return nil
 	}
@@ -34,10 +37,14 @@ func (p *SVGDiagram) Fetch(ctx context.Context, req port.ImageRequirement) (stri
 要求：白底、清晰、中文可用、不要 markdown 代码围栏、不要解释文字。
 需求：%s`, desc)
 
-	raw, err := p.llm.Generate(ctx, []port.Message{{Role: port.RoleUser, Content: prompt}}, nil)
+	response, err := p.llm.Generate(ctx, []*schema.Message{schema.UserMessage(prompt)})
 	if err != nil {
 		return "", err
 	}
+	if response == nil {
+		return "", fmt.Errorf("svg_diagram: empty model response")
+	}
+	raw := response.Content
 	svg := extractSVG(raw)
 	if svg == "" {
 		return "", fmt.Errorf("svg_diagram: no svg in model output")
