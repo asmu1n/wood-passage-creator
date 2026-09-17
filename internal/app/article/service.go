@@ -34,6 +34,7 @@ type Service struct {
 	agentLogs    module.AgentLogRepository
 	userQuota    UserQuota
 	orchestrator module.AgentOrchestrator
+	imageCatalog port.ImageProviderCatalog
 	sse          sse.SSEHub
 	statsCache   overviewCacheInvalidator
 	log          *slog.Logger
@@ -44,6 +45,7 @@ func NewService(
 	agentLogs module.AgentLogRepository,
 	userQuota UserQuota,
 	orch module.AgentOrchestrator,
+	imageCatalog port.ImageProviderCatalog,
 	sseHub sse.SSEHub,
 	statsCache overviewCacheInvalidator,
 ) *Service {
@@ -52,6 +54,7 @@ func NewService(
 		agentLogs:    agentLogs,
 		userQuota:    userQuota,
 		orchestrator: orch,
+		imageCatalog: imageCatalog,
 		sse:          sseHub,
 		statsCache:   statsCache,
 		log:          logger.Module("app.article"),
@@ -190,7 +193,7 @@ func (s *Service) ConfirmTitle(ctx context.Context, actor moduser.Actor, params 
 func (s *Service) Create(ctx context.Context, actor moduser.Actor, req CreateArticleRequest) (string, error) {
 	taskID := uuid.NewString()
 
-	enabledMethods, err := resolveEnabledImageMethods(req.EnabledImageMethods, actor)
+	enabledMethods, err := s.resolveEnabledImageMethods(req.EnabledImageMethods, actor)
 	if err != nil {
 		return "", err
 	}
@@ -733,29 +736,53 @@ func truncateErr(err error, max int) string {
 	return msg[:max] + "..."
 }
 
-// resolveEnabledImageMethods 处理默认值、用户可选枚举与 VIP 权限。
-// 空：VIP/Admin → nil（不限制）；普通 → FreeImageMethods。
-// 非空：须为 IsUserMethod；普通用户不得含 VIP 项；返回已 Normalize 的列表。
-func resolveEnabledImageMethods(methods []port.ImageMethod, actor moduser.Actor) ([]port.ImageMethod, error) {
+// resolveEnabledImageMethods 从当前实际可用的 Provider Catalog 解析默认值与访问权限。
+// 请求为空时返回当前用户有权使用的显式列表，避免运行阶段意外暴露后来新增的 Provider。
+func (s *Service) resolveEnabledImageMethods(methods []port.ImageMethod, actor moduser.Actor) ([]port.ImageMethod, error) {
+	if s.imageCatalog == nil {
+		return nil, response.NewBizErrorWithDetail(response.SystemError, "图片 Provider Catalog 不可用")
+	}
+
 	vip := actor.Role == moduser.RoleVIP || actor.Role == moduser.RoleAdmin
 	if len(methods) == 0 {
-		if vip {
-			return nil, nil
+		providers := s.imageCatalog.AvailableProviders(nil)
+		out := make([]port.ImageMethod, 0, len(providers))
+		seen := make(map[port.ImageMethod]struct{}, len(providers))
+		for _, provider := range providers {
+			method := provider.Method.Normalize()
+			if method == "" || provider.Access == port.ImageAccessInternal {
+				continue
+			}
+			if provider.Access != port.ImageAccessFree && !(vip && provider.Access == port.ImageAccessVIP) {
+				continue
+			}
+			if _, ok := seen[method]; ok {
+				continue
+			}
+			seen[method] = struct{}{}
+			out = append(out, method)
 		}
-		out := make([]port.ImageMethod, len(port.FreeImageMethods))
-		copy(out, port.FreeImageMethods)
 		return out, nil
 	}
 
 	out := make([]port.ImageMethod, 0, len(methods))
+	seen := make(map[port.ImageMethod]struct{}, len(methods))
 	for _, m := range methods {
 		m = m.Normalize()
-		if !m.IsUserMethod() {
+		provider, ok := s.imageCatalog.LookupProvider(m)
+		if !ok || provider.Access == port.ImageAccessInternal {
 			return nil, response.NewBizErrorWithDetail(response.ParamsError, "不支持的配图方式: "+string(m))
 		}
-		if !vip && m.IsVIPMethod() {
+		if provider.Access == port.ImageAccessVIP && !vip {
 			return nil, response.NewBizErrorWithDetail(response.Forbidden, "高级配图功能（AI 生图、SVG 图表）仅限 VIP 会员使用")
 		}
+		if provider.Access != port.ImageAccessFree && provider.Access != port.ImageAccessVIP {
+			return nil, response.NewBizErrorWithDetail(response.SystemError, "图片 Provider 访问级别配置无效: "+string(m))
+		}
+		if _, ok := seen[m]; ok {
+			continue
+		}
+		seen[m] = struct{}{}
 		out = append(out, m)
 	}
 	return out, nil

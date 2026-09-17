@@ -27,8 +27,16 @@ func NewMermaid(cfg config.MermaidConfig) *Mermaid {
 	return &Mermaid{cfg: cfg}
 }
 
-func (p *Mermaid) Method() port.ImageMethod { return port.MethodMermaid }
-
+func (p *Mermaid) Metadata() port.ImageProviderMetadata {
+	return port.ImageProviderMetadata{
+		Method:             port.MethodMermaid,
+		Access:             port.ImageAccessFree,
+		PlannerDescription: "Mermaid 流程图/时序图",
+		PlannerUsageGuide:  "imageSource=MERMAID；prompt 填完整 mermaid 源码。",
+		ToolName:           "render_mermaid_diagram",
+		ToolDescription:    "Render a Mermaid diagram. The prompt must contain complete valid Mermaid source code.",
+	}
+}
 func (p *Mermaid) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {
 	code := reqText(req, true)
 	if strings.TrimSpace(code) == "" {

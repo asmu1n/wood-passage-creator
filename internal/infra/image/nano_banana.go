@@ -35,8 +35,16 @@ func NewNanoBanana(cfg config.NanoBananaConfig) *NanoBanana {
 	}
 }
 
-func (p *NanoBanana) Method() port.ImageMethod { return port.MethodNanoBanana }
-
+func (p *NanoBanana) Metadata() port.ImageProviderMetadata {
+	return port.ImageProviderMetadata{
+		Method:             port.MethodNanoBanana,
+		Access:             port.ImageAccessVIP,
+		PlannerDescription: "AI 生图（VIP）",
+		PlannerUsageGuide:  "imageSource=NANO_BANANA；prompt 填画面描述。",
+		ToolName:           "generate_ai_image",
+		ToolDescription:    "Generate an original AI image from a detailed visual prompt.",
+	}
+}
 func (p *NanoBanana) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {
 	prompt := reqText(req, true)
 	if prompt == "" {

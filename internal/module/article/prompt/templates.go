@@ -107,7 +107,7 @@ const imageRequirementsTpl = `你是一位专业的新媒体编辑,擅长为文�
       "position": 1,
       "type": "cover",
       "sectionTitle": "",
-      "imageSource": "NANO_BANANA",
+      "imageSource": "{{imageSourceExample}}",
       "keywords": "",
       "prompt": "cover prompt",
       "placeholderId": "{{IMAGE_PLACEHOLDER_1}}"

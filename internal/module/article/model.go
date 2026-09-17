@@ -23,7 +23,7 @@ type Article struct {
 	Phase               ArticlePhase       `json:"phase"` // 当前阶段
 	ErrorMessage        *string            `json:"errorMessage"`
 	Style               *ArticleStyle      `json:"style"`                         // 文章风格
-	EnabledImageMethods []port.ImageMethod `json:"enabledImageMethods,omitempty"` // 空=不限制
+	EnabledImageMethods []port.ImageMethod `json:"enabledImageMethods,omitempty"` // nil=不限制；非 nil 空列表=不启用
 	CreateTime          time.Time          `json:"createTime"`
 	CompletedTime       *time.Time         `json:"completedTime"`
 }
@@ -98,7 +98,7 @@ type ArticleState struct {
 	UserDescription         string                  `json:"userDescription"`               // 用户补充描述
 	Style                   *ArticleStyle           `json:"style"`                         // 文章风格
 	Phase                   ArticlePhase            `json:"phase"`                         // 当前阶段
-	EnabledImageMethods     []port.ImageMethod      `json:"enabledImageMethods,omitempty"` // 空=不限制
+	EnabledImageMethods     []port.ImageMethod      `json:"enabledImageMethods,omitempty"` // nil=不限制；非 nil 空列表=不启用
 	TitleOptions            []TitleOption           `json:"titleOptions"`                  // 标题方案列表
 	MainTitle               *string                 `json:"mainTitle"`
 	SubTitle                *string                 `json:"subTitle"`

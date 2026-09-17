@@ -24,10 +24,16 @@ func NewSVGDiagram(cfg config.SVGDiagramConfig, llm model.BaseChatModel) *SVGDia
 	return &SVGDiagram{llm: llm}
 }
 
-func (p *SVGDiagram) Method() port.ImageMethod {
-	return port.MethodSVGDiagram
+func (p *SVGDiagram) Metadata() port.ImageProviderMetadata {
+	return port.ImageProviderMetadata{
+		Method:             port.MethodSVGDiagram,
+		Access:             port.ImageAccessVIP,
+		PlannerDescription: "LLM 生成 SVG 示意图（VIP）",
+		PlannerUsageGuide:  "imageSource=SVG_DIAGRAM；prompt 描述示意图内容。",
+		ToolName:           "generate_svg_diagram",
+		ToolDescription:    "Generate an SVG information diagram from a precise visual description.",
+	}
 }
-
 func (p *SVGDiagram) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {
 	desc := reqText(req, true)
 	if desc == "" {

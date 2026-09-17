@@ -17,18 +17,12 @@ func TestImageMethod_UnmarshalJSON(t *testing.T) {
 
 func TestAllow(t *testing.T) {
 	if !Allow(nil, MethodNanoBanana) {
-		t.Fatal()
+		t.Fatal("nil should allow every method")
+	}
+	if Allow([]ImageMethod{}, MethodPexels) {
+		t.Fatal("non-nil empty list should deny every method")
 	}
 	if Allow([]ImageMethod{MethodPexels}, MethodNanoBanana) {
-		t.Fatal()
-	}
-}
-
-func TestIsUserAndVIP(t *testing.T) {
-	if !MethodPexels.IsUserMethod() || MethodPicsum.IsUserMethod() {
-		t.Fatal()
-	}
-	if !MethodNanoBanana.IsVIPMethod() || MethodPexels.IsVIPMethod() {
-		t.Fatal()
+		t.Fatal("method outside allowlist should be denied")
 	}
 }

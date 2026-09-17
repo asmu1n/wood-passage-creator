@@ -53,10 +53,15 @@ func (g *ProviderExecutor) Register(p port.Provider) {
 	if g == nil || p == nil {
 		return
 	}
+	metadata := p.Metadata()
+	method := metadata.Method.Normalize()
+	if method == "" || strings.TrimSpace(metadata.ToolName) == "" || !validProviderAccess(metadata.Access) {
+		return
+	}
 	if g.providers == nil {
 		g.providers = make(map[port.ImageMethod]port.Provider)
 	}
-	g.providers[p.Method().Normalize()] = p
+	g.providers[method] = p
 }
 
 // RegisteredMethods 返回已注册（New 非 nil）的 method。
@@ -74,6 +79,48 @@ func (g *ProviderExecutor) RegisteredMethods() []port.ImageMethod {
 		return out[i] < out[j]
 	})
 	return out
+}
+
+// LookupProvider 返回一个实际已注册 Provider 的规范化元信息。
+func (g *ProviderExecutor) LookupProvider(method port.ImageMethod) (port.ImageProviderMetadata, bool) {
+	if g == nil || g.providers == nil {
+		return port.ImageProviderMetadata{}, false
+	}
+	method = method.Normalize()
+	provider := g.providers[method]
+	if provider == nil {
+		return port.ImageProviderMetadata{}, false
+	}
+	metadata := provider.Metadata()
+	metadata.Method = method
+	return metadata, true
+}
+
+// AvailableProviders 返回实际已注册且在 allowedMethods 范围内的 Provider 元信息。
+// 注册表是 Prompt 规划与 Tool Calling 共用的唯一可用性来源。
+func (g *ProviderExecutor) AvailableProviders(allowedMethods []port.ImageMethod) []port.ImageProviderMetadata {
+	methods := g.RegisteredMethods()
+	out := make([]port.ImageProviderMetadata, 0, len(methods))
+	for _, method := range methods {
+		if !port.Allow(allowedMethods, method) {
+			continue
+		}
+		metadata, ok := g.LookupProvider(method)
+		if !ok || metadata.Access == port.ImageAccessInternal {
+			continue
+		}
+		out = append(out, metadata)
+	}
+	return out
+}
+
+func validProviderAccess(access port.ImageProviderAccess) bool {
+	switch access {
+	case port.ImageAccessFree, port.ImageAccessVIP, port.ImageAccessInternal:
+		return true
+	default:
+		return false
+	}
 }
 
 // Execute 只执行指定 provider，不做 fallback，供 tool calling 循环把失败结果反馈给模型。
@@ -106,15 +153,16 @@ func (g *ProviderExecutor) ExecuteWithFallback(ctx context.Context, taskID strin
 
 	url, method, err := g.tryProvider(ctx, src, req, false)
 	if err != nil && g.fallback != nil {
+		fallbackMethod := g.fallback.Metadata().Method.Normalize()
 		g.log.Info("image fallback",
 			logger.FieldPurpose, logger.PurposeJob,
 			logger.FieldEvent, "image.generate.fallback",
 			"task_id", taskID,
 			"from", src,
-			"to", g.fallback.Method(),
+			"to", fallbackMethod,
 			"position", req.Position,
 		)
-		url, method, err = g.tryProvider(ctx, g.fallback.Method(), req, true)
+		url, method, err = g.tryProvider(ctx, fallbackMethod, req, true)
 	}
 	if err != nil {
 		return port.ImageResult{}, err
@@ -168,5 +216,5 @@ func (g *ProviderExecutor) tryProvider(ctx context.Context, method port.ImageMet
 	if strings.TrimSpace(u) == "" {
 		return "", "", fmt.Errorf("provider %s returned empty url", method)
 	}
-	return u, p.Method(), nil
+	return u, p.Metadata().Method.Normalize(), nil
 }

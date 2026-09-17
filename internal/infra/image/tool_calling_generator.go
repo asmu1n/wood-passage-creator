@@ -51,6 +51,20 @@ type imageToolFeedback struct {
 	Message          string           `json:"message"`
 }
 
+func (g *ToolCallingGenerator) LookupProvider(method port.ImageMethod) (port.ImageProviderMetadata, bool) {
+	if g == nil || g.tools == nil {
+		return port.ImageProviderMetadata{}, false
+	}
+	return g.tools.LookupProvider(method)
+}
+
+func (g *ToolCallingGenerator) AvailableProviders(allowedMethods []port.ImageMethod) []port.ImageProviderMetadata {
+	if g == nil || g.tools == nil {
+		return nil
+	}
+	return g.tools.AvailableProviders(allowedMethods)
+}
+
 func (g *ToolCallingGenerator) Generate(
 	ctx context.Context,
 	taskID string,
@@ -267,31 +281,16 @@ func (g *ToolCallingGenerator) executeToolCall(
 }
 
 func (g *ToolCallingGenerator) buildTools(allowedMethods []port.ImageMethod) ([]*schema.ToolInfo, map[string]port.ImageMethod) {
-	allowed := make(map[port.ImageMethod]bool)
-	if len(allowedMethods) == 0 {
-		for _, method := range g.tools.RegisteredMethods() {
-			allowed[method.Normalize()] = true
-		}
-	} else {
-		for _, method := range allowedMethods {
-			allowed[method.Normalize()] = true
-		}
-	}
-
-	tools := make([]*schema.ToolInfo, 0, len(allowed))
-	toolMethods := make(map[string]port.ImageMethod, len(allowed))
-	for _, method := range g.tools.RegisteredMethods() {
-		method = method.Normalize()
-		if !allowed[method] {
-			continue
-		}
-		name, description := method.MethodMeta()
-		if name == "" {
+	providers := g.AvailableProviders(allowedMethods)
+	tools := make([]*schema.ToolInfo, 0, len(providers))
+	toolMethods := make(map[string]port.ImageMethod, len(providers))
+	for _, provider := range providers {
+		if provider.ToolName == "" {
 			continue
 		}
 		tools = append(tools, &schema.ToolInfo{
-			Name: name,
-			Desc: description,
+			Name: provider.ToolName,
+			Desc: provider.ToolDescription,
 			ParamsOneOf: schema.NewParamsOneOfByParams(
 				map[string]*schema.ParameterInfo{
 					"requirementIndex": {
@@ -310,7 +309,7 @@ func (g *ToolCallingGenerator) buildTools(allowedMethods []port.ImageMethod) ([]
 				},
 			),
 		})
-		toolMethods[name] = method
+		toolMethods[provider.ToolName] = provider.Method
 	}
 	return tools, toolMethods
 }

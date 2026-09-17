@@ -30,10 +30,16 @@ func NewPexels(apiKey string) *Pexels {
 	}
 }
 
-func (p *Pexels) Method() port.ImageMethod {
-	return port.MethodPexels
+func (p *Pexels) Metadata() port.ImageProviderMetadata {
+	return port.ImageProviderMetadata{
+		Method:             port.MethodPexels,
+		Access:             port.ImageAccessFree,
+		PlannerDescription: "Pexels 免费图库，适合真实照片",
+		PlannerUsageGuide:  "imageSource=PEXELS；keywords 填英文检索词；无需 prompt。",
+		ToolName:           "search_pexels_image",
+		ToolDescription:    "Search Pexels for a realistic stock photo. Use concise English keywords.",
+	}
 }
-
 func (p *Pexels) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {
 	q := strings.TrimSpace(req.Keywords)
 	if q == "" {

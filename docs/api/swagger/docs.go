@@ -1621,6 +1621,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "enabledImageMethods": {
+                    "description": "省略或空数组时按用户权限启用当前可用 Provider",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/wood-passage-creator_internal_port.ImageMethod"
@@ -1863,7 +1864,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "enabledImageMethods": {
-                    "description": "空=不限制",
+                    "description": "nil=不限制；非 nil 空列表=不启用",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/wood-passage-creator_internal_port.ImageMethod"

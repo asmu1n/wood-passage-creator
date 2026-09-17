@@ -74,12 +74,13 @@ func ContentFromSections(mainTitle, subTitle string, sections any, style *articl
 
 // ImageRequirements 配图需求分析 prompt。
 // 注意：模板内字面量 {{IMAGE_PLACEHOLDER_N}} 不会被替换。
-func ImageRequirements(mainTitle, content, availableMethods, methodUsageGuide string) string {
+func ImageRequirements(mainTitle, content, availableMethods, methodUsageGuide, imageSourceExample string) string {
 	return Render(imageRequirementsTpl, map[string]string{
-		"mainTitle":        mainTitle,
-		"content":          content,
-		"availableMethods": availableMethods,
-		"methodUsageGuide": methodUsageGuide,
+		"mainTitle":          mainTitle,
+		"content":            content,
+		"availableMethods":   availableMethods,
+		"methodUsageGuide":   methodUsageGuide,
+		"imageSourceExample": imageSourceExample,
 	}, nil)
 }
 

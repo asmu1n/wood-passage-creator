@@ -31,8 +31,16 @@ func NewEmojiPack(cfg config.EmojiPackConfig) *EmojiPack {
 	}
 }
 
-func (p *EmojiPack) Method() port.ImageMethod { return port.MethodEmojiPack }
-
+func (p *EmojiPack) Metadata() port.ImageProviderMetadata {
+	return port.ImageProviderMetadata{
+		Method:             port.MethodEmojiPack,
+		Access:             port.ImageAccessFree,
+		PlannerDescription: "网络表情包检索",
+		PlannerUsageGuide:  "imageSource=EMOJI_PACK；keywords 填中文主题词。",
+		ToolName:           "search_emoji_image",
+		ToolDescription:    "Search an emoji/sticker image for a light, expressive illustration.",
+	}
+}
 func (p *EmojiPack) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {
 	kw := reqText(req, false)
 	if kw == "" {

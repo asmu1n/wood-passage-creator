@@ -123,6 +123,7 @@ func main() {
 			imgGen,
 			agentLogRecorder,
 		),
+		imgGen,
 		ssehub,
 		statsSvc,
 	)

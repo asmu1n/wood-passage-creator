@@ -18,7 +18,7 @@ type ArticleListData struct {
 type CreateArticleRequest struct {
 	Topic               string               `json:"topic" validate:"required,min=1,max=512"`
 	Style               *module.ArticleStyle `json:"style" validate:"omitempty"`
-	EnabledImageMethods []port.ImageMethod   `json:"enabledImageMethods" validate:"omitempty,dive"`
+	EnabledImageMethods []port.ImageMethod   `json:"enabledImageMethods" validate:"omitempty,dive"` // 省略或空数组时按用户权限启用当前可用 Provider
 }
 
 // QueryArticleRequest 查询文章入参（query）。

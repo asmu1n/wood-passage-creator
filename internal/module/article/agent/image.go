@@ -16,26 +16,9 @@ import (
 	"wood-passage-creator/internal/port"
 )
 
-// ImageMethodGuide 描述一种可用配图方式，供 ImageAgent 构造规划提示词。
-type ImageMethodGuide struct {
-	Code        port.ImageMethod // 如 PEXELS / NANO_BANANA
-	Description string           // 简短说明
-	UsageGuide  string           // 给模型的详细用法
-}
-
-var ImageMethodGuides = [6]ImageMethodGuide{
-	{Code: port.MethodPexels, Description: "Pexels 免费图库，适合真实照片", UsageGuide: "imageSource=PEXELS；keywords 填英文检索词；无需 prompt。"},
-	{Code: port.MethodIconify, Description: "Iconify 开源图标库，适合简洁图标", UsageGuide: "imageSource=ICONIFY；keywords 填图标语义（如 rocket、chart）。"},
-	{Code: port.MethodEmojiPack, Description: "网络表情包检索", UsageGuide: "imageSource=EMOJI_PACK；keywords 填中文主题词。"},
-	{Code: port.MethodMermaid, Description: "Mermaid 流程图/时序图", UsageGuide: "imageSource=MERMAID；prompt 填完整 mermaid 源码。"},
-	{Code: port.MethodSVGDiagram, Description: "LLM 生成 SVG 示意图（VIP）", UsageGuide: "imageSource=SVG_DIAGRAM；prompt 描述示意图内容。"},
-	{Code: port.MethodNanoBanana, Description: "AI 生图（VIP）", UsageGuide: "imageSource=NANO_BANANA；prompt 填画面描述。"},
-}
-
 // ImageAgent 统一编排配图规划和生成：先生成配图需求与正文占位符，
 // 再将紧凑的需求列表交给 ImageGenerator 执行有界 Tool Calling。
 type ImageAgent struct {
-	methods   []ImageMethodGuide
 	llm       model.BaseChatModel
 	generator port.ImageGenerator
 	log       *slog.Logger
@@ -43,7 +26,6 @@ type ImageAgent struct {
 
 func NewImageAgent(llm model.BaseChatModel, generator port.ImageGenerator) *ImageAgent {
 	return &ImageAgent{
-		methods:   ImageMethodGuides[:],
 		llm:       llm,
 		generator: generator,
 		log:       logger.Module("article.agent"),
@@ -103,8 +85,11 @@ func (a *ImageAgent) analyze(ctx context.Context, state *article.ArticleState) e
 	}
 
 	enabled := state.EnabledImageMethods
-	guides := a.filterMethods(enabled)
-	if len(guides) == 0 {
+	var providers []port.ImageProviderMetadata
+	if a.generator != nil {
+		providers = a.generator.AvailableProviders(enabled)
+	}
+	if len(providers) == 0 {
 		// 无可用配图方式：跳过，占位正文=原正文
 		state.ContentWithPlaceholders = state.Content
 		state.ImageRequirements = nil
@@ -120,8 +105,9 @@ func (a *ImageAgent) analyze(ctx context.Context, state *article.ArticleState) e
 	p := prompt.ImageRequirements(
 		*state.MainTitle,
 		state.Content,
-		formatAvailableMethods(guides),
-		formatMethodUsage(guides),
+		formatAvailableProviders(providers),
+		formatProviderUsage(providers),
+		providers[0].Method.String(),
 	)
 
 	a.log.Info("agent start",
@@ -171,48 +157,32 @@ func (a *ImageAgent) analyze(ctx context.Context, state *article.ArticleState) e
 	return nil
 }
 
-func (a *ImageAgent) filterMethods(enabled []port.ImageMethod) []ImageMethodGuide {
-	if len(a.methods) == 0 {
-		return nil
-	}
-	if len(enabled) == 0 {
-		return a.methods // 空 = 不限制
-	}
-	out := make([]ImageMethodGuide, 0, len(a.methods))
-	for _, g := range a.methods {
-		if port.Allow(enabled, g.Code) {
-			out = append(out, g)
-		}
-	}
-	return out
-}
-
-func formatAvailableMethods(guides []ImageMethodGuide) string {
+func formatAvailableProviders(providers []port.ImageProviderMetadata) string {
 	var b strings.Builder
-	for i, g := range guides {
+	for i, provider := range providers {
 		if i > 0 {
 			b.WriteByte('\n')
 		}
 		b.WriteString("- ")
-		b.WriteString(g.Code.String())
-		if g.Description != "" {
+		b.WriteString(provider.Method.String())
+		if provider.PlannerDescription != "" {
 			b.WriteString(": ")
-			b.WriteString(g.Description)
+			b.WriteString(provider.PlannerDescription)
 		}
 	}
 	return b.String()
 }
 
-func formatMethodUsage(guides []ImageMethodGuide) string {
+func formatProviderUsage(providers []port.ImageProviderMetadata) string {
 	var b strings.Builder
-	for i, g := range guides {
+	for i, provider := range providers {
 		if i > 0 {
 			b.WriteString("\n\n")
 		}
 		b.WriteString("### ")
-		b.WriteString(g.Code.String())
+		b.WriteString(provider.Method.String())
 		b.WriteByte('\n')
-		b.WriteString(g.UsageGuide)
+		b.WriteString(provider.PlannerUsageGuide)
 	}
 	return b.String()
 }

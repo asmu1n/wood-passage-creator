@@ -27,10 +27,16 @@ func NewIconify(cfg config.IconifyConfig) *Iconify {
 	}
 }
 
-func (p *Iconify) Method() port.ImageMethod {
-	return port.MethodIconify
+func (p *Iconify) Metadata() port.ImageProviderMetadata {
+	return port.ImageProviderMetadata{
+		Method:             port.MethodIconify,
+		Access:             port.ImageAccessFree,
+		PlannerDescription: "Iconify 开源图标库，适合简洁图标",
+		PlannerUsageGuide:  "imageSource=ICONIFY；keywords 填图标语义（如 rocket、chart）。",
+		ToolName:           "search_iconify_icon",
+		ToolDescription:    "Search Iconify for a clean vector icon. Use a short icon concept as keywords.",
+	}
 }
-
 func (p *Iconify) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {
 	q := reqText(req, false)
 	if q == "" {
