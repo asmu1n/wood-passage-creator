@@ -16,32 +16,85 @@ import (
 	"wood-passage-creator/internal/port"
 )
 
-// ImageMethodGuide 描述一种可用配图方式（由上层/配图模块注入，避免 agent 依赖 infra）。
+// ImageMethodGuide 描述一种可用配图方式，供 ImageAgent 构造规划提示词。
 type ImageMethodGuide struct {
 	Code        port.ImageMethod // 如 PEXELS / NANO_BANANA
 	Description string           // 简短说明
 	UsageGuide  string           // 给模型的详细用法
 }
 
-// ImageAnalyzer 阶段 3b：分析配图需求并在正文插入占位符。
-type ImageAnalyzer struct {
-	methods []ImageMethodGuide
-	llm     model.BaseChatModel
-	log     *slog.Logger
+var ImageMethodGuides = [6]ImageMethodGuide{
+	{Code: port.MethodPexels, Description: "Pexels 免费图库，适合真实照片", UsageGuide: "imageSource=PEXELS；keywords 填英文检索词；无需 prompt。"},
+	{Code: port.MethodIconify, Description: "Iconify 开源图标库，适合简洁图标", UsageGuide: "imageSource=ICONIFY；keywords 填图标语义（如 rocket、chart）。"},
+	{Code: port.MethodEmojiPack, Description: "网络表情包检索", UsageGuide: "imageSource=EMOJI_PACK；keywords 填中文主题词。"},
+	{Code: port.MethodMermaid, Description: "Mermaid 流程图/时序图", UsageGuide: "imageSource=MERMAID；prompt 填完整 mermaid 源码。"},
+	{Code: port.MethodSVGDiagram, Description: "LLM 生成 SVG 示意图（VIP）", UsageGuide: "imageSource=SVG_DIAGRAM；prompt 描述示意图内容。"},
+	{Code: port.MethodNanoBanana, Description: "AI 生图（VIP）", UsageGuide: "imageSource=NANO_BANANA；prompt 填画面描述。"},
 }
 
-func NewImageAnalyzer(llm model.BaseChatModel, methods []ImageMethodGuide) *ImageAnalyzer {
-	return &ImageAnalyzer{methods: methods, llm: llm, log: logger.Module("article.agent")}
+// ImageAgent 统一编排配图规划和生成：先生成配图需求与正文占位符，
+// 再将紧凑的需求列表交给 ImageGenerator 执行有界 Tool Calling。
+type ImageAgent struct {
+	methods   []ImageMethodGuide
+	llm       model.BaseChatModel
+	generator port.ImageGenerator
+	log       *slog.Logger
 }
 
-func (a *ImageAnalyzer) Name() Name { return NameImageAnalyzer }
+func NewImageAgent(llm model.BaseChatModel, generator port.ImageGenerator) *ImageAgent {
+	return &ImageAgent{
+		methods:   ImageMethodGuides[:],
+		llm:       llm,
+		generator: generator,
+		log:       logger.Module("article.agent"),
+	}
+}
+
+func (a *ImageAgent) Name() Name { return NameImageGenerator }
 
 type imageAnalyzeResult struct {
 	ContentWithPlaceholders string                  `json:"contentWithPlaceholders"`
 	ImageRequirements       []port.ImageRequirement `json:"imageRequirements"`
 }
 
-func (a *ImageAnalyzer) Execute(ctx context.Context, state *article.ArticleState) error {
+func (a *ImageAgent) Execute(
+	ctx context.Context,
+	state *article.ArticleState,
+	onPlanned func([]port.ImageRequirement),
+	onImage port.ImageProgressFunc,
+) error {
+	// 1. 分析正文并生成配图规划。
+	if err := a.analyze(ctx, state); err != nil {
+		return err
+	}
+
+	if onPlanned != nil {
+		onPlanned(state.ImageRequirements)
+	}
+
+	// 2. 没有配图需求时直接完成
+	if len(state.ImageRequirements) == 0 {
+		state.Images = nil
+		return nil
+	}
+
+	// 3. 执行现有 Tool Calling Generator
+	images, err := a.generator.Generate(
+		ctx,
+		state.TaskID,
+		state.ImageRequirements,
+		state.EnabledImageMethods,
+		onImage,
+	)
+	if err != nil {
+		return err
+	}
+
+	state.Images = images
+	return nil
+}
+
+func (a *ImageAgent) analyze(ctx context.Context, state *article.ArticleState) error {
 	if err := requireTitle(state); err != nil {
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
@@ -118,7 +171,7 @@ func (a *ImageAnalyzer) Execute(ctx context.Context, state *article.ArticleState
 	return nil
 }
 
-func (a *ImageAnalyzer) filterMethods(enabled []port.ImageMethod) []ImageMethodGuide {
+func (a *ImageAgent) filterMethods(enabled []port.ImageMethod) []ImageMethodGuide {
 	if len(a.methods) == 0 {
 		return nil
 	}

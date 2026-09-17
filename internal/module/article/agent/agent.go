@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"wood-passage-creator/internal/module/article"
+	"wood-passage-creator/internal/port"
 )
 
 // Name 阶段/任务标识（日志、可观测）。
@@ -14,9 +15,8 @@ const (
 	NameTitleGenerator   Name = "title_generator"
 	NameOutlineGenerator Name = "outline_generator"
 	NameContentGenerator Name = "content_generator"
-	NameImageAnalyzer    Name = "image_analyzer"
-	NameContentMerger    Name = "content_merger"
 	NameImageGenerator   Name = "image_generator"
+	NameContentMerger    Name = "content_merger"
 )
 
 // agent 单个任务智能体：读写共享 ArticleState。
@@ -33,6 +33,17 @@ type streamingAgent interface {
 type agentWithModify interface {
 	streamingAgent
 	ExecuteWithModify(ctx context.Context, state *article.ArticleState, modifySuggestion string) error
+}
+
+type imageAgent interface {
+	Name() Name
+
+	Execute(
+		ctx context.Context,
+		state *article.ArticleState,
+		onPlanned func([]port.ImageRequirement),
+		onImage port.ImageProgressFunc,
+	) error
 }
 
 func requireTitle(state *article.ArticleState) error {

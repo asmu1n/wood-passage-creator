@@ -22,15 +22,13 @@ type Orchestrator struct {
 	title   agent
 	outline agentWithModify
 	content streamingAgent
-	image   agent
+	image   imageAgent
 	merge   agent
-	images  port.ImageGenerator
 }
 
 func NewOrchestrator(
 	llm model.BaseChatModel,
 	imageGenerator port.ImageGenerator,
-	imageMethods []ImageMethodGuide,
 	logs article.AgentLogRecorder,
 ) article.AgentOrchestrator {
 	return &Orchestrator{
@@ -39,9 +37,8 @@ func NewOrchestrator(
 		title:   NewTitleGenerator(llm),
 		outline: NewOutlineGenerator(llm),
 		content: NewContentGenerator(llm),
-		image:   NewImageAnalyzer(llm, imageMethods),
+		image:   NewImageAgent(llm, imageGenerator),
 		merge:   NewContentMerger(),
-		images:  imageGenerator,
 	}
 }
 
@@ -192,51 +189,37 @@ func (o *Orchestrator) RunPhase3(ctx context.Context, state *article.ArticleStat
 		ContentLength: len(state.Content),
 	})
 
-	// 2) 配图分析
-	if err := o.trace(state, string(NameImageAnalyzer),
-		map[string]any{"contentLength": len(state.Content)},
+	// 2) 配图分析 -> 出图
+	if err := o.trace(
+		state,
+		string(NameImageGenerator),
+		map[string]any{
+			"contentLength": len(state.Content),
+		},
 		func() error {
-			if err := o.image.Execute(ctx, state); err != nil {
-				return fmt.Errorf("phase3 image analyze: %w", err)
-			}
-			return nil
+			return o.image.Execute(
+				ctx,
+				state,
+				func(requirements []port.ImageRequirement) {
+					emit(ctx, onProgress, article.EventImagesPlanned, article.ImagesPlannedPayload{
+						Phase: state.Phase,
+						Count: len(requirements),
+					})
+				},
+				func(ctx context.Context, done, total int, img port.ImageResult) {
+					emit(ctx, onProgress, article.EventImageComplete, article.ImageCompletePayload{
+						Image: img,
+						Done:  done,
+						Total: total,
+					})
+				},
+			)
 		},
 		func() any {
-			return map[string]any{"requirements": len(state.ImageRequirements)}
-		},
-	); err != nil {
-		return err
-	}
-	emit(ctx, onProgress, article.EventImagesPlanned, article.ImagesPlannedPayload{
-		Phase: state.Phase,
-		Count: len(state.ImageRequirements),
-	})
-
-	// 3) 出图
-	if err := o.trace(state, string(NameImageGenerator),
-		map[string]any{"requirements": len(state.ImageRequirements)},
-		func() error {
-			if o.images != nil && len(state.ImageRequirements) > 0 {
-				imgs, err := o.images.Generate(ctx, state.TaskID, state.ImageRequirements, state.EnabledImageMethods,
-					func(ctx context.Context, done, total int, img port.ImageResult) {
-						emit(ctx, onProgress, article.EventImageComplete, article.ImageCompletePayload{
-							Image: img,
-							Done:  done,
-							Total: total,
-						})
-					},
-				)
-				if err != nil {
-					return fmt.Errorf("phase3 image generate: %w", err)
-				}
-				state.Images = imgs
-			} else {
-				state.Images = nil
+			return map[string]any{
+				"requirements": len(state.ImageRequirements),
+				"images":       len(state.Images),
 			}
-			return nil
-		},
-		func() any {
-			return map[string]any{"images": len(state.Images)}
 		},
 	); err != nil {
 		return err
@@ -247,7 +230,7 @@ func (o *Orchestrator) RunPhase3(ctx context.Context, state *article.ArticleStat
 		Images: state.Images,
 	})
 
-	// 4) 合成
+	// 3) 合成
 	if err := o.trace(state, string(NameContentMerger),
 		map[string]any{"images": len(state.Images)},
 		func() error {

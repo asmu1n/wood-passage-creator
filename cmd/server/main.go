@@ -121,7 +121,6 @@ func main() {
 		articleagent.NewOrchestrator(
 			einoModel,
 			imgGen,
-			articleagent.DefaultImageMethodGuides(),
 			agentLogRecorder,
 		),
 		ssehub,

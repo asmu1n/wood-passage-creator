@@ -46,9 +46,7 @@ pkg/sse.Hub                  ← topic=taskId，fan-out（多页同订互不踢�
 | 帧编码 | `internal/pkg/sse/frame.go` | `WriteEvent` / `WriteComment` / `Flush` |
 | 总线 | `internal/pkg/sse/manager.go` | Subscribe / Publish（接口与实现同包） |
 | 业务事件 | `internal/module/article/sse.go` | 事件名、payload、`IsTerminalSSEEvent` |
-| HTTP | `article/http/handler.go` | 长连接循环 |
-
-说明：历史上曾有 `port/sse.go`，现已并入 `pkg/sse`，不要再引用 port 版 SSE。
+| HTTP | `internal/httpapi/api/article/handler.go` | 长连接循环 |
 
 ---
 
