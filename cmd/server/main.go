@@ -95,9 +95,13 @@ func main() {
 	}
 	defer redisClient.Close()
 
-	einoModel, err := llm.NewChatModel(ctx, cfg.LLM)
+	textModel, err := llm.NewChatModel(ctx, cfg.LLM)
 	if err != nil {
 		logger.Fatal("init chat model failed", logger.FieldErr, err)
+	}
+	jsonModel, err := llm.NewJSONObjectChatModel(ctx, cfg.LLM)
+	if err != nil {
+		logger.Fatal("init json chat model failed", logger.FieldErr, err)
 	}
 
 	// 装配：module=领域+repo；app=全部用例；httpapi/api 只依赖 app。
@@ -110,7 +114,7 @@ func main() {
 	authSvc := authapp.NewService(userRepo, statsSvc)
 	paymentSvc := paymentapp.NewService(paymentrepo.New(db), userSvc)
 	objStore := objectstore.NewFromConfig(cfg.R2)
-	imgGen := image.NewToolCallingGenerator(cfg, einoModel, objStore)
+	imgGen := image.NewToolCallingGenerator(cfg, textModel, objStore)
 	articleRepo := articlerepo.NewArticleRepo(db)
 	agentLogRepo := articlerepo.NewAgentLogRepo(db)
 	agentLogRecorder := modart.NewAgentLogRecorder(agentLogRepo)
@@ -119,7 +123,8 @@ func main() {
 		agentLogRepo,
 		userSvc,
 		articleagent.NewOrchestrator(
-			einoModel,
+			textModel,
+			jsonModel,
 			imgGen,
 			agentLogRecorder,
 		),

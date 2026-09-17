@@ -15,22 +15,15 @@ const titleOptionsTpl = `你是一位爆款文章标题专家,擅长创作吸引
 4. 标题要简洁有力,不超过30字
 5. 不同方案要有不同的切入角度
 6. 符合新媒体爆款文章的风格
+7. mainTitle / subTitle 必须是单行字符串,值内部禁止换行
 
-请直接返回 JSON 格式,不要有其他内容:
-[
-  {
-    "mainTitle": "主标题1",
-    "subTitle": "副标题1"
-  },
-  {
-    "mainTitle": "主标题2",
-    "subTitle": "副标题2"
-  },
-  {
-    "mainTitle": "主标题3",
-    "subTitle": "副标题3"
-  }
-]`
+输出约束（必须严格遵守）:
+- 只输出一个 JSON 对象,不要 markdown fence,不要解释文字
+- 根节点必须是对象,字段名为 options（数组）
+- 字符串内如需断句用标点,不要使用真实换行符
+
+输出示例:
+{"options":[{"mainTitle":"主标题1","subTitle":"副标题1"},{"mainTitle":"主标题2","subTitle":"副标题2"},{"mainTitle":"主标题3","subTitle":"副标题3"}]}`
 
 const outlineTpl = `你是一位专业的文章策划师,擅长设计文章结构。
 
@@ -44,15 +37,15 @@ const outlineTpl = `你是一位专业的文章策划师,擅长设计文章结�
 2. 包含开头引入、核心观点(3-5个)、结尾升华
 3. 每个章节要有明确的标题和核心要点(2-3个)
 4. 适合2000字左右的文章
+5. title / points 必须是单行字符串,值内部禁止换行
 
-请直接返回 JSON 数组,不要有其他内容:
-[
-  {
-    "section": 1,
-    "title": "章节标题",
-    "points": ["要点1", "要点2"]
-  }
-]`
+输出约束（必须严格遵守）:
+- 只输出一个 JSON 对象,不要 markdown fence,不要解释文字
+- 根节点必须是对象,字段名为 sections（数组）
+- 字符串内如需断句用标点,不要使用真实换行符
+
+输出示例:
+{"sections":[{"section":1,"title":"章节标题","points":["要点1","要点2"]},{"section":2,"title":"章节标题2","points":["要点1","要点2"]}]}`
 
 const descriptionSectionTpl = `
 用户补充要求：{{userDescription}}
@@ -99,21 +92,13 @@ const imageRequirementsTpl = `你是一位专业的新媒体编辑,擅长为文�
 5. placeholderId 必须与正文中插入的占位符完全一致
 6. position=1 为封面图
 
-请直接返回 JSON 格式,不要有其他内容:
-{
-  "contentWithPlaceholders": "正文与占位符...",
-  "imageRequirements": [
-    {
-      "position": 1,
-      "type": "cover",
-      "sectionTitle": "",
-      "imageSource": "{{imageSourceExample}}",
-      "keywords": "",
-      "prompt": "cover prompt",
-      "placeholderId": "{{IMAGE_PLACEHOLDER_1}}"
-    }
-  ]
-}`
+输出约束（必须严格遵守）:
+- 只输出一个 JSON 对象,不要 markdown fence,不要解释文字
+- 根字段: contentWithPlaceholders（string）、imageRequirements（array）
+- 字符串内如需断句用标点或 \\n 转义,不要使用未转义的真实换行破坏 JSON
+
+输出示例:
+{"contentWithPlaceholders":"{{IMAGE_PLACEHOLDER_1}}\\n正文...","imageRequirements":[{"position":1,"type":"cover","sectionTitle":"","imageSource":"{{imageSourceExample}}","keywords":"","prompt":"cover prompt","placeholderId":"{{IMAGE_PLACEHOLDER_1}}"}]}`
 
 const modifyOutlineTpl = `你是一位专业的文章策划师,擅长根据用户反馈优化文章结构。
 
@@ -129,12 +114,12 @@ const modifyOutlineTpl = `你是一位专业的文章策划师,擅长根据用�
 1. 充分理解并落实用户的修改建议
 2. 保持大纲结构清晰、逻辑连贯
 3. 每个章节包含标题与 2-3 个要点
+4. title / points 必须是单行字符串,值内部禁止换行
 
-请直接返回 JSON 数组,不要有其他内容:
-[
-  {
-    "section": 1,
-    "title": "章节标题",
-    "points": ["要点1", "要点2"]
-  }
-]`
+输出约束（必须严格遵守）:
+- 只输出一个 JSON 对象,不要 markdown fence,不要解释文字
+- 根节点必须是对象,字段名为 sections（数组）
+- 字符串内如需断句用标点,不要使用真实换行符
+
+输出示例:
+{"sections":[{"section":1,"title":"章节标题","points":["要点1","要点2"]}]}`

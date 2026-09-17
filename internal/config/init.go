@@ -10,11 +10,11 @@ import (
 )
 
 type Config struct {
-	App      AppConfig      `mapstructure:",squash"` // 与 config.yml 根级 name/env/log_* 及 APP_ENV 等对齐
-	Database DatabaseConfig `mapstructure:"database"`
-	Redis    RedisConfig    `mapstructure:"redis"`
-	Session  SessionConfig  `mapstructure:"session"`
-	LLM      LLMConfig      `mapstructure:"llm"`
+	App        AppConfig        `mapstructure:",squash"` // 与 config.yml 根级 name/env/log_* 及 APP_ENV 等对齐
+	Database   DatabaseConfig   `mapstructure:"database"`
+	Redis      RedisConfig      `mapstructure:"redis"`
+	Session    SessionConfig    `mapstructure:"session"`
+	LLM        LLMConfig        `mapstructure:"llm"`
 	Pexels     PexelsConfig     `mapstructure:"pexels"`
 	Iconify    IconifyConfig    `mapstructure:"iconify"`
 	Mermaid    MermaidConfig    `mapstructure:"mermaid"`
@@ -23,7 +23,6 @@ type Config struct {
 	NanoBanana NanoBananaConfig `mapstructure:"nano_banana"`
 	R2         R2Config         `mapstructure:"r2"`
 }
-
 
 type AppConfig struct {
 	Name      string `mapstructure:"name"`

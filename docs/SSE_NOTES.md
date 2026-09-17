@@ -91,8 +91,8 @@ data: {"delta":"## 一、"}
 
 | event | 终态? | payload |
 |-------|-------|---------|
-| `outline_delta` | 否 | `{ delta }` 文本增量 |
-| `outline_done` | **是** | `{ phase, outline }` |
+| `outline_delta` | 否 | `{ delta }` 文本增量（累积为 `{"sections":[...]}` JSON 对象） |
+| `outline_done` | **是** | `{ phase, outline }`（`outline` 为 section 数组，已解析） |
 
 ### Phase3 正文 + 配图
 

@@ -561,6 +561,7 @@ import {
 } from '@ant-design/icons-vue'
 import { createArticle, confirmTitle, confirmOutline, getArticle } from '@/api/articleController'
 import { connectSSE, closeSSE, type SSEMessage } from '@/utils/sse'
+import { parseOutlineStream, type OutlineStreamItem } from '@/utils/outlineStream'
 import { isAdmin as checkIsAdmin, isVip as checkIsVip, hasQuota as checkHasQuota } from '@/utils/permission'
 import { marked } from 'marked'
 import TitleSelectingStage from './components/TitleSelectingStage.vue'
@@ -630,54 +631,7 @@ const outline = ref<Array<{section: number, title: string, points: string[]}>>([
 // 大纲数据（流式）
 const outlineRaw = ref('')
 
-// 大纲项类型
-interface OutlineItem {
-  title: string
-  points: string[]
-  section: number
-}
-
-// 解析大纲 JSON（格式为 { "sections": [...] }）
-const parsedOutline = computed<OutlineItem[]>(() => {
-  if (!outlineRaw.value) return []
-
-  const str = outlineRaw.value.trim()
-
-  // 尝试解析完整的 JSON
-  try {
-    const parsed = JSON.parse(str)
-    if (parsed && Array.isArray(parsed.sections)) {
-      return parsed.sections
-    }
-    return []
-  } catch {
-    // JSON 不完整时，尝试解析已完成的部分
-    try {
-      // 找到最后一个完整的 section 对象 }
-      // 格式: { "sections": [ {...}, {...} ] }
-      const sectionsMatch = str.match(/"sections"\s*:\s*\[/)
-      if (!sectionsMatch) return []
-
-      const sectionsStart = str.indexOf('[', sectionsMatch.index)
-      if (sectionsStart === -1) return []
-
-      // 从 sections 数组开始，找到最后一个完整的 }
-      const afterStart = str.substring(sectionsStart)
-      const lastBrace = afterStart.lastIndexOf('}')
-
-      if (lastBrace > 0) {
-        const partialArray = afterStart.substring(0, lastBrace + 1) + ']'
-        const parsed = JSON.parse(partialArray)
-        if (Array.isArray(parsed)) {
-          return parsed
-        }
-      }
-      return []
-    } catch {
-      return []
-    }
-  }
-})
+const parsedOutline = computed<OutlineStreamItem[]>(() => parseOutlineStream(outlineRaw.value))
 
 // 内容区域引用（用于自动滚动）
 const mainContentRef = ref<HTMLElement | null>(null)

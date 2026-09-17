@@ -14,7 +14,10 @@ import (
 	"wood-passage-creator/internal/pkg/logger"
 )
 
-// titleGenerator 阶段 1：根据选题生成多个标题方案。
+type titleOptionsResponse struct {
+	Options []article.TitleOption `json:"options"`
+}
+
 type titleGenerator struct {
 	llm model.BaseChatModel
 	log *slog.Logger
@@ -51,8 +54,8 @@ func (a *titleGenerator) Execute(ctx context.Context, state *article.ArticleStat
 	}
 	raw := response.Content
 
-	var options []article.TitleOption
-	if err := llmkit.UnmarshalJSON(raw, &options); err != nil {
+	options, err := parseTitleOptions(raw)
+	if err != nil {
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
 	if len(options) == 0 {
@@ -67,4 +70,12 @@ func (a *titleGenerator) Execute(ctx context.Context, state *article.ArticleStat
 		"options", len(options),
 	)
 	return nil
+}
+
+func parseTitleOptions(raw string) ([]article.TitleOption, error) {
+	var envelope titleOptionsResponse
+	if err := llmkit.UnmarshalJSON(raw, &envelope); err != nil {
+		return nil, err
+	}
+	return envelope.Options, nil
 }

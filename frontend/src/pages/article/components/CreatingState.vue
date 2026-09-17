@@ -55,13 +55,7 @@
 import { computed } from 'vue'
 import { BulbOutlined, PictureOutlined } from '@ant-design/icons-vue'
 import { markdownToHtml } from '@/utils/markdown'
-
-// 大纲项类型
-interface OutlineItem {
-  title: string
-  points: string[]
-  section: number
-}
+import { parseOutlineStream } from '@/utils/outlineStream'
 
 const props = defineProps<{
   article: Partial<API.ArticleVO>
@@ -74,53 +68,9 @@ const props = defineProps<{
   imageProgress: number
 }>()
 
-// 显示配图进度
 const showImageProgress = computed(() => props.currentStep === 4 && props.imageProgress > 0)
-
-// 显示加载占位
 const showLoadingPlaceholder = computed(() => props.currentStep === 0 && !props.article.mainTitle)
-
-// 解析大纲 JSON（格式为 { "sections": [...] }）
-const parsedOutline = computed<OutlineItem[]>(() => {
-  if (!props.outlineRaw) return []
-
-  const str = props.outlineRaw.trim()
-
-  // 尝试解析完整的 JSON
-  try {
-    const parsed = JSON.parse(str)
-    if (parsed && Array.isArray(parsed.sections)) {
-      return parsed.sections
-    }
-    return []
-  } catch {
-    // JSON 不完整时，尝试解析已完成的部分
-    try {
-      // 找到最后一个完整的 section 对象 }
-      // 格式: { "sections": [ {...}, {...} ] }
-      const sectionsMatch = str.match(/"sections"\s*:\s*\[/)
-      if (!sectionsMatch) return []
-
-      const sectionsStart = str.indexOf('[', sectionsMatch.index)
-      if (sectionsStart === -1) return []
-
-      // 从 sections 数组开始，找到最后一个完整的 }
-      const afterStart = str.substring(sectionsStart)
-      const lastBrace = afterStart.lastIndexOf('}')
-
-      if (lastBrace > 0) {
-        const partialArray = afterStart.substring(0, lastBrace + 1) + ']'
-        const parsed = JSON.parse(partialArray)
-        if (Array.isArray(parsed)) {
-          return parsed
-        }
-      }
-      return []
-    } catch {
-      return []
-    }
-  }
-})
+const parsedOutline = computed(() => parseOutlineStream(props.outlineRaw))
 </script>
 
 <style scoped lang="scss">

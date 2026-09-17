@@ -26,18 +26,24 @@ type Orchestrator struct {
 	merge   agent
 }
 
+// NewOrchestrator(textLLM, jsonLLM, ...). jsonLLM nil → textLLM.
+// jsonLLM: title / outline / image plan (json_object). textLLM: content + tools.
 func NewOrchestrator(
-	llm model.BaseChatModel,
+	textLLM model.BaseChatModel,
+	jsonLLM model.BaseChatModel,
 	imageGenerator port.ImageGenerator,
 	logs article.AgentLogRecorder,
 ) article.AgentOrchestrator {
+	if jsonLLM == nil {
+		jsonLLM = textLLM
+	}
 	return &Orchestrator{
 		log:     logger.Module("article.orchestrator"),
 		logs:    logs,
-		title:   NewTitleGenerator(llm),
-		outline: NewOutlineGenerator(llm),
-		content: NewContentGenerator(llm),
-		image:   NewImageAgent(llm, imageGenerator),
+		title:   NewTitleGenerator(jsonLLM),
+		outline: NewOutlineGenerator(jsonLLM),
+		content: NewContentGenerator(textLLM),
+		image:   NewImageAgent(jsonLLM, imageGenerator),
 		merge:   NewContentMerger(),
 	}
 }

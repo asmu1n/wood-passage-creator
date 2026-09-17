@@ -15,7 +15,10 @@ import (
 	"wood-passage-creator/internal/pkg/logger"
 )
 
-// outlineGenerator 阶段 2：根据已选标题生成大纲（可流式）。
+type outlineSectionsResponse struct {
+	Sections []article.OutlineSection `json:"sections"`
+}
+
 type outlineGenerator struct {
 	llm model.BaseChatModel
 	log *slog.Logger
@@ -59,9 +62,8 @@ func (a *outlineGenerator) Execute(ctx context.Context, state *article.ArticleSt
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
 
-	// 与 prompt 约定一致：顶层 JSON 数组
-	var sections []article.OutlineSection
-	if err := llmkit.UnmarshalJSON(raw, &sections); err != nil {
+	sections, err := parseOutlineSections(raw)
+	if err != nil {
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
 	if len(sections) == 0 {
@@ -83,7 +85,7 @@ func (a *outlineGenerator) ExecuteWithModify(ctx context.Context, state *article
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
 
-	outlineJSON, err := json.Marshal(state.Outline)
+	outlineJSON, err := json.Marshal(outlineSectionsResponse{Sections: state.Outline})
 	if err != nil {
 		return fmt.Errorf("%s: marshal outline: %w", a.Name(), err)
 	}
@@ -108,11 +110,9 @@ func (a *outlineGenerator) ExecuteWithModify(ctx context.Context, state *article
 	if response == nil {
 		return fmt.Errorf("%s: empty model response", a.Name())
 	}
-	raw := response.Content
 
-	// 与 prompt 约定一致：顶层 JSON 数组
-	var sections []article.OutlineSection
-	if err := llmkit.UnmarshalJSON(raw, &sections); err != nil {
+	sections, err := parseOutlineSections(response.Content)
+	if err != nil {
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
 	if len(sections) == 0 {
@@ -127,4 +127,12 @@ func (a *outlineGenerator) ExecuteWithModify(ctx context.Context, state *article
 		"sections", len(sections),
 	)
 	return nil
+}
+
+func parseOutlineSections(raw string) ([]article.OutlineSection, error) {
+	var envelope outlineSectionsResponse
+	if err := llmkit.UnmarshalJSON(raw, &envelope); err != nil {
+		return nil, err
+	}
+	return envelope.Sections, nil
 }

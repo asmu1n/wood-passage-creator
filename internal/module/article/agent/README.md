@@ -17,14 +17,22 @@ agent/
 
 ## LLM 调用方式
 
-| 节点 | 调用方式 | 输出 |
-|------|----------|------|
-| `TitleGenerator` | `Generate` | 标题方案 JSON |
-| `OutlineGenerator` | `Stream` | 大纲 JSON；增量经回调转发 |
-| `ContentGenerator` | `Stream` | Markdown 正文；增量经回调转发 |
-| `ImageAgent.analyze` | `Generate` | 带占位符正文 + `ImageRequirement[]` |
-| `ToolCallingGenerator` | `WithTools` + 有界 `Generate` 循环 | `ImageResult[]` |
-| `ContentMerger` | 不调用 LLM | 将图片 URL 替换进占位符 |
+| 节点 | 模型 | 调用方式 | 输出 |
+|------|------|----------|------|
+| `TitleGenerator` | **jsonLLM**（`response_format=json_object`） | `Generate` | `{"options":[{"mainTitle","subTitle"},...]}` |
+| `OutlineGenerator` | **jsonLLM** | `Stream` | `{"sections":[{"section","title","points"},...]}`；增量经回调转发 |
+| `ContentGenerator` | textLLM | `Stream` | Markdown 正文；增量经回调转发 |
+| `ImageAgent.analyze` | **jsonLLM** | `Generate` | `{"contentWithPlaceholders","imageRequirements":[...]}` |
+| `ToolCallingGenerator` | textLLM（装配在 infra，非 Orchestrator jsonLLM） | `WithTools` + 有界 `Generate` 循环 | `ImageResult[]` |
+| `ContentMerger` | — | 不调用 LLM | 将图片 URL 替换进占位符 |
+
+结构化节点统一 **object 根**，以兼容 OpenAI 系 `json_object`（根不能是顶层数组）：
+- title → `options`
+- outline / modify-outline → `sections`
+- image plan → `contentWithPlaceholders` + `imageRequirements`
+
+`cmd/server` 分别构造 `NewChatModel`（text）与 `NewJSONObjectChatModel`（json）注入 `NewOrchestrator(text, json, ...)`。
+Content 与 Tool Calling 必须保持 text model。
 
 `ImageAgent` 先使用完整正文完成一次配图规划，再把紧凑的
 `ImageRequirement[]` 交给 `port.ImageGenerator`。因此 Provider Tool Calling 的后续轮次
@@ -63,7 +71,7 @@ ContentGenerator
 ## 使用
 
 ```go
-orch := agent.NewOrchestrator(chatModel, imageGenerator, logRecorder)
+orch := agent.NewOrchestrator(textModel, jsonModel, imageGenerator, logRecorder)
 style := article.StyleTech
 state := &article.ArticleState{TaskID: id, Topic: topic, Style: &style}
 _ = orch.RunPhase1(ctx, state)
