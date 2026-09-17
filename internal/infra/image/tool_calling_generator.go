@@ -66,6 +66,7 @@ func (g *ToolCallingGenerator) Generate(
 		return nil, nil
 	}
 
+	// 构建可用的 image tools
 	tools, toolMethods := g.buildTools(allowedMethods)
 	if len(tools) == 0 {
 		return nil, fmt.Errorf("no permitted image tools are available")
@@ -136,11 +137,13 @@ func (g *ToolCallingGenerator) Generate(
 		}
 		messages = append(messages, response)
 
+		// 开始执行 LLM 输出的 ToolCalls 指令
 		for _, call := range response.ToolCalls {
 			if callCount >= maxCalls {
 				break
 			}
 			callCount++
+			// 执行工具调用
 			feedback := g.executeToolCall(ctx, taskID, reqs, results, toolMethods, call)
 			payload, marshalErr := json.Marshal(feedback)
 			if marshalErr != nil {
@@ -152,6 +155,7 @@ func (g *ToolCallingGenerator) Generate(
 				schema.WithToolName(call.Function.Name),
 			))
 
+			// 如果生成成功，回调进度
 			if feedback.Generated {
 				if result, ok := results[feedback.RequirementIndex]; ok && onProgress != nil {
 					onProgress(ctx, len(results), len(reqs), result)
@@ -162,7 +166,6 @@ func (g *ToolCallingGenerator) Generate(
 		if callCount >= maxCalls {
 			break
 		}
-		// 至少再调用模型一次，让它观察工具结果并结束对话。
 	}
 
 	// 模型未完成所有项时，仅对缺失项使用原有确定性 fallback，避免整篇文章失败。
@@ -244,6 +247,7 @@ func (g *ToolCallingGenerator) executeToolCall(
 		}
 	}
 	results[args.RequirementIndex] = result
+
 	g.tools.log.Info("image tool executed",
 		logger.FieldPurpose, logger.PurposeJob,
 		logger.FieldEvent, "image.tool_call.executed",

@@ -25,7 +25,9 @@ func NewContentGenerator(llm model.BaseChatModel) streamingAgent {
 	return &contentGenerator{llm: llm, log: logger.Module("article.agent")}
 }
 
-func (a *contentGenerator) Name() Name { return NameContentGenerator }
+func (a *contentGenerator) Name() Name {
+	return NameContentGenerator
+}
 
 func (a *contentGenerator) Execute(ctx context.Context, state *article.ArticleState, onDelta func(string)) error {
 	if err := requireTitle(state); err != nil {
