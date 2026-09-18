@@ -38,7 +38,7 @@ func (s stubProvider) Fetch(ctx context.Context, req port.ImageRequirement) (str
 }
 
 func TestProviderExecutor_AvailableProviders(t *testing.T) {
-	g := &ProviderExecutor{providers: map[port.ImageMethod]port.Provider{
+	g := &providerExecutor{providers: map[port.ImageMethod]port.Provider{
 		port.MethodPexels:  stubProvider{method: port.MethodPexels},
 		port.MethodMermaid: stubProvider{method: port.MethodMermaid},
 		port.MethodPicsum:  stubProvider{method: port.MethodPicsum, access: port.ImageAccessInternal},
@@ -61,7 +61,7 @@ func TestProviderExecutor_AvailableProviders(t *testing.T) {
 }
 
 func TestProviderExecutor_RegisterRejectsIncompleteMetadata(t *testing.T) {
-	g := &ProviderExecutor{}
+	g := &providerExecutor{}
 	g.Register(stubProvider{method: port.MethodPexels, access: "UNKNOWN"})
 	if len(g.RegisteredMethods()) != 0 {
 		t.Fatalf("provider with invalid access was registered: %v", g.RegisteredMethods())
@@ -69,7 +69,7 @@ func TestProviderExecutor_RegisterRejectsIncompleteMetadata(t *testing.T) {
 }
 
 func TestProviderExecutor_LookupProvider(t *testing.T) {
-	g := &ProviderExecutor{providers: map[port.ImageMethod]port.Provider{
+	g := &providerExecutor{providers: map[port.ImageMethod]port.Provider{
 		port.MethodPexels: stubProvider{method: port.MethodPexels},
 	}}
 
@@ -83,7 +83,7 @@ func TestProviderExecutor_LookupProvider(t *testing.T) {
 }
 
 func TestProviderExecutor_Execute(t *testing.T) {
-	g := &ProviderExecutor{
+	g := &providerExecutor{
 		providers: map[port.ImageMethod]port.Provider{
 			port.MethodPexels: stubProvider{method: port.MethodPexels, url: "https://example.com/a.jpg"},
 		},
@@ -102,7 +102,7 @@ func TestProviderExecutor_Execute(t *testing.T) {
 }
 
 func TestProviderExecutor_FallbackOnError(t *testing.T) {
-	g := &ProviderExecutor{
+	g := &providerExecutor{
 		providers: map[port.ImageMethod]port.Provider{
 			port.MethodPexels: stubProvider{method: port.MethodPexels, err: fmt.Errorf("boom")},
 		},

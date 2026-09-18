@@ -1,8 +1,11 @@
-package image
+package agent
 
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
+	"sort"
 	"testing"
 
 	"github.com/cloudwego/eino/components/model"
@@ -10,6 +13,124 @@ import (
 
 	"wood-passage-creator/internal/port"
 )
+
+type stubToolProvider struct {
+	method port.ImageMethod
+	url    string
+	err    error
+}
+
+func (p stubToolProvider) Metadata() port.ImageProviderMetadata {
+	metadata := port.ImageProviderMetadata{
+		Method: p.method,
+		Access: port.ImageAccessFree,
+	}
+	switch p.method {
+	case port.MethodPexels:
+		metadata.ToolName = "search_pexels_image"
+	case port.MethodMermaid:
+		metadata.ToolName = "render_mermaid_diagram"
+	}
+	return metadata
+}
+
+func (p stubToolProvider) Fetch(context.Context, port.ImageRequirement) (string, error) {
+	if p.err != nil {
+		return "", p.err
+	}
+	return p.url, nil
+}
+
+type stubProviderExecutor struct {
+	providers map[port.ImageMethod]port.Provider
+	log       *slog.Logger
+}
+
+func newStubProviderExecutor(providers ...port.Provider) *stubProviderExecutor {
+	executor := &stubProviderExecutor{
+		providers: make(map[port.ImageMethod]port.Provider, len(providers)),
+		log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	for _, provider := range providers {
+		executor.Register(provider)
+	}
+	return executor
+}
+
+func (e *stubProviderExecutor) Register(provider port.Provider) {
+	if provider == nil {
+		return
+	}
+	e.providers[provider.Metadata().Method.Normalize()] = provider
+}
+
+func (e *stubProviderExecutor) RegisteredMethods() []port.ImageMethod {
+	methods := make([]port.ImageMethod, 0, len(e.providers))
+	for method := range e.providers {
+		methods = append(methods, method)
+	}
+	sort.Slice(methods, func(i, j int) bool { return methods[i] < methods[j] })
+	return methods
+}
+
+func (e *stubProviderExecutor) LookupProvider(method port.ImageMethod) (port.ImageProviderMetadata, bool) {
+	provider, ok := e.providers[method.Normalize()]
+	if !ok {
+		return port.ImageProviderMetadata{}, false
+	}
+	return provider.Metadata(), true
+}
+
+func (e *stubProviderExecutor) AvailableProviders(allowedMethods []port.ImageMethod) []port.ImageProviderMetadata {
+	providers := make([]port.ImageProviderMetadata, 0, len(e.providers))
+	for _, method := range e.RegisteredMethods() {
+		if !port.Allow(allowedMethods, method) {
+			continue
+		}
+		metadata, ok := e.LookupProvider(method)
+		if ok {
+			providers = append(providers, metadata)
+		}
+	}
+	return providers
+}
+
+func (e *stubProviderExecutor) Execute(
+	ctx context.Context,
+	_ string,
+	req port.ImageRequirement,
+	method port.ImageMethod,
+) (port.ImageResult, error) {
+	provider, ok := e.providers[method.Normalize()]
+	if !ok {
+		return port.ImageResult{}, fmt.Errorf("provider not registered: %s", method)
+	}
+	url, err := provider.Fetch(ctx, req)
+	if err != nil {
+		return port.ImageResult{}, err
+	}
+	return port.ImageResult{
+		Position:      req.Position,
+		URL:           url,
+		Method:        method.Normalize(),
+		Keywords:      req.Keywords,
+		SectionTitle:  req.SectionTitle,
+		Description:   req.Type,
+		PlaceholderID: req.PlaceholderID,
+	}, nil
+}
+
+func (e *stubProviderExecutor) ExecuteWithFallback(
+	ctx context.Context,
+	taskID string,
+	req port.ImageRequirement,
+) (port.ImageResult, error) {
+	return e.Execute(ctx, taskID, req, req.ImageSource)
+}
+
+func (e *stubProviderExecutor) Log() *slog.Logger {
+	return e.log
+}
 
 type stubEinoToolModel struct {
 	responses []*schema.Message
@@ -46,10 +167,10 @@ func TestToolCallingGenerator_ExecutesToolAndReturnsObservation(t *testing.T) {
 		}}),
 		schema.AssistantMessage("全部图片已生成。", nil),
 	}}
-	tools := &ProviderExecutor{providers: map[port.ImageMethod]port.Provider{
-		port.MethodPexels: stubProvider{method: port.MethodPexels, url: "https://example.com/wood.jpg"},
-	}}
-	g := &ToolCallingGenerator{model: chatModel, tools: tools}
+	tools := newStubProviderExecutor(
+		stubToolProvider{method: port.MethodPexels, url: "https://example.com/wood.jpg"},
+	)
+	g := NewToolCallingGenerator(chatModel, tools)
 
 	progress := 0
 	results, err := g.Generate(context.Background(), "task-1", []port.ImageRequirement{{
@@ -92,11 +213,11 @@ func TestToolCallingGenerator_ChangesToolAfterFailure(t *testing.T) {
 		}}),
 		schema.AssistantMessage("完成。", nil),
 	}}
-	tools := &ProviderExecutor{providers: map[port.ImageMethod]port.Provider{
-		port.MethodPexels:  stubProvider{method: port.MethodPexels, err: fmt.Errorf("no matching photo")},
-		port.MethodMermaid: stubProvider{method: port.MethodMermaid, url: "https://example.com/diagram.svg"},
-	}}
-	g := &ToolCallingGenerator{model: chatModel, tools: tools}
+	tools := newStubProviderExecutor(
+		stubToolProvider{method: port.MethodPexels, err: fmt.Errorf("no matching photo")},
+		stubToolProvider{method: port.MethodMermaid, url: "https://example.com/diagram.svg"},
+	)
+	g := NewToolCallingGenerator(chatModel, tools)
 
 	results, err := g.Generate(context.Background(), "task-2", []port.ImageRequirement{{
 		Position: 1, ImageSource: port.MethodPexels, PlaceholderID: "{{IMAGE_PLACEHOLDER_1}}",
@@ -113,3 +234,4 @@ func TestToolCallingGenerator_ChangesToolAfterFailure(t *testing.T) {
 }
 
 var _ model.ToolCallingChatModel = (*stubEinoToolModel)(nil)
+var _ port.ProviderExecutor = (*stubProviderExecutor)(nil)

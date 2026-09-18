@@ -1,13 +1,13 @@
-package image
+package agent
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 
-	"wood-passage-creator/internal/config"
 	"wood-passage-creator/internal/pkg/llmkit"
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/port"
@@ -22,17 +22,18 @@ const maxImageToolRounds = 6
 // ProviderExecutor 是确定性的工具执行层；本类型只负责对话循环、权限边界与结果收敛。
 type ToolCallingGenerator struct {
 	model model.ToolCallingChatModel
-	tools *ProviderExecutor
+	tools port.ProviderExecutor
+	log   *slog.Logger
 }
 
 func NewToolCallingGenerator(
-	cfg *config.Config,
 	toolModel model.ToolCallingChatModel,
-	store port.ObjectStore,
+	tools port.ProviderExecutor,
 ) port.ImageGenerator {
 	return &ToolCallingGenerator{
 		model: toolModel,
-		tools: NewProviderExecutor(cfg, toolModel, store),
+		tools: tools,
+		log:   logger.Module("article.agent"),
 	}
 }
 
@@ -118,7 +119,7 @@ func (g *ToolCallingGenerator) Generate(
 			if len(results) == len(reqs) {
 				return sortedImageResults(results), nil
 			}
-			g.tools.log.Warn("image tool model call failed; falling back",
+			g.log.Warn("image tool model call failed; falling back",
 				logger.FieldPurpose, logger.PurposeJob,
 				logger.FieldEvent, "image.tool_call.model_failed",
 				logger.FieldErr, callErr,
@@ -127,7 +128,7 @@ func (g *ToolCallingGenerator) Generate(
 			break
 		}
 		if response == nil {
-			g.tools.log.Warn("image tool model returned nil response; falling back",
+			g.log.Warn("image tool model returned nil response; falling back",
 				logger.FieldPurpose, logger.PurposeJob,
 				logger.FieldEvent, "image.tool_call.empty_response",
 				"task_id", taskID,
@@ -189,7 +190,7 @@ func (g *ToolCallingGenerator) Generate(
 		}
 		result, fetchErr := g.tools.ExecuteWithFallback(ctx, taskID, req)
 		if fetchErr != nil {
-			g.tools.log.Warn("image tool fallback skipped",
+			g.log.Warn("image tool fallback skipped",
 				logger.FieldPurpose, logger.PurposeJob,
 				logger.FieldEvent, "image.tool_call.fallback_failed",
 				logger.FieldErr, fetchErr,
@@ -204,7 +205,7 @@ func (g *ToolCallingGenerator) Generate(
 		}
 	}
 
-	g.tools.log.Info("image tool calling done",
+	g.log.Info("image tool calling done",
 		logger.FieldPurpose, logger.PurposeJob,
 		logger.FieldEvent, "image.tool_call.done",
 		"task_id", taskID,
@@ -262,7 +263,7 @@ func (g *ToolCallingGenerator) executeToolCall(
 	}
 	results[args.RequirementIndex] = result
 
-	g.tools.log.Info("image tool executed",
+	g.log.Info("image tool executed",
 		logger.FieldPurpose, logger.PurposeJob,
 		logger.FieldEvent, "image.tool_call.executed",
 		"task_id", taskID,

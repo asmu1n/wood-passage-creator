@@ -15,8 +15,8 @@ import (
 	"wood-passage-creator/internal/port"
 )
 
-// ProviderExecutor 是图片工具的确定性执行层，不负责 LLM 编排。
-type ProviderExecutor struct {
+// providerExecutor 是图片工具的确定性执行层，不负责 LLM 编排。
+type providerExecutor struct {
 	log       *slog.Logger
 	providers map[port.ImageMethod]port.Provider
 	fallback  port.Provider
@@ -26,11 +26,11 @@ type ProviderExecutor struct {
 // NewProviderExecutor 按完整配置注册可用 Provider。
 // llm 用于 SVG_DIAGRAM；可 nil（则不注册 SVG）。
 // store 为 port.ObjectStore（cmd 装配；未配置可为 nil，fetch 时跳过转存）。
-func NewProviderExecutor(cfg *config.Config, llm model.BaseChatModel, store port.ObjectStore) *ProviderExecutor {
+func NewProviderExecutor(cfg *config.Config, llm model.BaseChatModel, store port.ObjectStore) *providerExecutor {
 	if cfg == nil {
 		cfg = &config.Config{}
 	}
-	g := &ProviderExecutor{
+	g := &providerExecutor{
 		log:       logger.Module("infra.image"),
 		providers: make(map[port.ImageMethod]port.Provider),
 		fallback:  NewPicsum(),
@@ -49,7 +49,7 @@ func NewProviderExecutor(cfg *config.Config, llm model.BaseChatModel, store port
 }
 
 // Register 注册/覆盖一种配图来源（nil 跳过）。
-func (g *ProviderExecutor) Register(p port.Provider) {
+func (g *providerExecutor) Register(p port.Provider) {
 	if g == nil || p == nil {
 		return
 	}
@@ -65,7 +65,7 @@ func (g *ProviderExecutor) Register(p port.Provider) {
 }
 
 // RegisteredMethods 返回已注册（New 非 nil）的 method。
-func (g *ProviderExecutor) RegisteredMethods() []port.ImageMethod {
+func (g *providerExecutor) RegisteredMethods() []port.ImageMethod {
 	if g == nil {
 		return nil
 	}
@@ -82,7 +82,7 @@ func (g *ProviderExecutor) RegisteredMethods() []port.ImageMethod {
 }
 
 // LookupProvider 返回一个实际已注册 Provider 的规范化元信息。
-func (g *ProviderExecutor) LookupProvider(method port.ImageMethod) (port.ImageProviderMetadata, bool) {
+func (g *providerExecutor) LookupProvider(method port.ImageMethod) (port.ImageProviderMetadata, bool) {
 	if g == nil || g.providers == nil {
 		return port.ImageProviderMetadata{}, false
 	}
@@ -98,7 +98,7 @@ func (g *ProviderExecutor) LookupProvider(method port.ImageMethod) (port.ImagePr
 
 // AvailableProviders 返回实际已注册且在 allowedMethods 范围内的 Provider 元信息。
 // 注册表是 Prompt 规划与 Tool Calling 共用的唯一可用性来源。
-func (g *ProviderExecutor) AvailableProviders(allowedMethods []port.ImageMethod) []port.ImageProviderMetadata {
+func (g *providerExecutor) AvailableProviders(allowedMethods []port.ImageMethod) []port.ImageProviderMetadata {
 	methods := g.RegisteredMethods()
 	out := make([]port.ImageProviderMetadata, 0, len(methods))
 	for _, method := range methods {
@@ -124,12 +124,9 @@ func validProviderAccess(access port.ImageProviderAccess) bool {
 }
 
 // Execute 只执行指定 provider，不做 fallback，供 tool calling 循环把失败结果反馈给模型。
-func (g *ProviderExecutor) Execute(ctx context.Context, taskID string, req port.ImageRequirement, method port.ImageMethod) (port.ImageResult, error) {
+func (g *providerExecutor) Execute(ctx context.Context, taskID string, req port.ImageRequirement, method port.ImageMethod) (port.ImageResult, error) {
 	if g == nil {
 		return port.ImageResult{}, fmt.Errorf("image provider executor is nil")
-	}
-	if g.log == nil {
-		g.log = slog.Default()
 	}
 	url, usedMethod, err := g.tryProvider(ctx, method, req, false)
 	if err != nil {
@@ -139,12 +136,9 @@ func (g *ProviderExecutor) Execute(ctx context.Context, taskID string, req port.
 }
 
 // ExecuteWithFallback 执行首选 provider，失败时使用系统 fallback。
-func (g *ProviderExecutor) ExecuteWithFallback(ctx context.Context, taskID string, req port.ImageRequirement) (port.ImageResult, error) {
+func (g *providerExecutor) ExecuteWithFallback(ctx context.Context, taskID string, req port.ImageRequirement) (port.ImageResult, error) {
 	if g == nil {
 		return port.ImageResult{}, fmt.Errorf("image provider executor is nil")
-	}
-	if g.log == nil {
-		g.log = slog.Default()
 	}
 	src := req.ImageSource.Normalize()
 	if src == "" {
@@ -170,7 +164,7 @@ func (g *ProviderExecutor) ExecuteWithFallback(ctx context.Context, taskID strin
 	return g.publishResult(ctx, taskID, req, url, method), nil
 }
 
-func (g *ProviderExecutor) publishResult(ctx context.Context, taskID string, req port.ImageRequirement, url string, method port.ImageMethod) port.ImageResult {
+func (g *providerExecutor) publishResult(ctx context.Context, taskID string, req port.ImageRequirement, url string, method port.ImageMethod) port.ImageResult {
 	// 可选对象存储转存：未配置 store==nil，直接保留原 URL
 	if g.store != nil {
 		folder := strings.ToLower(method.String())
@@ -198,7 +192,7 @@ func (g *ProviderExecutor) publishResult(ctx context.Context, taskID string, req
 	}
 }
 
-func (g *ProviderExecutor) tryProvider(ctx context.Context, method port.ImageMethod, req port.ImageRequirement, isFallback bool) (url string, usedMethod port.ImageMethod, err error) {
+func (g *providerExecutor) tryProvider(ctx context.Context, method port.ImageMethod, req port.ImageRequirement, isFallback bool) (url string, usedMethod port.ImageMethod, err error) {
 	method = method.Normalize()
 	var p port.Provider
 	if isFallback {

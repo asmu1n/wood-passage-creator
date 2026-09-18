@@ -145,6 +145,3 @@ func TestImageAgentSkipsWhenNoProviderIsAvailable(t *testing.T) {
 		t.Fatalf("unexpected skipped state: %+v", state)
 	}
 }
-
-var _ model.BaseChatModel = (*imageAgentModelStub)(nil)
-var _ port.ImageGenerator = (*imageGeneratorStub)(nil)

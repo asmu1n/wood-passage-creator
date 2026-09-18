@@ -99,10 +99,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("init chat model failed", logger.FieldErr, err)
 	}
-	jsonModel, err := llm.NewJSONObjectChatModel(ctx, cfg.LLM)
-	if err != nil {
-		logger.Fatal("init json chat model failed", logger.FieldErr, err)
-	}
+	structuredModelInjector := llm.InjectJSONSchemaChatModel(ctx, cfg.LLM)
 
 	// 装配：module=领域+repo；app=全部用例；httpapi/api 只依赖 app。
 	// 跨 module 强一致写：Runtime.Tx + repo Cli(ctx) 共享同一事务。
@@ -114,7 +111,7 @@ func main() {
 	authSvc := authapp.NewService(userRepo, statsSvc)
 	paymentSvc := paymentapp.NewService(paymentrepo.New(db), userSvc)
 	objStore := objectstore.NewFromConfig(cfg.R2)
-	imgGen := image.NewToolCallingGenerator(cfg, textModel, objStore)
+	imgGen := articleagent.NewToolCallingGenerator(textModel, image.NewProviderExecutor(cfg, textModel, objStore))
 	articleRepo := articlerepo.NewArticleRepo(db)
 	agentLogRepo := articlerepo.NewAgentLogRepo(db)
 	agentLogRecorder := modart.NewAgentLogRecorder(agentLogRepo)
@@ -124,7 +121,7 @@ func main() {
 		userSvc,
 		articleagent.NewOrchestrator(
 			textModel,
-			jsonModel,
+			structuredModelInjector,
 			imgGen,
 			agentLogRecorder,
 		),

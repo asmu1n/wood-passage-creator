@@ -34,11 +34,6 @@ func NewImageAgent(llm model.BaseChatModel, generator port.ImageGenerator) *Imag
 
 func (a *ImageAgent) Name() Name { return NameImageGenerator }
 
-type imageAnalyzeResult struct {
-	ContentWithPlaceholders string                  `json:"contentWithPlaceholders"`
-	ImageRequirements       []port.ImageRequirement `json:"imageRequirements"`
-}
-
 func (a *ImageAgent) Execute(
 	ctx context.Context,
 	state *article.ArticleState,
@@ -126,7 +121,7 @@ func (a *ImageAgent) analyze(ctx context.Context, state *article.ArticleState) e
 	}
 	raw := response.Content
 
-	var result imageAnalyzeResult
+	var result article.AgentImageAnalyzeSchema
 	if err := llmkit.UnmarshalJSON(raw, &result); err != nil {
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}

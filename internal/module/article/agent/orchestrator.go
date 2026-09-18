@@ -14,6 +14,8 @@ import (
 	"wood-passage-creator/internal/port"
 )
 
+type structuredModelFactory func(name, description string, output any) (model.ToolCallingChatModel, error)
+
 // Orchestrator 文章阶段采用确定性编排；配图执行内部包含有界 tool-calling 循环。
 type Orchestrator struct {
 	log  *slog.Logger
@@ -26,24 +28,50 @@ type Orchestrator struct {
 	merge   agent
 }
 
-// NewOrchestrator(textLLM, jsonLLM, ...). jsonLLM nil → textLLM.
-// jsonLLM: title / outline / image plan (json_object). textLLM: content + tools.
+// NewOrchestrator 为结构化节点分别创建带 JSON Schema 的模型。
+// textLLM 用于正文生成；baseModelInject 用于 title / outline / image analyze。
 func NewOrchestrator(
 	textLLM model.BaseChatModel,
-	jsonLLM model.BaseChatModel,
+	LLMSchemaInject structuredModelFactory,
 	imageGenerator port.ImageGenerator,
 	logs article.AgentLogRecorder,
 ) article.AgentOrchestrator {
-	if jsonLLM == nil {
-		jsonLLM = textLLM
+	if LLMSchemaInject == nil {
+		panic("structured model injector is nil")
 	}
+
+	titleModel, err := LLMSchemaInject(
+		"article_title",
+		"文章标题候选项",
+		&article.AgentTitleSchema{},
+	)
+	if err != nil {
+		panic(fmt.Errorf("initialize title structured model: %w", err))
+	}
+	outlineModel, err := LLMSchemaInject(
+		"article_outline",
+		"文章大纲章节",
+		&article.AgentOutlineSchema{},
+	)
+	if err != nil {
+		panic(fmt.Errorf("initialize outline structured model: %w", err))
+	}
+	imageAnalyzeModel, err := LLMSchemaInject(
+		"article_image_plan",
+		"文章配图规划及占位符正文",
+		&article.AgentImageAnalyzeSchema{},
+	)
+	if err != nil {
+		panic(fmt.Errorf("initialize image analyze structured model: %w", err))
+	}
+
 	return &Orchestrator{
 		log:     logger.Module("article.orchestrator"),
 		logs:    logs,
-		title:   NewTitleGenerator(jsonLLM),
-		outline: NewOutlineGenerator(jsonLLM),
+		title:   NewTitleGenerator(titleModel),
+		outline: NewOutlineGenerator(outlineModel),
 		content: NewContentGenerator(textLLM),
-		image:   NewImageAgent(jsonLLM, imageGenerator),
+		image:   NewImageAgent(imageAnalyzeModel, imageGenerator),
 		merge:   NewContentMerger(),
 	}
 }

@@ -14,10 +14,6 @@ import (
 	"wood-passage-creator/internal/pkg/logger"
 )
 
-type titleOptionsResponse struct {
-	Options []article.TitleOption `json:"options"`
-}
-
 type titleGenerator struct {
 	llm model.BaseChatModel
 	log *slog.Logger
@@ -73,7 +69,7 @@ func (a *titleGenerator) Execute(ctx context.Context, state *article.ArticleStat
 }
 
 func parseTitleOptions(raw string) ([]article.TitleOption, error) {
-	var envelope titleOptionsResponse
+	var envelope article.AgentTitleSchema
 	if err := llmkit.UnmarshalJSON(raw, &envelope); err != nil {
 		return nil, err
 	}

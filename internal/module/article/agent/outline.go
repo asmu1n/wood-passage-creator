@@ -15,10 +15,6 @@ import (
 	"wood-passage-creator/internal/pkg/logger"
 )
 
-type outlineSectionsResponse struct {
-	Sections []article.OutlineSection `json:"sections"`
-}
-
 type outlineGenerator struct {
 	llm model.BaseChatModel
 	log *slog.Logger
@@ -85,7 +81,7 @@ func (a *outlineGenerator) ExecuteWithModify(ctx context.Context, state *article
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
 
-	outlineJSON, err := json.Marshal(outlineSectionsResponse{Sections: state.Outline})
+	outlineJSON, err := json.Marshal(article.AgentOutlineSchema{Sections: state.Outline})
 	if err != nil {
 		return fmt.Errorf("%s: marshal outline: %w", a.Name(), err)
 	}
@@ -130,7 +126,7 @@ func (a *outlineGenerator) ExecuteWithModify(ctx context.Context, state *article
 }
 
 func parseOutlineSections(raw string) ([]article.OutlineSection, error) {
-	var envelope outlineSectionsResponse
+	var envelope article.AgentOutlineSchema
 	if err := llmkit.UnmarshalJSON(raw, &envelope); err != nil {
 		return nil, err
 	}

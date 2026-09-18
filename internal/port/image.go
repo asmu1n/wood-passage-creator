@@ -118,3 +118,10 @@ type Provider interface {
 	// Fetch 返回可公开访问的图片 URL，或 data: URL（生成类）。
 	Fetch(ctx context.Context, req ImageRequirement) (url string, err error)
 }
+
+// ProviderExecutor 是图片工具的确定性执行层，不负责 LLM 编排。
+type ProviderExecutor interface {
+	ImageProviderCatalog
+	ExecuteWithFallback(ctx context.Context, taskID string, req ImageRequirement) (ImageResult, error)
+	Execute(ctx context.Context, taskID string, req ImageRequirement, method ImageMethod) (ImageResult, error)
+}

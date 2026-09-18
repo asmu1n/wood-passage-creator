@@ -90,6 +90,22 @@ type OutlineSection struct {
 	Points  []string `json:"points"`
 }
 
+// AgentTitleSchema 标题生成节点的结构化输出。
+type AgentTitleSchema struct {
+	Options []TitleOption `json:"options"`
+}
+
+// AgentOutlineSchema 大纲生成及修改节点的结构化输出。
+type AgentOutlineSchema struct {
+	Sections []OutlineSection `json:"sections"`
+}
+
+// AgentImageAnalyzeSchema 配图分析节点的结构化输出。
+type AgentImageAnalyzeSchema struct {
+	ContentWithPlaceholders string                  `json:"contentWithPlaceholders"`
+	ImageRequirements       []port.ImageRequirement `json:"imageRequirements"`
+}
+
 // ArticleState 文章生成状态（智能体间共享）
 type ArticleState struct {
 	ArticleID               int64                   `json:"articleId,omitempty"` // 写 agent_log 用
