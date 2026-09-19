@@ -6,7 +6,9 @@ import (
 	"io"
 	"log/slog"
 	"sort"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
@@ -15,9 +17,12 @@ import (
 )
 
 type stubToolProvider struct {
-	method port.ImageMethod
-	url    string
-	err    error
+	method   port.ImageMethod
+	url      string
+	err      error
+	delay    time.Duration
+	inflight *atomic.Int32
+	maxIn    *atomic.Int32
 }
 
 func (p stubToolProvider) Metadata() port.ImageProviderMetadata {
@@ -35,6 +40,19 @@ func (p stubToolProvider) Metadata() port.ImageProviderMetadata {
 }
 
 func (p stubToolProvider) Fetch(context.Context, port.ImageRequirement) (string, error) {
+	if p.inflight != nil && p.maxIn != nil {
+		cur := p.inflight.Add(1)
+		defer p.inflight.Add(-1)
+		for {
+			prev := p.maxIn.Load()
+			if cur <= prev || p.maxIn.CompareAndSwap(prev, cur) {
+				break
+			}
+		}
+	}
+	if p.delay > 0 {
+		time.Sleep(p.delay)
+	}
 	if p.err != nil {
 		return "", p.err
 	}
@@ -196,6 +214,75 @@ func TestToolCallingGenerator_ExecutesToolAndReturnsObservation(t *testing.T) {
 	}
 	if len(chatModel.tools) != 1 || chatModel.tools[0].Name != "search_pexels_image" {
 		t.Fatalf("unexpected tools: %+v", chatModel.tools)
+	}
+}
+
+func TestToolCallingGenerator_ExecutesMultipleToolsInParallel(t *testing.T) {
+	var inflight, maxIn atomic.Int32
+	chatModel := &stubEinoToolModel{responses: []*schema.Message{
+		schema.AssistantMessage("", []schema.ToolCall{
+			{
+				ID: "call-0", Type: "function", Function: schema.FunctionCall{
+					Name: "search_pexels_image", Arguments: `{"requirementIndex":0,"keywords":"a"}`,
+				},
+			},
+			{
+				ID: "call-1", Type: "function", Function: schema.FunctionCall{
+					Name: "search_pexels_image", Arguments: `{"requirementIndex":1,"keywords":"b"}`,
+				},
+			},
+			{
+				ID: "call-2", Type: "function", Function: schema.FunctionCall{
+					Name: "search_pexels_image", Arguments: `{"requirementIndex":2,"keywords":"c"}`,
+				},
+			},
+		}),
+		schema.AssistantMessage("全部图片已生成。", nil),
+	}}
+	tools := newStubProviderExecutor(
+		stubToolProvider{
+			method:   port.MethodPexels,
+			url:      "https://example.com/img.jpg",
+			delay:    80 * time.Millisecond,
+			inflight: &inflight,
+			maxIn:    &maxIn,
+		},
+	)
+	g := NewToolCallingGenerator(chatModel, tools)
+
+	start := time.Now()
+	results, err := g.Generate(context.Background(), "task-parallel", []port.ImageRequirement{
+		{Position: 1, ImageSource: port.MethodPexels, PlaceholderID: "{{IMAGE_PLACEHOLDER_1}}"},
+		{Position: 2, ImageSource: port.MethodPexels, PlaceholderID: "{{IMAGE_PLACEHOLDER_2}}"},
+		{Position: 3, ImageSource: port.MethodPexels, PlaceholderID: "{{IMAGE_PLACEHOLDER_3}}"},
+	}, []port.ImageMethod{port.MethodPexels}, nil)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("got %d results, want 3", len(results))
+	}
+	if elapsed > 200*time.Millisecond {
+		t.Fatalf("elapsed %v suggests sequential execution (3x80ms serial ~240ms)", elapsed)
+	}
+	if maxIn.Load() < 2 {
+		t.Fatalf("max concurrent fetches=%d, want >= 2", maxIn.Load())
+	}
+	msgs := chatModel.messages[1]
+	toolMsgs := make([]*schema.Message, 0, 3)
+	for _, m := range msgs {
+		if m.Role == schema.Tool {
+			toolMsgs = append(toolMsgs, m)
+		}
+	}
+	if len(toolMsgs) != 3 {
+		t.Fatalf("tool messages=%d, want 3", len(toolMsgs))
+	}
+	for i, wantID := range []string{"call-0", "call-1", "call-2"} {
+		if toolMsgs[i].ToolCallID != wantID {
+			t.Fatalf("tool message %d id=%s, want %s", i, toolMsgs[i].ToolCallID, wantID)
+		}
 	}
 }
 

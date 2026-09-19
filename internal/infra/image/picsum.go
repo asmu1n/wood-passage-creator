@@ -10,7 +10,9 @@ import (
 // Picsum 无 Key 的随机图降级（https://picsum.photos）。
 type Picsum struct{}
 
-func NewPicsum() *Picsum { return &Picsum{} }
+func NewPicsum() *Picsum {
+	return &Picsum{}
+}
 
 func (p *Picsum) Metadata() port.ImageProviderMetadata {
 	return port.ImageProviderMetadata{
