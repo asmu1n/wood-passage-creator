@@ -148,13 +148,13 @@ func (g *ToolCallingGenerator) Generate(
 	})
 
 	resultsByPosition := make(map[int]port.ImageResult, len(reqs))
-	mergeImageResults(ctx, resultsByPosition, g.runToolCalls(ctx, taskID, toolTasks, progress))
+	mergeImageResults(resultsByPosition, g.runToolCalls(ctx, taskID, toolTasks, progress))
 
 	fallbackReqs := lo.Filter(reqs, func(req port.ImageRequirement, _ int) bool {
 		_, ok := resultsByPosition[req.Position]
 		return !ok
 	})
-	mergeImageResults(ctx, resultsByPosition, g.runFallback(ctx, taskID, fallbackReqs, progress))
+	mergeImageResults(resultsByPosition, g.runFallback(ctx, taskID, fallbackReqs, progress))
 
 	g.log.Info("image tool calling done",
 		logger.FieldPurpose, logger.PurposeJob,
@@ -262,7 +262,6 @@ func (g *ToolCallingGenerator) runFallback(
 }
 
 func mergeImageResults(
-	ctx context.Context,
 	resultsByPosition map[int]port.ImageResult,
 	generated []port.ImageResult,
 ) {
