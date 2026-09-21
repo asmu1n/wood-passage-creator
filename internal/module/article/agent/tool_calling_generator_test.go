@@ -21,6 +21,7 @@ type stubToolProvider struct {
 	url      string
 	err      error
 	delay    time.Duration
+	calls    *atomic.Int32
 	inflight *atomic.Int32
 	maxIn    *atomic.Int32
 }
@@ -40,6 +41,9 @@ func (p stubToolProvider) Metadata() port.ImageProviderMetadata {
 }
 
 func (p stubToolProvider) Fetch(context.Context, port.ImageRequirement) (string, error) {
+	if p.calls != nil {
+		p.calls.Add(1)
+	}
 	if p.inflight != nil && p.maxIn != nil {
 		cur := p.inflight.Add(1)
 		defer p.inflight.Add(-1)
@@ -176,14 +180,13 @@ func (m *stubEinoToolModel) WithTools(tools []*schema.ToolInfo) (model.ToolCalli
 	return m, nil
 }
 
-func TestToolCallingGenerator_ExecutesToolAndReturnsObservation(t *testing.T) {
+func TestToolCallingGenerator_ExecutesToolInSingleModelCall(t *testing.T) {
 	chatModel := &stubEinoToolModel{responses: []*schema.Message{
 		schema.AssistantMessage("", []schema.ToolCall{{
 			ID: "call-1", Type: "function", Function: schema.FunctionCall{
 				Name: "search_pexels_image", Arguments: `{"requirementIndex":0,"keywords":"wood workshop"}`,
 			},
 		}}),
-		schema.AssistantMessage("全部图片已生成。", nil),
 	}}
 	tools := newStubProviderExecutor(
 		stubToolProvider{method: port.MethodPexels, url: "https://example.com/wood.jpg"},
@@ -202,15 +205,11 @@ func TestToolCallingGenerator_ExecutesToolAndReturnsObservation(t *testing.T) {
 	if len(results) != 1 || results[0].Method != port.MethodPexels {
 		t.Fatalf("unexpected results: %+v", results)
 	}
-	if chatModel.calls != 2 {
-		t.Fatalf("model calls=%d, want 2", chatModel.calls)
+	if chatModel.calls != 1 {
+		t.Fatalf("model calls=%d, want 1", chatModel.calls)
 	}
 	if progress != 1 {
 		t.Fatalf("progress calls=%d, want 1", progress)
-	}
-	last := chatModel.messages[1][len(chatModel.messages[1])-1]
-	if last.Role != schema.Tool || last.ToolCallID != "call-1" {
-		t.Fatalf("missing tool observation: %+v", last)
 	}
 	if len(chatModel.tools) != 1 || chatModel.tools[0].Name != "search_pexels_image" {
 		t.Fatalf("unexpected tools: %+v", chatModel.tools)
@@ -237,7 +236,6 @@ func TestToolCallingGenerator_ExecutesMultipleToolsInParallel(t *testing.T) {
 				},
 			},
 		}),
-		schema.AssistantMessage("全部图片已生成。", nil),
 	}}
 	tools := newStubProviderExecutor(
 		stubToolProvider{
@@ -269,36 +267,18 @@ func TestToolCallingGenerator_ExecutesMultipleToolsInParallel(t *testing.T) {
 	if maxIn.Load() < 2 {
 		t.Fatalf("max concurrent fetches=%d, want >= 2", maxIn.Load())
 	}
-	msgs := chatModel.messages[1]
-	toolMsgs := make([]*schema.Message, 0, 3)
-	for _, m := range msgs {
-		if m.Role == schema.Tool {
-			toolMsgs = append(toolMsgs, m)
-		}
-	}
-	if len(toolMsgs) != 3 {
-		t.Fatalf("tool messages=%d, want 3", len(toolMsgs))
-	}
-	for i, wantID := range []string{"call-0", "call-1", "call-2"} {
-		if toolMsgs[i].ToolCallID != wantID {
-			t.Fatalf("tool message %d id=%s, want %s", i, toolMsgs[i].ToolCallID, wantID)
-		}
+	if chatModel.calls != 1 {
+		t.Fatalf("model calls=%d, want 1", chatModel.calls)
 	}
 }
 
-func TestToolCallingGenerator_ChangesToolAfterFailure(t *testing.T) {
+func TestToolCallingGenerator_FallsBackAfterToolFailure(t *testing.T) {
 	chatModel := &stubEinoToolModel{responses: []*schema.Message{
 		schema.AssistantMessage("", []schema.ToolCall{{
 			ID: "call-1", Type: "function", Function: schema.FunctionCall{
 				Name: "search_pexels_image", Arguments: `{"requirementIndex":0,"keywords":"architecture"}`,
 			},
 		}}),
-		schema.AssistantMessage("", []schema.ToolCall{{
-			ID: "call-2", Type: "function", Function: schema.FunctionCall{
-				Name: "render_mermaid_diagram", Arguments: `{"requirementIndex":0,"prompt":"flowchart LR; A-->B"}`,
-			},
-		}}),
-		schema.AssistantMessage("完成。", nil),
 	}}
 	tools := newStubProviderExecutor(
 		stubToolProvider{method: port.MethodPexels, err: fmt.Errorf("no matching photo")},
@@ -307,16 +287,116 @@ func TestToolCallingGenerator_ChangesToolAfterFailure(t *testing.T) {
 	g := NewToolCallingGenerator(chatModel, tools)
 
 	results, err := g.Generate(context.Background(), "task-2", []port.ImageRequirement{{
-		Position: 1, ImageSource: port.MethodPexels, PlaceholderID: "{{IMAGE_PLACEHOLDER_1}}",
+		Position: 1, ImageSource: port.MethodMermaid, PlaceholderID: "{{IMAGE_PLACEHOLDER_1}}",
 	}}, []port.ImageMethod{port.MethodPexels, port.MethodMermaid}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(results) != 1 || results[0].Method != port.MethodMermaid {
-		t.Fatalf("expected Mermaid fallback selected by model, got %+v", results)
+		t.Fatalf("expected Mermaid default fallback, got %+v", results)
 	}
-	if chatModel.calls != 3 {
-		t.Fatalf("model calls=%d, want 3", chatModel.calls)
+	if chatModel.calls != 1 {
+		t.Fatalf("model calls=%d, want 1", chatModel.calls)
+	}
+}
+
+func TestToolCallingGenerator_SortsResultsWhenToolsFinishOutOfOrder(t *testing.T) {
+	chatModel := &stubEinoToolModel{responses: []*schema.Message{
+		schema.AssistantMessage("", []schema.ToolCall{
+			{
+				ID: "call-slow", Type: "function", Function: schema.FunctionCall{
+					Name: "search_pexels_image", Arguments: `{"requirementIndex":0}`,
+				},
+			},
+			{
+				ID: "call-fast", Type: "function", Function: schema.FunctionCall{
+					Name: "render_mermaid_diagram", Arguments: `{"requirementIndex":1}`,
+				},
+			},
+		}),
+	}}
+	tools := newStubProviderExecutor(
+		stubToolProvider{method: port.MethodPexels, url: "https://example.com/slow.jpg", delay: 80 * time.Millisecond},
+		stubToolProvider{method: port.MethodMermaid, url: "https://example.com/fast.svg"},
+	)
+	g := NewToolCallingGenerator(chatModel, tools)
+
+	results, err := g.Generate(context.Background(), "task-result-order", []port.ImageRequirement{
+		{Position: 1, ImageSource: port.MethodPexels},
+		{Position: 2, ImageSource: port.MethodMermaid},
+	}, []port.ImageMethod{port.MethodPexels, port.MethodMermaid}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(results) != 2 || results[0].Position != 1 || results[1].Position != 2 {
+		t.Fatalf("unexpected result order: %+v", results)
+	}
+}
+
+func TestToolCallingGenerator_FallbackMergesByPosition(t *testing.T) {
+	chatModel := &stubEinoToolModel{responses: []*schema.Message{
+		schema.AssistantMessage("", []schema.ToolCall{{
+			ID: "call-0", Type: "function", Function: schema.FunctionCall{
+				Name: "search_pexels_image", Arguments: `{"requirementIndex":0}`,
+			},
+		}}),
+	}}
+	tools := newStubProviderExecutor(
+		stubToolProvider{method: port.MethodPexels, url: "https://example.com/image.jpg"},
+	)
+	g := NewToolCallingGenerator(chatModel, tools)
+
+	progress := 0
+	results, err := g.Generate(context.Background(), "task-fallback-index", []port.ImageRequirement{
+		{Position: 1, ImageSource: port.MethodPexels},
+		{Position: 2, ImageSource: port.MethodPexels},
+	}, []port.ImageMethod{port.MethodPexels}, func(context.Context, int, int, port.ImageResult) {
+		progress++
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 2 || results[0].Position != 1 || results[1].Position != 2 {
+		t.Fatalf("unexpected fallback results: %+v", results)
+	}
+	if progress != 2 {
+		t.Fatalf("progress calls=%d, want 2", progress)
+	}
+}
+
+func TestToolCallingGenerator_DeduplicatesToolCallsByPosition(t *testing.T) {
+	var calls atomic.Int32
+	chatModel := &stubEinoToolModel{responses: []*schema.Message{
+		schema.AssistantMessage("", []schema.ToolCall{
+			{
+				ID: "call-1", Type: "function", Function: schema.FunctionCall{
+					Name: "search_pexels_image", Arguments: `{"requirementIndex":0}`,
+				},
+			},
+			{
+				ID: "call-2", Type: "function", Function: schema.FunctionCall{
+					Name: "search_pexels_image", Arguments: `{"requirementIndex":0}`,
+				},
+			},
+		}),
+	}}
+	tools := newStubProviderExecutor(
+		stubToolProvider{method: port.MethodPexels, url: "https://example.com/image.jpg", calls: &calls},
+	)
+	g := NewToolCallingGenerator(chatModel, tools)
+
+	progress := 0
+	results, err := g.Generate(context.Background(), "task-no-duplicate", []port.ImageRequirement{
+		{Position: 1, ImageSource: port.MethodPexels},
+	}, []port.ImageMethod{port.MethodPexels}, func(context.Context, int, int, port.ImageResult) {
+		progress++
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || calls.Load() != 1 || progress != 1 {
+		t.Fatalf("results=%d provider calls=%d progress=%d, want 1/1/1", len(results), calls.Load(), progress)
 	}
 }
 

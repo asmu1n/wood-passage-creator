@@ -15,15 +15,13 @@ import (
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
+	"github.com/samber/lo"
 )
 
-const (
-	maxImageToolRounds  = 6
-	imageFetchWorkerCap = 6
-)
+const imageFetchWorkerCap = 6
 
 // ToolCallingGenerator 让模型通过原生 tool calling 选择并执行图片 Provider。
-// ProviderExecutor 是确定性的工具执行层；本类型只负责对话循环、权限边界与结果收敛。
+// ProviderExecutor 是确定性的工具执行层；本类型只负责单次工具选择、fallback 与结果收敛。
 type ToolCallingGenerator struct {
 	model model.ToolCallingChatModel
 	tools port.ProviderExecutor
@@ -47,14 +45,10 @@ type imageToolArgs struct {
 	Prompt           string `json:"prompt"`
 }
 
-type imageToolFeedback struct {
-	OK               bool              `json:"ok"`
-	Generated        bool              `json:"generated,omitempty"`
-	RequirementIndex int               `json:"requirementIndex"`
-	Position         int               `json:"position,omitempty"`
-	Method           port.ImageMethod  `json:"method,omitempty"`
-	Message          string            `json:"message"`
-	Result           *port.ImageResult `json:"-"`
+type imageToolTask struct {
+	requirement port.ImageRequirement
+	method      port.ImageMethod
+	toolName    string
 }
 
 func (g *ToolCallingGenerator) LookupProvider(method port.ImageMethod) (port.ImageProviderMetadata, bool) {
@@ -103,8 +97,6 @@ func (g *ToolCallingGenerator) Generate(
 		)),
 	}
 
-	results := make(map[int]port.ImageResult, len(reqs))
-
 	doneCount := 0
 	progress := func(ctx context.Context, result port.ImageResult) {
 		doneCount++
@@ -112,99 +104,67 @@ func (g *ToolCallingGenerator) Generate(
 			onProgress(ctx, doneCount, len(reqs), result)
 		}
 	}
-	maxCalls := len(reqs) * 3
-	if maxCalls < 4 {
-		maxCalls = 4
-	}
-	if maxCalls > 24 {
-		maxCalls = 24
-	}
-	callCount := 0
 
 	toolModel, err := g.model.WithTools(tools)
 	if err != nil {
 		return nil, fmt.Errorf("bind image tools: %w", err)
 	}
 
-	for round := 0; round < maxImageToolRounds; round++ {
-		response, callErr := toolModel.Generate(ctx, messages)
-		if callErr != nil {
-			if len(results) == len(reqs) {
-				return sortedImageResults(results), nil
-			}
-			g.log.Warn("image tool model call failed; falling back",
-				logger.FieldPurpose, logger.PurposeJob,
-				logger.FieldEvent, "image.tool_call.model_failed",
-				logger.FieldErr, callErr,
-				"task_id", taskID,
-			)
-			break
-		}
-		if response == nil {
-			g.log.Warn("image tool model returned nil response; falling back",
-				logger.FieldPurpose, logger.PurposeJob,
-				logger.FieldEvent, "image.tool_call.empty_response",
-				"task_id", taskID,
-			)
-			break
-		}
-		if len(response.ToolCalls) == 0 {
-			messages = append(messages, response)
-			// 获取到所有图片，直接返回结果
-			if len(results) == len(reqs) {
-				return sortedImageResults(results), nil
-			} else {
-				// 如果存在未完成的图片，则补充仍缺少图片的 prompt
-				messages = append(messages, schema.UserMessage(
-					fmt.Sprintf("还有 %d 项没有生成。请继续调用工具，不要只返回文字。", len(reqs)-len(results)),
-				))
-				continue
-			}
-		}
-
-		messages = append(messages, response)
-
-		callsToRun := make([]schema.ToolCall, 0, len(response.ToolCalls))
-		for _, call := range response.ToolCalls {
-			if callCount >= maxCalls {
-				break
-			}
-			callCount++
-			callsToRun = append(callsToRun, call)
-		}
-
-		feedbacks := g.runToolCalls(ctx, taskID, reqs, results, toolMethods, callsToRun, progress)
-		for i, fb := range feedbacks {
-			payload, marshalErr := json.Marshal(fb)
-			if marshalErr != nil {
-				payload = []byte(`{"ok":false,"message":"encode tool result failed"}`)
-			}
-			call := callsToRun[i]
-			messages = append(messages, schema.ToolMessage(
-				string(payload),
-				call.ID,
-				schema.WithToolName(call.Function.Name),
-			))
-
-			results[fb.RequirementIndex] = *fb.Result
-		}
-
-		if callCount >= maxCalls {
-			break
-		}
+	response, callErr := toolModel.Generate(ctx, messages)
+	if callErr != nil {
+		g.log.Warn("image tool model call failed; falling back",
+			logger.FieldPurpose, logger.PurposeJob,
+			logger.FieldEvent, "image.tool_call.model_failed",
+			logger.FieldErr, callErr,
+			"task_id", taskID,
+		)
+	} else if response == nil {
+		g.log.Warn("image tool model returned nil response; falling back",
+			logger.FieldPurpose, logger.PurposeJob,
+			logger.FieldEvent, "image.tool_call.empty_response",
+			"task_id", taskID,
+		)
 	}
 
-	g.runFallback(ctx, taskID, reqs, results, progress)
+	toolTasks := make([]imageToolTask, 0, len(reqs))
+	if callErr == nil && response != nil {
+		for _, call := range response.ToolCalls {
+			task, prepareErr := prepareImageToolTask(reqs, toolMethods, call)
+			if prepareErr != nil {
+				g.log.Warn("image tool call skipped",
+					logger.FieldPurpose, logger.PurposeJob,
+					logger.FieldEvent, "image.tool_call.invalid",
+					logger.FieldErr, prepareErr,
+					"task_id", taskID,
+					"tool", call.Function.Name,
+				)
+				continue
+			}
+			toolTasks = append(toolTasks, task)
+		}
+	}
+	toolTasks = lo.UniqBy(toolTasks, func(task imageToolTask) int {
+		return task.requirement.Position
+	})
+
+	resultsByPosition := make(map[int]port.ImageResult, len(reqs))
+	mergeImageResults(ctx, resultsByPosition, g.runToolCalls(ctx, taskID, toolTasks, progress))
+
+	fallbackReqs := lo.Filter(reqs, func(req port.ImageRequirement, _ int) bool {
+		_, ok := resultsByPosition[req.Position]
+		return !ok
+	})
+	mergeImageResults(ctx, resultsByPosition, g.runFallback(ctx, taskID, fallbackReqs, progress))
 
 	g.log.Info("image tool calling done",
 		logger.FieldPurpose, logger.PurposeJob,
 		logger.FieldEvent, "image.tool_call.done",
 		"task_id", taskID,
-		"tool_calls", callCount,
+		"tool_calls", len(toolTasks),
 		"requested", len(reqs),
-		"generated", len(results),
+		"generated", len(resultsByPosition),
 	)
-	return sortedImageResults(results), nil
+	return sortedImageResults(resultsByPosition), nil
 }
 
 func imageFetchWorkers(n int) int {
@@ -220,158 +180,152 @@ func imageFetchWorkers(n int) int {
 func (g *ToolCallingGenerator) runToolCalls(
 	ctx context.Context,
 	taskID string,
-	reqs []port.ImageRequirement,
-	results map[int]port.ImageResult,
-	toolMethods map[string]port.ImageMethod,
-	calls []schema.ToolCall,
-	onProgress func(ctx context.Context, result port.ImageResult),
-) []imageToolFeedback {
-	if len(calls) == 0 {
+	tasks []imageToolTask,
+	progress func(ctx context.Context, result port.ImageResult),
+) []port.ImageResult {
+	if len(tasks) == 0 {
 		return nil
 	}
 
-	p := pool.NewPool[imageToolFeedback](ctx, imageFetchWorkers(len(calls)), len(calls))
-	count := len(results)
-	for i, call := range calls {
-		_ = p.AddTask(i, func(taskCtx context.Context) (imageToolFeedback, error) {
-
-			fb := g.executeToolCall(taskCtx, taskID, reqs, results, toolMethods, call)
-
-			if onProgress != nil && fb.Result != nil && fb.Generated {
-				count++
-				onProgress(ctx, *fb.Result)
+	p := pool.NewPool[port.ImageResult](ctx, imageFetchWorkers(len(tasks)), len(tasks))
+	for i, task := range tasks {
+		_ = p.AddTask(i, func(taskCtx context.Context) (port.ImageResult, error) {
+			res, err := g.executeToolCall(taskCtx, taskID, task.requirement, task.method, task.toolName)
+			if progress != nil && err == nil {
+				progress(taskCtx, res)
 			}
-			return fb, nil
+			return res, err
 		})
 	}
 
-	feedbacks := make([]imageToolFeedback, len(calls))
-	for i, pr := range p.CollectResults() {
+	results := make([]port.ImageResult, 0, len(tasks))
+	for _, pr := range p.CollectResults() {
+		if pr.Error != nil {
+			task := tasks[pr.ID]
+			g.log.Warn("image tool call failed; falling back",
+				logger.FieldPurpose, logger.PurposeJob,
+				logger.FieldEvent, "image.tool_call.execute_failed",
+				logger.FieldErr, pr.Error,
+				"task_id", taskID,
+				"tool", task.toolName,
+				"position", task.requirement.Position,
+			)
+			continue
+		}
 		if pr.Value != nil {
-			feedbacks[i] = *pr.Value
-		} else if pr.Error != nil {
-			feedbacks[i] = imageToolFeedback{Message: llmkit.Truncate(pr.Error.Error(), 300)}
+			results = append(results, *pr.Value)
 		}
 	}
-	return feedbacks
+	return results
 }
 
 func (g *ToolCallingGenerator) runFallback(
 	ctx context.Context,
 	taskID string,
 	reqs []port.ImageRequirement,
-	results map[int]port.ImageResult,
-	onProgress func(ctx context.Context, result port.ImageResult),
-) {
-	type missing struct {
-		index int
-		req   port.ImageRequirement
-	}
-	pending := make([]missing, 0, len(reqs))
-	for i, req := range reqs {
-		if _, ok := results[i]; ok {
-			continue
-		}
-		pending = append(pending, missing{index: i, req: req})
-	}
-	if len(pending) == 0 {
-		return
+	progress func(ctx context.Context, result port.ImageResult),
+) []port.ImageResult {
+	if len(reqs) == 0 {
+		return nil
 	}
 
-	p := pool.NewPool[port.ImageResult](ctx, imageFetchWorkers(len(pending)), len(pending))
-	for _, item := range pending {
-		_ = p.AddTask(item.index, func(taskCtx context.Context) (port.ImageResult, error) {
-			return g.tools.ExecuteWithFallback(taskCtx, taskID, item.req)
+	p := pool.NewPool[port.ImageResult](ctx, imageFetchWorkers(len(reqs)), len(reqs))
+	for reqIndex, req := range reqs {
+		_ = p.AddTask(reqIndex, func(taskCtx context.Context) (port.ImageResult, error) {
+			res, err := g.tools.ExecuteWithFallback(taskCtx, taskID, req)
+			if progress != nil && err == nil {
+				progress(taskCtx, res)
+			}
+			return res, err
 		})
 	}
 
+	results := make([]port.ImageResult, 0, len(reqs))
 	for _, pr := range p.CollectResults() {
+		req := reqs[pr.ID]
 		if pr.Error != nil {
 			g.log.Warn("image tool fallback skipped",
 				logger.FieldPurpose, logger.PurposeJob,
 				logger.FieldEvent, "image.tool_call.fallback_failed",
 				logger.FieldErr, pr.Error,
 				"task_id", taskID,
-				"requirement_index", pr.ID,
+				"position", req.Position,
 			)
 			continue
 		}
 		if pr.Value == nil {
 			continue
 		}
-		if _, exists := results[pr.ID]; exists {
+		results = append(results, *pr.Value)
+	}
+	return results
+}
+
+func mergeImageResults(
+	ctx context.Context,
+	resultsByPosition map[int]port.ImageResult,
+	generated []port.ImageResult,
+) {
+	for _, result := range generated {
+		if _, exists := resultsByPosition[result.Position]; exists {
 			continue
 		}
-		results[pr.ID] = *pr.Value
-		if onProgress != nil {
-			onProgress(ctx, *pr.Value)
-		}
+		resultsByPosition[result.Position] = result
 	}
+}
+
+func prepareImageToolTask(
+	reqs []port.ImageRequirement,
+	toolMethods map[string]port.ImageMethod,
+	call schema.ToolCall,
+) (imageToolTask, error) {
+	method, ok := toolMethods[call.Function.Name]
+	if !ok {
+		return imageToolTask{}, fmt.Errorf("unknown or unauthorized tool %q", call.Function.Name)
+	}
+	var args imageToolArgs
+	if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err != nil {
+		return imageToolTask{}, fmt.Errorf("invalid arguments: %s", llmkit.Truncate(err.Error(), 200))
+	}
+	if args.RequirementIndex < 0 || args.RequirementIndex >= len(reqs) {
+		return imageToolTask{}, fmt.Errorf("requirementIndex %d out of range", args.RequirementIndex)
+	}
+
+	req := reqs[args.RequirementIndex]
+	if keywords := strings.TrimSpace(args.Keywords); keywords != "" {
+		req.Keywords = keywords
+	}
+	if prompt := strings.TrimSpace(args.Prompt); prompt != "" {
+		req.Prompt = prompt
+	}
+	return imageToolTask{
+		requirement: req,
+		method:      method,
+		toolName:    call.Function.Name,
+	}, nil
 }
 
 func (g *ToolCallingGenerator) executeToolCall(
 	ctx context.Context,
 	taskID string,
-	reqs []port.ImageRequirement,
-	results map[int]port.ImageResult,
-	toolMethods map[string]port.ImageMethod,
-	call schema.ToolCall,
-) imageToolFeedback {
-	method, ok := toolMethods[call.Function.Name]
-	if !ok {
-		return imageToolFeedback{Message: "unknown or unauthorized tool"}
-	}
-	var args imageToolArgs
-	if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err != nil {
-		return imageToolFeedback{Message: "invalid arguments: " + llmkit.Truncate(err.Error(), 200)}
-	}
-	if args.RequirementIndex < 0 || args.RequirementIndex >= len(reqs) {
-		return imageToolFeedback{RequirementIndex: args.RequirementIndex, Message: "requirementIndex out of range"}
-	}
-	if existing, exists := results[args.RequirementIndex]; exists {
-		return imageToolFeedback{
-			OK:               true,
-			RequirementIndex: args.RequirementIndex,
-			Position:         existing.Position,
-			Method:           existing.Method,
-			Message:          "already generated; do not call another tool for this item",
-		}
-	}
-
-	req := reqs[args.RequirementIndex]
-	if strings.TrimSpace(args.Keywords) != "" {
-		req.Keywords = strings.TrimSpace(args.Keywords)
-	}
-	if strings.TrimSpace(args.Prompt) != "" {
-		req.Prompt = strings.TrimSpace(args.Prompt)
-	}
+	req port.ImageRequirement,
+	method port.ImageMethod,
+	toolName string,
+) (port.ImageResult, error) {
 	result, err := g.tools.Execute(ctx, taskID, req, method)
 	if err != nil {
-		return imageToolFeedback{
-			RequirementIndex: args.RequirementIndex,
-			Position:         req.Position,
-			Method:           method,
-			Message:          llmkit.Truncate(err.Error(), 300),
-		}
+		return port.ImageResult{}, err
 	}
 
 	g.log.Info("image tool executed",
 		logger.FieldPurpose, logger.PurposeJob,
 		logger.FieldEvent, "image.tool_call.executed",
 		"task_id", taskID,
-		"tool", call.Function.Name,
-		"requirement_index", args.RequirementIndex,
+		"tool", toolName,
+		"position", req.Position,
 		"method", method,
 	)
-	return imageToolFeedback{
-		OK:               true,
-		Generated:        true,
-		RequirementIndex: args.RequirementIndex,
-		Position:         result.Position,
-		Method:           result.Method,
-		Message:          "image generated successfully",
-		Result:           &result,
-	}
+	return result, nil
 }
 
 func (g *ToolCallingGenerator) buildTools(allowedMethods []port.ImageMethod) ([]*schema.ToolInfo, map[string]port.ImageMethod) {
@@ -408,11 +362,8 @@ func (g *ToolCallingGenerator) buildTools(allowedMethods []port.ImageMethod) ([]
 	return tools, toolMethods
 }
 
-func sortedImageResults(results map[int]port.ImageResult) []port.ImageResult {
-	out := make([]port.ImageResult, 0, len(results))
-	for _, result := range results {
-		out = append(out, result)
-	}
+func sortedImageResults(resultsByPosition map[int]port.ImageResult) []port.ImageResult {
+	out := lo.Values(resultsByPosition)
 	sort.SliceStable(out, func(i, j int) bool {
 		return out[i].Position < out[j].Position
 	})
@@ -422,8 +373,7 @@ func sortedImageResults(results map[int]port.ImageResult) []port.ImageResult {
 const imageToolSystemPrompt = `你是文章配图执行 Agent。你的唯一任务是为用户给出的每一项配图需求调用工具。
 
 规则：
-1. 每项至少成功调用一个工具，requirementIndex 必须使用输入数组的真实下标。
-2. 优先使用需求中的 imageSource；工具失败时，分析错误并修改 keywords/prompt 重试，或选择其他可用工具。
-3. 已成功的 requirementIndex 不要重复生成。
-4. 不得虚构图片 URL，也不要在正文里输出图片；图片结果完全以工具返回为准。
-5. 所有项目成功后，用一句简短文字确认完成，不要继续调用工具。`
+1. 为每项需求调用一次工具，requirementIndex 必须使用输入数组的真实下标。
+2. 优先使用需求中的 imageSource，并根据需求完善 keywords 或 prompt。
+3. 不要为同一个 requirementIndex 重复调用工具；失败项将由系统自动 fallback。
+4. 不得虚构图片 URL，也不要在正文里输出图片；图片结果完全以工具返回为准。`
