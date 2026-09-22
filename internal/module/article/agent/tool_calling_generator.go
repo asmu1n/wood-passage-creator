@@ -51,6 +51,7 @@ type imageToolTask struct {
 	toolName    string
 }
 
+// 查看目标方案是否有对应的 provider
 func (g *ToolCallingGenerator) LookupProvider(method port.ImageMethod) (port.ImageProviderMetadata, bool) {
 	if g == nil || g.tools == nil {
 		return port.ImageProviderMetadata{}, false
@@ -58,6 +59,7 @@ func (g *ToolCallingGenerator) LookupProvider(method port.ImageMethod) (port.Ima
 	return g.tools.LookupProvider(method)
 }
 
+// 获取可执行方案的 provider 信息
 func (g *ToolCallingGenerator) AvailableProviders(allowedMethods []port.ImageMethod) []port.ImageProviderMetadata {
 	if g == nil || g.tools == nil {
 		return nil
@@ -167,6 +169,7 @@ func (g *ToolCallingGenerator) Generate(
 	return sortedImageResults(resultsByPosition), nil
 }
 
+// 并发工作池参数校验
 func imageFetchWorkers(n int) int {
 	if n <= 1 {
 		return 1
@@ -177,6 +180,7 @@ func imageFetchWorkers(n int) int {
 	return n
 }
 
+// 并发执行 tool call
 func (g *ToolCallingGenerator) runToolCalls(
 	ctx context.Context,
 	taskID string,
@@ -219,6 +223,7 @@ func (g *ToolCallingGenerator) runToolCalls(
 	return results
 }
 
+// fallback tool
 func (g *ToolCallingGenerator) runFallback(
 	ctx context.Context,
 	taskID string,
@@ -261,6 +266,7 @@ func (g *ToolCallingGenerator) runFallback(
 	return results
 }
 
+// 合并 task 结果
 func mergeImageResults(
 	resultsByPosition map[int]port.ImageResult,
 	generated []port.ImageResult,
@@ -273,6 +279,7 @@ func mergeImageResults(
 	}
 }
 
+// 预处理 tool call task 信息
 func prepareImageToolTask(
 	reqs []port.ImageRequirement,
 	toolMethods map[string]port.ImageMethod,
@@ -361,6 +368,7 @@ func (g *ToolCallingGenerator) buildTools(allowedMethods []port.ImageMethod) ([]
 	return tools, toolMethods
 }
 
+// 切片转换以及排序
 func sortedImageResults(resultsByPosition map[int]port.ImageResult) []port.ImageResult {
 	out := lo.Values(resultsByPosition)
 	sort.SliceStable(out, func(i, j int) bool {
