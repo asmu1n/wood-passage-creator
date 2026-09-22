@@ -45,11 +45,20 @@
             </a-space>
             <template #overlay>
               <a-menu class="dropdown-menu">
-                <a-menu-item v-if="isVip" key="vip-info" class="vip-info-item" @click="router.push('/vip')">
+                <a-menu-item
+                  v-if="isVip"
+                  key="vip-info"
+                  class="vip-info-item"
+                  @click="router.push('/vip')"
+                >
                   <CrownOutlined />
                   <span>永久会员权益</span>
                 </a-menu-item>
-                <a-menu-item key="payment-records" class="dropdown-item" @click="router.push('/payment/records')">
+                <a-menu-item
+                  key="payment-records"
+                  class="dropdown-item"
+                  @click="router.push('/payment/records')"
+                >
                   <PayCircleOutlined />
                   <span>我的支付记录</span>
                 </a-menu-item>
@@ -71,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, h } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser.ts'

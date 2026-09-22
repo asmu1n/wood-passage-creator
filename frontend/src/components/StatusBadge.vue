@@ -44,11 +44,11 @@ const statusText = computed(() => getStatusText(props.status))
 
 .status-badge.status-processing {
   background: rgba(59, 130, 246, 0.1);
-  color: #2563EB;
+  color: #2563eb;
 }
 
 .status-badge.status-processing .status-dot {
-  background: #3B82F6;
+  background: #3b82f6;
   animation: pulse 1.5s infinite;
 }
 
@@ -63,15 +63,20 @@ const statusText = computed(() => getStatusText(props.status))
 
 .status-badge.status-failed {
   background: rgba(239, 68, 68, 0.1);
-  color: #DC2626;
+  color: #dc2626;
 }
 
 .status-badge.status-failed .status-dot {
-  background: #EF4444;
+  background: #ef4444;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 </style>
