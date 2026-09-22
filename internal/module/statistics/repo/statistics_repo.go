@@ -11,6 +11,8 @@ import (
 	"wood-passage-creator/internal/infra/database"
 	"wood-passage-creator/internal/module/statistics"
 	"wood-passage-creator/internal/module/user"
+
+	"github.com/samber/lo"
 )
 
 // StatisticsRepo 只读聚合，实现 statistics.Repository。
@@ -143,9 +145,8 @@ func (r *StatisticsRepo) SumQuotaByRole(ctx context.Context, role user.UserRole)
 	if err != nil {
 		return 0, 0, err
 	}
-	userCount = int64(len(rows))
-	for _, row := range rows {
-		remaining += int64(row.Quota)
-	}
+	userCount = lo.Reduce(rows, func(acc int64, row *ent.User, _ int) int64 {
+		return int64(row.Quota) + acc
+	}, int64(len(rows)))
 	return remaining, userCount, nil
 }
