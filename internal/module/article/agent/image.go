@@ -8,6 +8,7 @@ import (
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
+	"github.com/samber/lo"
 
 	"wood-passage-creator/internal/module/article"
 	"wood-passage-creator/internal/module/article/prompt"
@@ -126,15 +127,14 @@ func (a *ImageAgent) analyze(ctx context.Context, state *article.ArticleState) e
 		return fmt.Errorf("%s: %w", a.Name(), err)
 	}
 
-	filtered := make([]port.ImageRequirement, 0, len(result.ImageRequirements))
-	for _, req := range result.ImageRequirements {
+	filtered := lo.FilterMap(result.ImageRequirements, func(req port.ImageRequirement, i int) (port.ImageRequirement, bool) {
 		src := req.ImageSource.Normalize()
 		if !port.Allow(enabled, src) {
-			continue
+			return req, false
 		}
 		req.ImageSource = src
-		filtered = append(filtered, req)
-	}
+		return req, true
+	})
 
 	if result.ContentWithPlaceholders != "" {
 		state.ContentWithPlaceholders = result.ContentWithPlaceholders

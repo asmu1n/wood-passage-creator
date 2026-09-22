@@ -334,6 +334,7 @@ func (g *ToolCallingGenerator) executeToolCall(
 	return result, nil
 }
 
+// 根据当前允许的方案构建 tool call 参数
 func (g *ToolCallingGenerator) buildTools(allowedMethods []port.ImageMethod) ([]*schema.ToolInfo, map[string]port.ImageMethod) {
 	providers := g.AvailableProviders(allowedMethods)
 	tools := make([]*schema.ToolInfo, 0, len(providers))

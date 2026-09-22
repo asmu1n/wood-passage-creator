@@ -9,6 +9,8 @@ import (
 	"wood-passage-creator/internal/infra/database"
 	"wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/page"
+
+	"github.com/samber/lo"
 )
 
 type UserRepo struct {
@@ -199,9 +201,7 @@ func toDomain(row *ent.User) *user.User {
 }
 
 func toDomainList(rows []*ent.User) []*user.User {
-	users := make([]*user.User, 0, len(rows))
-	for _, row := range rows {
-		users = append(users, toDomain(row))
-	}
-	return users
+	return lo.Map(rows, func(row *ent.User, _ int) *user.User {
+		return toDomain(row)
+	})
 }

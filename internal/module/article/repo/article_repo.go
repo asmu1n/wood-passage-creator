@@ -8,6 +8,8 @@ import (
 	entm "wood-passage-creator/ent/article"
 	"wood-passage-creator/internal/infra/database"
 	"wood-passage-creator/internal/module/article"
+
+	"github.com/samber/lo"
 )
 
 type ArticleRepo struct {
@@ -246,9 +248,7 @@ func toDomain(row *ent.Article) *article.Article {
 }
 
 func toDomainList(rows []*ent.Article) []*article.Article {
-	list := make([]*article.Article, 0, len(rows))
-	for _, row := range rows {
-		list = append(list, toDomain(row))
-	}
-	return list
+	return lo.Map(rows, func(row *ent.Article, _ int) *article.Article {
+		return toDomain(row)
+	})
 }

@@ -7,6 +7,8 @@ import (
 	entgen "wood-passage-creator/ent/paymentrecord"
 	"wood-passage-creator/internal/infra/database"
 	"wood-passage-creator/internal/module/payment"
+
+	"github.com/samber/lo"
 )
 
 type repo struct {
@@ -109,12 +111,7 @@ func toDomain(row *ent.PaymentRecord) *payment.Record {
 }
 
 func toDomainList(rows []*ent.PaymentRecord) []*payment.Record {
-	if rows == nil {
-		return nil
-	}
-	domains := make([]*payment.Record, len(rows))
-	for i, row := range rows {
-		domains[i] = toDomain(row)
-	}
-	return domains
+	return lo.Map(rows, func(row *ent.PaymentRecord, _ int) *payment.Record {
+		return toDomain(row)
+	})
 }
