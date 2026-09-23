@@ -23,7 +23,7 @@ agent/
 | `OutlineGenerator` | **jsonLLM** | `Stream` | `{"sections":[{"section","title","points"},...]}`；增量经回调转发 |
 | `ContentGenerator` | textLLM | `Stream` | Markdown 正文；增量经回调转发 |
 | `ImageAgent.analyze` | **jsonLLM** | `Generate` | `{"contentWithPlaceholders","imageRequirements":[...]}` |
-| `ToolCallingGenerator` | textLLM（装配在 infra，非 Orchestrator jsonLLM） | `WithTools` + 有界 `Generate` 循环 | `ImageResult[]` |
+| `ToolCallingGenerator` | textLLM（装配在 infra，非 Orchestrator jsonLLM） | `flow/agent/react` 有界 ReAct | `ImageResult[]` |
 | `ContentMerger` | — | 不调用 LLM | 将图片 URL 替换进占位符 |
 
 结构化节点统一 **object 根**，以兼容 OpenAI 系 `json_object`（根不能是顶层数组）：
@@ -38,9 +38,10 @@ Content 与 Tool Calling 必须保持 text model。
 `ImageRequirement[]` 交给 `port.ImageGenerator`。因此 Provider Tool Calling 的后续轮次
 不会重复携带完整正文。
 
-`infra/image.ToolCallingGenerator` 根据配图需求调用 Pexels、Iconify、Emoji、Mermaid、
-SVG 或 AI 生图工具。Provider 执行结果作为 tool message 返回模型。调用轮次和总次数
-均有限制；模型未完成的项目最后进入确定性 fallback。`ProviderExecutor` 只负责工具的
+`ToolCallingGenerator` 使用 Eino `flow/agent/react` 执行配图工具循环，可调用
+Pexels、Iconify、Emoji、Mermaid、SVG 或 AI 生图工具。模型只看到 `{ok,error}`，
+图片 URL 由工具写入 `ImageResult`，不回传给模型。`MaxStep` 限制图步数；模型停止、
+步数耗尽或模型调用失败后，未完成项进入确定性 fallback。`ProviderExecutor` 只负责工具的
 注册、元信息查询、实际执行与结果发布，不负责 LLM 编排，也不实现
 `port.ImageGenerator`。
 
