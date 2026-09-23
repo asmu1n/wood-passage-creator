@@ -100,10 +100,12 @@ func (g *ToolCallingGenerator) Generate(
 		return nil, nil
 	}
 	run := &imageReactRun{
-		results: make(map[int]port.ImageResult, len(reqs)),
-		slots:   make(map[int]imageSlot, len(reqs)),
+		results:    make(map[int]port.ImageResult, len(reqs)),
+		slots:      make(map[int]imageSlot, len(reqs)),
+		total:      len(reqs),
+		onProgress: onProgress,
 	}
-	einoTools, toolNames := g.buildTools(taskID, reqs, allowedMethods, run, onProgress)
+	einoTools, toolNames := g.buildTools(taskID, reqs, allowedMethods, run)
 	if len(einoTools) == 0 {
 		return nil, fmt.Errorf("no permitted image tools are available")
 	}
@@ -149,7 +151,7 @@ func (g *ToolCallingGenerator) Generate(
 	}
 
 	// 统一补全缺失的 requirements。
-	g.runFallback(ctx, taskID, run.missing(reqs), run, onProgress, len(reqs))
+	g.runFallback(ctx, taskID, run.missing(reqs), run)
 
 	results := sortedImageResults(run.snapshot())
 	g.log.Info("image tool calling done",
@@ -165,11 +167,13 @@ func (g *ToolCallingGenerator) Generate(
 
 // 单次 ReAct 执行状态，管理 requirement 的执行结果和状态。
 type imageReactRun struct {
-	mu       sync.Mutex
-	results  map[int]port.ImageResult
-	slots    map[int]imageSlot
-	done     int
-	executed int
+	mu         sync.Mutex
+	results    map[int]port.ImageResult
+	slots      map[int]imageSlot
+	total      int
+	done       int
+	executed   int
+	onProgress port.ImageProgressFunc
 }
 
 // 尝试标记某个 requirement 的 position 为正在执行状态，返回是否成功。
@@ -197,12 +201,14 @@ func (run *imageReactRun) release(position int) {
 }
 
 // 标记完成某个 requirement 的 position，并记录结果。返回当前完成数量和是否新增完成。
-func (run *imageReactRun) add(result port.ImageResult, fromTool bool) (int, bool) {
+func (run *imageReactRun) add(ctx context.Context, result port.ImageResult, fromTool bool) (int, bool) {
 	run.mu.Lock()
-	defer run.mu.Unlock()
 	if _, exists := run.results[result.Position]; exists {
 		run.slots[result.Position] = imageSlotDone
-		return run.done, false
+		run.slots[result.Position] = imageSlotDone
+		done := run.done
+		run.mu.Unlock()
+		return done, false
 	}
 	run.results[result.Position] = result
 	run.slots[result.Position] = imageSlotDone
@@ -210,7 +216,12 @@ func (run *imageReactRun) add(result port.ImageResult, fromTool bool) (int, bool
 	if fromTool {
 		run.executed++
 	}
-	return run.done, true
+	done := run.done
+	run.mu.Unlock()
+	if run.onProgress != nil {
+		run.onProgress(ctx, done, run.total, result)
+	}
+	return done, true
 }
 
 // 返回缺失的 requirements 列表
@@ -240,20 +251,12 @@ func (run *imageReactRun) executedCount() int {
 	return run.executed
 }
 
-func reportImage(onProgress port.ImageProgressFunc, ctx context.Context, total int, result port.ImageResult, done int, added bool) {
-	if added && onProgress != nil {
-		onProgress(ctx, done, total, result)
-	}
-}
-
 // fallback 只补 ReAct 结束后仍缺的 position，不把失败送回模型。
 func (g *ToolCallingGenerator) runFallback(
 	ctx context.Context,
 	taskID string,
 	reqs []port.ImageRequirement,
 	run *imageReactRun,
-	onProgress port.ImageProgressFunc,
-	total int,
 ) {
 	if len(reqs) == 0 {
 		return
@@ -266,8 +269,7 @@ func (g *ToolCallingGenerator) runFallback(
 			if err != nil {
 				return port.ImageResult{}, err
 			}
-			done, added := run.add(res, false)
-			reportImage(onProgress, taskCtx, total, res, done, added)
+			run.add(taskCtx, res, false)
 			return res, nil
 		})
 	}
@@ -292,7 +294,6 @@ func (g *ToolCallingGenerator) buildTools(
 	reqs []port.ImageRequirement,
 	allowedMethods []port.ImageMethod,
 	run *imageReactRun,
-	onProgress port.ImageProgressFunc,
 ) ([]tool.BaseTool, []string) {
 	providers := g.AvailableProviders(allowedMethods)
 	tools := make([]tool.BaseTool, 0, len(providers))
@@ -302,14 +303,13 @@ func (g *ToolCallingGenerator) buildTools(
 			continue
 		}
 		bound := imageProviderTool{
-			exector:    g.tools.Execute,
-			log:        g.log,
-			taskID:     taskID,
-			reqs:       reqs,
-			state:      run,
-			onProgress: onProgress,
-			method:     provider.Method,
-			toolName:   provider.ToolName,
+			exector:  g.tools.Execute,
+			log:      g.log,
+			taskID:   taskID,
+			reqs:     reqs,
+			state:    run,
+			method:   provider.Method,
+			toolName: provider.ToolName,
 		}
 		names = append(names, bound.toolName)
 		tools = append(tools, utils.NewTool(
@@ -342,11 +342,10 @@ type imageProviderTool struct {
 	log     *slog.Logger
 	state   *imageReactRun
 
-	taskID     string
-	reqs       []port.ImageRequirement
-	onProgress port.ImageProgressFunc
-	method     port.ImageMethod
-	toolName   string
+	taskID   string
+	reqs     []port.ImageRequirement
+	method   port.ImageMethod
+	toolName string
 }
 
 func (t imageProviderTool) invoke(ctx context.Context, args imageToolArgs) (imageToolOutput, error) {
@@ -408,8 +407,7 @@ func (t imageProviderTool) invoke(ctx context.Context, args imageToolArgs) (imag
 		"position", req.Position,
 		"method", t.method,
 	)
-	done, added := t.state.add(result, true)
-	reportImage(t.onProgress, ctx, len(t.reqs), result, done, added)
+	t.state.add(ctx, result, true)
 	return imageToolOutput{OK: true, Position: req.Position, Method: t.method.String()}, nil
 }
 
