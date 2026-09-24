@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-
-	"golang.org/x/sync/errgroup"
 )
 
 var ErrPoolStopped = errors.New("pool has stopped accepting tasks")
@@ -156,7 +154,7 @@ type Result[T any] struct {
 type Pool[T any] struct {
 	taskChan chan Task[T]
 
-	group    errgroup.Group
+	wg       sync.WaitGroup
 	stopOnce sync.Once
 
 	submitMu sync.RWMutex
@@ -181,10 +179,9 @@ func NewPool[T any](ctx context.Context, workerCount, queueSize int) *Pool[T] {
 		taskChan: make(chan Task[T], queueSize),
 		results:  make([]Result[T], 0, workerCount+queueSize),
 	}
+	p.wg.Add(workerCount)
 	for i := 0; i < workerCount; i++ {
-		p.group.Go(func() error {
-			return p.worker(ctx)
-		})
+		go p.worker(ctx)
 	}
 	return p
 }
@@ -192,6 +189,7 @@ func NewPool[T any](ctx context.Context, workerCount, queueSize int) *Pool[T] {
 // AddTask submits a task unless the pool has already been stopped.
 // It applies backpressure when the task queue is full.
 func (p *Pool[T]) AddTask(id int, fn func(ctx context.Context) (T, error)) error {
+	// 启用读锁，并判断是否可用，避免推送任务到已关闭的通道导致 panic
 	p.submitMu.RLock()
 	defer p.submitMu.RUnlock()
 
@@ -206,21 +204,22 @@ func (p *Pool[T]) AddTask(id int, fn func(ctx context.Context) (T, error)) error
 // It does not cancel the task context and does not stop on individual errors.
 func (p *Pool[T]) Stop() {
 	p.stopOnce.Do(func() {
+		// 更新提交锁，防止新的任务被提交
 		p.submitMu.Lock()
 		p.stopped = true
 		close(p.taskChan)
 		p.submitMu.Unlock()
 
-		// Workers always return nil. Task failures are retained in Result so one
-		// failed task cannot cancel or otherwise short-circuit the remaining work.
-		_ = p.group.Wait()
+		p.wg.Wait()
 	})
 }
 
 // CollectResults waits for all accepted tasks and returns a result snapshot.
 func (p *Pool[T]) CollectResults() []Result[T] {
+	// 阻塞等待全部 worker 完成任务，确保结果切片完整
 	p.Stop()
 
+	// 上锁保护结果切片，避免在收集结果时被其他 goroutine 修改
 	p.resultsMu.Lock()
 	defer p.resultsMu.Unlock()
 
@@ -241,7 +240,8 @@ func (p *Pool[T]) GetResults() <-chan Result[T] {
 	return results
 }
 
-func (p *Pool[T]) worker(ctx context.Context) error {
+func (p *Pool[T]) worker(ctx context.Context) {
+	defer p.wg.Done()
 	for task := range p.taskChan {
 		result := runTask(ctx, task)
 
@@ -249,7 +249,6 @@ func (p *Pool[T]) worker(ctx context.Context) error {
 		p.results = append(p.results, result)
 		p.resultsMu.Unlock()
 	}
-	return nil
 }
 
 func runTask[T any](ctx context.Context, task Task[T]) (result Result[T]) {
