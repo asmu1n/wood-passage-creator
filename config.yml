@@ -41,14 +41,6 @@ iconify:
   base_url: "https://api.iconify.design"
   timeout_ms: 5000
 
-mermaid:
-  cli: "mmdc"
-  output_format: "png"
-  theme: "default"
-  width: 1200
-  height: 800
-  timeout_ms: 30000
-
 emoji_pack:
   suffix: "表情包"
   timeout_ms: 8000

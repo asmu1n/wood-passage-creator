@@ -10,18 +10,30 @@
       <p class="article-subtitle">{{ article.subTitle }}</p>
     </div>
     <div class="content-preview">
-      <div v-html="markdownToHtml(article.fullContent || article.content || '')" class="markdown-body"></div>
+      <div ref="previewRef" v-html="markdownToHtml(article.fullContent || article.content || '')" class="markdown-body"></div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { nextTick, ref, watch } from 'vue'
 import { CheckCircleFilled } from '@ant-design/icons-vue'
-import { markdownToHtml } from '@/utils/markdown'
+import { markdownToHtml, renderMermaid } from '@/utils/markdown'
 
-defineProps<{
+const props = defineProps<{
   article: Partial<API.ArticleVO>
 }>()
+
+const previewRef = ref<HTMLElement | null>(null)
+
+watch(
+  () => props.article.fullContent || props.article.content,
+  async () => {
+    await nextTick()
+    await renderMermaid(previewRef.value)
+  },
+  { immediate: true },
+)
 </script>
 
 <style scoped lang="scss">

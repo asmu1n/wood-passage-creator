@@ -17,10 +17,13 @@ type ContentMerger struct {
 }
 
 func NewContentMerger() agent {
-	return &ContentMerger{log: logger.Module("article.agent")}
+	return &ContentMerger{
+		log: logger.Module("article.agent")}
 }
 
-func (a *ContentMerger) Name() Name { return NameContentMerger }
+func (a *ContentMerger) Name() Name {
+	return NameContentMerger
+}
 
 func (a *ContentMerger) Execute(ctx context.Context, state *article.ArticleState) error {
 	_ = ctx
@@ -54,10 +57,17 @@ func mergeImages(content string, images []port.ImageResult) string {
 		if img.PlaceholderID == "" || img.URL == "" {
 			continue
 		}
-		md := fmt.Sprintf("![%s](%s)", altText(img), img.URL)
-		out = strings.ReplaceAll(out, img.PlaceholderID, md)
+		out = strings.ReplaceAll(out, img.PlaceholderID, imageMarkdown(img))
 	}
 	return out
+}
+
+func imageMarkdown(img port.ImageResult) string {
+	if img.Method == port.MethodMermaid && strings.HasPrefix(img.URL, "mermaid:") {
+		code := strings.TrimSpace(strings.TrimPrefix(img.URL, "mermaid:"))
+		return "```mermaid\n" + code + "\n```"
+	}
+	return fmt.Sprintf("![%s](%s)", altText(img), img.URL)
 }
 
 func altText(img port.ImageResult) string {

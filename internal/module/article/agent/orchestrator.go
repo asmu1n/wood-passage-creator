@@ -40,6 +40,7 @@ func NewOrchestrator(
 		panic("structured model injector is nil")
 	}
 
+	// 初始化 title / outline / image analyze 的结构化模型
 	titleModel, err := LLMSchemaInject(
 		"article_title",
 		"文章标题候选项",
@@ -96,7 +97,7 @@ func summaryJSON(v any) string {
 	return s
 }
 
-// trace 在编排步骤外包一层 agent_log（方案 B）。
+// trace 在编排步骤外包一层 agent_log。
 func (o *Orchestrator) trace(
 	state *article.ArticleState,
 	agentName string,
@@ -104,6 +105,7 @@ func (o *Orchestrator) trace(
 	run func() error,
 	output func() any,
 ) error {
+	// 记录 angent 执行时间和状态
 	start := time.Now()
 	err := run()
 	end := time.Now()

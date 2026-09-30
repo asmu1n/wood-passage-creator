@@ -17,7 +17,6 @@ type Config struct {
 	LLM        LLMConfig        `mapstructure:"llm"`
 	Pexels     PexelsConfig     `mapstructure:"pexels"`
 	Iconify    IconifyConfig    `mapstructure:"iconify"`
-	Mermaid    MermaidConfig    `mapstructure:"mermaid"`
 	EmojiPack  EmojiPackConfig  `mapstructure:"emoji_pack"`
 	SVGDiagram SVGDiagramConfig `mapstructure:"svg_diagram"`
 	NanoBanana NanoBananaConfig `mapstructure:"nano_banana"`
@@ -64,15 +63,6 @@ type IconifyConfig struct {
 	TimeoutMs int    `mapstructure:"timeout_ms"`
 }
 
-type MermaidConfig struct {
-	CLI          string `mapstructure:"cli"`
-	OutputFormat string `mapstructure:"output_format"`
-	Theme        string `mapstructure:"theme"`
-	Width        int    `mapstructure:"width"`
-	Height       int    `mapstructure:"height"`
-	TimeoutMs    int    `mapstructure:"timeout_ms"`
-}
-
 type EmojiPackConfig struct {
 	Suffix    string `mapstructure:"suffix"`
 	TimeoutMs int    `mapstructure:"timeout_ms"`
@@ -108,29 +98,6 @@ func (c IconifyConfig) Normalized() IconifyConfig {
 	}
 	if out.TimeoutMs <= 0 {
 		out.TimeoutMs = 5000
-	}
-	return out
-}
-
-func (c MermaidConfig) Normalized() MermaidConfig {
-	out := c
-	if out.CLI == "" {
-		out.CLI = "mmdc"
-	}
-	if out.OutputFormat == "" {
-		out.OutputFormat = "png"
-	}
-	if out.Theme == "" {
-		out.Theme = "default"
-	}
-	if out.Width <= 0 {
-		out.Width = 1200
-	}
-	if out.Height <= 0 {
-		out.Height = 800
-	}
-	if out.TimeoutMs <= 0 {
-		out.TimeoutMs = 30000
 	}
 	return out
 }
@@ -239,7 +206,6 @@ func LoadConfig() *Config {
 		// 6. session 默认值
 		globalConfig.Session = globalConfig.Session.Normalized()
 		globalConfig.Iconify = globalConfig.Iconify.Normalized()
-		globalConfig.Mermaid = globalConfig.Mermaid.Normalized()
 		globalConfig.EmojiPack = globalConfig.EmojiPack.Normalized()
 		globalConfig.NanoBanana = globalConfig.NanoBanana.Normalized()
 	})

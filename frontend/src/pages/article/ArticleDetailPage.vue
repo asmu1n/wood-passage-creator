@@ -139,7 +139,7 @@
               <FileTextOutlined class="section-icon" />
               完整图文
             </h2>
-            <div v-html="markdownToHtml(article.fullContent)" class="markdown-content"></div>
+            <div ref="contentRef" v-html="markdownToHtml(article.fullContent)" class="markdown-content"></div>
           </div>
 
           <!-- 普通正文（无 fullContent 时展示） -->
@@ -148,7 +148,7 @@
               <FileTextOutlined class="section-icon" />
               文章正文
             </h2>
-            <div v-html="markdownToHtml(article.content)" class="markdown-content"></div>
+            <div ref="contentRef" v-html="markdownToHtml(article.content)" class="markdown-content"></div>
           </div>
 
           <!-- 配图（仅在没有 fullContent 时单独展示） -->
@@ -174,7 +174,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import {
@@ -192,6 +192,7 @@ import {
 } from '@ant-design/icons-vue'
 import { getArticle, getExecutionLogs } from '@/api/articleController'
 import { marked } from 'marked'
+import { renderMermaid } from '@/utils/markdown'
 import dayjs from 'dayjs'
 
 const router = useRouter()
@@ -199,6 +200,7 @@ const route = useRoute()
 
 const loading = ref(false)
 const article = ref<API.ArticleVO | null>(null)
+const contentRef = ref<HTMLElement | null>(null)
 const executionStats = ref<API.AgentExecutionStats | null>(null)
 const logsLoading = ref(false)
 const showExecutionLogs = ref(false)
@@ -207,6 +209,14 @@ const showExecutionLogs = ref(false)
 const markdownToHtml = (markdown: string) => {
   return marked(markdown)
 }
+
+watch(
+  () => article.value?.fullContent || article.value?.content,
+  async () => {
+    await nextTick()
+    await renderMermaid(contentRef.value)
+  },
+)
 
 // 加载文章
 const loadArticle = async () => {

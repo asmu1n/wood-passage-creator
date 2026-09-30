@@ -250,7 +250,7 @@
             <p class="article-subtitle">{{ article.subTitle }}</p>
           </div>
           <div class="content-preview">
-            <div v-html="markdownToHtml(article.fullContent || article.content || '')" class="markdown-body"></div>
+            <div ref="completedRef" v-html="markdownToHtml(article.fullContent || article.content || '')" class="markdown-body"></div>
           </div>
           </div>
         </Transition>
@@ -534,7 +534,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onBeforeUnmount, onMounted, nextTick, computed } from 'vue'
+import { ref, onBeforeUnmount, onMounted, nextTick, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
@@ -564,6 +564,7 @@ import { connectSSE, closeSSE, type SSEMessage } from '@/utils/sse'
 import { parseOutlineStream, type OutlineStreamItem } from '@/utils/outlineStream'
 import { isAdmin as checkIsAdmin, isVip as checkIsVip, hasQuota as checkHasQuota } from '@/utils/permission'
 import { marked } from 'marked'
+import { renderMermaid } from '@/utils/markdown'
 import TitleSelectingStage from './components/TitleSelectingStage.vue'
 import OutlineEditingStage from './components/OutlineEditingStage.vue'
 
@@ -656,6 +657,19 @@ let eventSource: EventSource | null = null
 const markdownToHtml = (markdown: string | undefined) => {
   return marked(markdown || '')
 }
+
+const completedRef = ref<HTMLElement | null>(null)
+
+watch(
+  () => article.value.fullContent,
+  async (content) => {
+    if (!content) {
+      return
+    }
+    await nextTick()
+    await renderMermaid(completedRef.value)
+  },
+)
 
 // 自动滚动到底部
 const scrollToBottom = () => {

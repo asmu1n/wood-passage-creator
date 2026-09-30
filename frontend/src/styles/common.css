@@ -172,7 +172,10 @@
   color: var(--color-text);
 }
 
-.markdown-content img {
+.markdown-content img,
+.markdown-body img,
+.markdown-content .mermaid,
+.markdown-body .mermaid {
   display: block;
   max-width: 100%;
   margin: 20px auto;

@@ -3,98 +3,65 @@ package image
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/exec"
 	"strings"
-	"time"
 
-	"wood-passage-creator/internal/config"
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/schema"
+
 	"wood-passage-creator/internal/port"
 )
 
+const mermaidSourcePrefix = "mermaid:"
+
 type Mermaid struct {
-	cfg config.MermaidConfig
+	llm model.BaseChatModel
 }
 
-func NewMermaid(cfg config.MermaidConfig) *Mermaid {
-	cfg = cfg.Normalized()
-	if cfg.CLI == "" {
+func NewMermaid(llm model.BaseChatModel) *Mermaid {
+	if llm == nil {
 		return nil
 	}
-	if _, err := exec.LookPath(cfg.CLI); err != nil {
-		return nil
-	}
-	return &Mermaid{cfg: cfg}
+	return &Mermaid{llm: llm}
 }
 
 func (p *Mermaid) Metadata() port.ImageProviderMetadata {
 	return port.ImageProviderMetadata{
 		Method:             port.MethodMermaid,
 		Access:             port.ImageAccessFree,
-		PlannerDescription: "Mermaid 流程图/时序图",
-		PlannerUsageGuide:  "imageSource=MERMAID；prompt 填完整 mermaid 源码。",
+		PlannerDescription: "LLM 生成 Mermaid 流程图/时序图，由前端渲染",
+		PlannerUsageGuide:  "imageSource=MERMAID；prompt 描述图中元素及其关系，不要填写 Mermaid 源码。",
 		ToolName:           "render_mermaid_diagram",
-		ToolDescription:    "Render a Mermaid diagram. The prompt must contain complete valid Mermaid source code.",
+		ToolDescription:    "Generate a Mermaid diagram from a description of the elements and their relationships. Do not supply Mermaid source code.",
 	}
 }
+
 func (p *Mermaid) Fetch(ctx context.Context, req port.ImageRequirement) (string, error) {
-	code := reqText(req, true)
-	if strings.TrimSpace(code) == "" {
-		return "", fmt.Errorf("mermaid: prompt/code required")
+	desc := reqText(req, true)
+	if desc == "" {
+		return "", fmt.Errorf("mermaid: prompt required")
 	}
-
-	in, err := os.CreateTemp("", "mermaid_in_*.mmd")
+	prompt := fmt.Sprintf(`你是流程图设计师。请根据需求生成完整的 Mermaid 流程图或时序图源码。
+要求：仅输出 Mermaid 源码，不要 markdown 代码围栏，不要解释文字；使用 Mermaid 支持的语法，中文节点文字用引号括起来。
+需求：%s`, desc)
+	response, err := p.llm.Generate(ctx, []*schema.Message{schema.UserMessage(prompt)})
 	if err != nil {
 		return "", err
 	}
-	inPath := in.Name()
-	defer os.Remove(inPath)
-	if _, err := in.WriteString(code); err != nil {
-		in.Close()
-		return "", err
+	if response == nil {
+		return "", fmt.Errorf("mermaid: empty model response")
 	}
-	in.Close()
-
-	ext := "." + strings.TrimPrefix(p.cfg.OutputFormat, ".")
-	out, err := os.CreateTemp("", "mermaid_out_*"+ext)
-	if err != nil {
-		return "", err
+	code := strings.TrimSpace(response.Content)
+	code = strings.TrimPrefix(code, "```mermaid")
+	code = strings.TrimPrefix(code, "```")
+	code = strings.TrimSuffix(code, "```")
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return "", fmt.Errorf("mermaid: no source in model output")
 	}
-	outPath := out.Name()
-	out.Close()
-	defer os.Remove(outPath)
-
-	timeout := time.Duration(p.cfg.TimeoutMs) * time.Millisecond
-	if timeout <= 0 {
-		timeout = 30 * time.Second
+	firstLine, _, _ := strings.Cut(code, "\n")
+	fields := strings.Fields(firstLine)
+	if len(fields) == 0 || (fields[0] != "flowchart" && fields[0] != "graph" && fields[0] != "sequenceDiagram") {
+		return "", fmt.Errorf("mermaid: model output must start with flowchart, graph or sequenceDiagram")
 	}
-	cctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	args := []string{
-		"-i", inPath,
-		"-o", outPath,
-		"-t", p.cfg.Theme,
-		"-w", fmt.Sprintf("%d", p.cfg.Width),
-		"-H", fmt.Sprintf("%d", p.cfg.Height),
-	}
-	cmd := exec.CommandContext(cctx, p.cfg.CLI, args...)
-	if b, err := cmd.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("mermaid cli: %w: %s", err, truncate(string(b), 300))
-	}
-	raw, err := os.ReadFile(outPath)
-	if err != nil {
-		return "", err
-	}
-	if len(raw) == 0 {
-		return "", fmt.Errorf("mermaid: empty output")
-	}
-	mime := "image/png"
-	switch strings.ToLower(p.cfg.OutputFormat) {
-	case "svg":
-		mime = "image/svg+xml"
-	case "pdf":
-		mime = "application/pdf"
-	}
-	return dataURL(mime, raw), nil
+	return mermaidSourcePrefix + code, nil
 }

@@ -105,11 +105,13 @@ func (g *ToolCallingGenerator) Generate(
 		total:      len(reqs),
 		onProgress: onProgress,
 	}
+	// 组装 image provider tool （内置了任务运行状态收集）
 	einoTools, toolNames := g.buildTools(taskID, reqs, allowedMethods, run)
 	if len(einoTools) == 0 {
 		return nil, fmt.Errorf("no permitted image tools are available")
 	}
 
+	// 序列化配图需求并插入到 agent message 中作为上下文
 	requirementsJSON, err := json.Marshal(reqs)
 	if err != nil {
 		return nil, fmt.Errorf("marshal image requirements: %w", err)
@@ -288,7 +290,7 @@ func (g *ToolCallingGenerator) runFallback(
 	}
 }
 
-// 根据当前可用的 provider 构建 tool
+// 根据当前可用的 provider 构建 tool(s)，并绑定当前执行状态和回调。
 func (g *ToolCallingGenerator) buildTools(
 	taskID string,
 	reqs []port.ImageRequirement,

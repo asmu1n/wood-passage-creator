@@ -24,7 +24,7 @@ type providerExecutor struct {
 }
 
 // NewProviderExecutor 按完整配置注册可用 Provider。
-// llm 用于 SVG_DIAGRAM；可 nil（则不注册 SVG）。
+// llm 用于 MERMAID 和 SVG_DIAGRAM；可 nil（则不注册这两种 Provider）。
 // store 为 port.ObjectStore（cmd 装配；未配置可为 nil，fetch 时跳过转存）。
 func NewProviderExecutor(cfg *config.Config, llm model.BaseChatModel, store port.ObjectStore) *providerExecutor {
 	if cfg == nil {
@@ -40,9 +40,9 @@ func NewProviderExecutor(cfg *config.Config, llm model.BaseChatModel, store port
 	g.Register(NewPexels(cfg.Pexels.APIKey))
 	g.Register(NewIconify(cfg.Iconify))
 	g.Register(NewEmojiPack(cfg.EmojiPack))
-	g.Register(NewMermaid(cfg.Mermaid))
 	g.Register(NewNanoBanana(cfg.NanoBanana))
 	if llm != nil {
+		g.Register(NewMermaid(llm))
 		g.Register(NewSVGDiagram(cfg.SVGDiagram, llm))
 	}
 	return g
@@ -166,7 +166,7 @@ func (g *providerExecutor) ExecuteWithFallback(ctx context.Context, taskID strin
 
 func (g *providerExecutor) publishResult(ctx context.Context, taskID string, req port.ImageRequirement, url string, method port.ImageMethod) port.ImageResult {
 	// 可选对象存储转存：未配置 store==nil，直接保留原 URL
-	if g.store != nil {
+	if g.store != nil && method != port.MethodMermaid {
 		folder := strings.ToLower(method.String())
 		if published, uerr := objectstore.PublishSource(ctx, g.store, url, folder, 0); uerr != nil {
 			g.log.Warn("objectstore publish failed, keep original url",
