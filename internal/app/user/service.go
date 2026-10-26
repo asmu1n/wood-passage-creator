@@ -59,6 +59,7 @@ func (s *Service) GrantVIP(ctx context.Context, userID int64) (*module.User, err
 	if err != nil {
 		return nil, err
 	}
+	// 处理事务提交后触发缓存清理，如果不在事务上下文内则立即执行。
 	appcore.CurrentRuntime().AfterCommit(ctx, func(ctx context.Context) {
 		s.log.Info("user granted vip",
 			logger.FieldPurpose, logger.PurposeBiz,
