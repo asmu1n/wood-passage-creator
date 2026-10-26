@@ -197,6 +197,8 @@ func (s *Service) Create(ctx context.Context, actor moduser.Actor, req CreateArt
 	if err != nil {
 		return "", err
 	}
+
+	// 先检查并消费当前配额，再创建文章任务，配额采用原子扣减避免超额，配合事务回滚绑定消费事件状态，避免失败额外扣减。
 	err = appcore.CurrentRuntime().WithinTx(ctx, func(ctx context.Context) error {
 		if _, err := s.userQuota.CheckAndConsumeQuota(ctx, actor.ID); err != nil {
 			return err

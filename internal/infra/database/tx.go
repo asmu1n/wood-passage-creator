@@ -55,6 +55,7 @@ func (db *db) WithinTx(
 	if db == nil || db.Client == nil {
 		return fmt.Errorf("database: nil transaction manager")
 	}
+	// 检测当前是否已处于事务上下文中，避免嵌套事务
 	if state := txStateFrom(ctx); state != nil {
 		return fn(ctx)
 	}

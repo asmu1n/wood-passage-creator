@@ -100,9 +100,11 @@ func (s *Service) CompleteMockVIP(ctx context.Context, actor moduser.Actor, sess
 			IsVIP:  u != nil && (u.UserRole == moduser.RoleVIP || u.UserRole == moduser.RoleAdmin),
 		}, nil
 	}
+	// 未支付：必须是 PENDING 才能完成
 	if rec.Status != module.StatusPending {
 		return nil, response.NewBizErrorWithDetail(response.ParamsError, "支付状态不允许完成: "+string(rec.Status))
 	}
+	// 开始启用事务，标记当前记录为 SUCCEEDED 并开通 VIP
 	intentID := "mock_pi_" + uuid.NewString()
 	var updated *module.Record
 	var u *moduser.User
