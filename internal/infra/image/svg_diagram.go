@@ -2,26 +2,25 @@ package image
 
 import (
 	"context"
+	"encoding/xml"
 	"fmt"
+	"io"
 	"strings"
-
-	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/schema"
 
 	"wood-passage-creator/internal/config"
 	"wood-passage-creator/internal/port"
 )
 
 type SVGDiagram struct {
-	llm model.BaseChatModel
+	generate func(context.Context, string) (string, error)
 }
 
-// NewSVGDiagram 未启用或无 llm 时返回 nil。
-func NewSVGDiagram(cfg config.SVGDiagramConfig, llm model.BaseChatModel) *SVGDiagram {
-	if !cfg.Enabled || llm == nil {
+// NewSVGDiagram 未启用或无生成能力时返回 nil。
+func NewSVGDiagram(cfg config.SVGDiagramConfig, generate func(context.Context, string) (string, error)) *SVGDiagram {
+	if !cfg.Enabled || generate == nil {
 		return nil
 	}
-	return &SVGDiagram{llm: llm}
+	return &SVGDiagram{generate: generate}
 }
 
 func (p *SVGDiagram) Metadata() port.ImageProviderMetadata {
@@ -29,7 +28,7 @@ func (p *SVGDiagram) Metadata() port.ImageProviderMetadata {
 		Method:             port.MethodSVGDiagram,
 		Access:             port.ImageAccessVIP,
 		PlannerDescription: "LLM 生成 SVG 示意图（VIP）",
-		PlannerUsageGuide:  "imageSource=SVG_DIAGRAM；prompt 描述示意图内容。",
+		PlannerUsageGuide:  "适合 SVG 示意图；执行工具时 prompt 描述示意图内容，不要填写源码。",
 		ToolName:           "generate_svg_diagram",
 		ToolDescription:    "Generate an SVG information diagram from a precise visual description.",
 	}
@@ -39,23 +38,62 @@ func (p *SVGDiagram) Fetch(ctx context.Context, req port.ImageRequirement) (stri
 	if desc == "" {
 		return "", fmt.Errorf("svg_diagram: prompt required")
 	}
-	prompt := fmt.Sprintf(`你是信息图设计师。请根据需求生成完整、合法的 SVG 代码（单个 <svg>...</svg>）。
-要求：白底、清晰、中文可用、不要 markdown 代码围栏、不要解释文字。
-需求：%s`, desc)
-
-	response, err := p.llm.Generate(ctx, []*schema.Message{schema.UserMessage(prompt)})
+	raw, err := p.generate(ctx, desc)
 	if err != nil {
 		return "", err
 	}
-	if response == nil {
-		return "", fmt.Errorf("svg_diagram: empty model response")
-	}
-	raw := response.Content
 	svg := extractSVG(raw)
 	if svg == "" {
 		return "", fmt.Errorf("svg_diagram: no svg in model output")
 	}
+	if err := validateSVG(svg); err != nil {
+		return "", err
+	}
 	return dataURL("image/svg+xml;charset=utf-8", []byte(svg)), nil
+}
+
+func validateSVG(source string) error {
+	decoder := xml.NewDecoder(strings.NewReader(source))
+	depth, roots := 0, 0
+	for {
+		token, err := decoder.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("svg_diagram: invalid XML: %w", err)
+		}
+		switch token := token.(type) {
+		case xml.StartElement:
+			name := strings.ToLower(token.Name.Local)
+			if depth == 0 {
+				roots++
+				if name != "svg" {
+					return fmt.Errorf("svg_diagram: root must be svg")
+				}
+			}
+			switch name {
+			case "script", "foreignobject", "image", "a", "animate", "animatetransform", "set", "style":
+				return fmt.Errorf("svg_diagram: unsupported element %s", name)
+			}
+			for _, attr := range token.Attr {
+				key, value := strings.ToLower(attr.Name.Local), strings.ToLower(strings.TrimSpace(attr.Value))
+				if strings.HasPrefix(key, "on") || key == "href" && !strings.HasPrefix(value, "#") ||
+					strings.Contains(value, "url(") && !strings.Contains(value, "url(#") {
+					return fmt.Errorf("svg_diagram: external or active attributes are not supported")
+				}
+			}
+			depth++
+		case xml.EndElement:
+			depth--
+		case xml.Directive, xml.ProcInst:
+			return fmt.Errorf("svg_diagram: XML directives are not supported")
+		}
+	}
+	if roots != 1 || depth != 0 {
+		return fmt.Errorf("svg_diagram: expected one complete svg")
+	}
+	return nil
 }
 
 func extractSVG(s string) string {

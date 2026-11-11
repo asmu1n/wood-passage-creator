@@ -36,7 +36,7 @@ func (p *EmojiPack) Metadata() port.ImageProviderMetadata {
 		Method:             port.MethodEmojiPack,
 		Access:             port.ImageAccessFree,
 		PlannerDescription: "网络表情包检索",
-		PlannerUsageGuide:  "imageSource=EMOJI_PACK；keywords 填中文主题词。",
+		PlannerUsageGuide:  "适合轻松、表达情绪的配图；执行工具时 keywords 填中文主题词。",
 		ToolName:           "search_emoji_image",
 		ToolDescription:    "Search an emoji/sticker image for a light, expressive illustration.",
 	}

@@ -17,11 +17,6 @@ const docTemplate = `{
     "paths": {
         "/admin/article/list": {
             "get": {
-                "security": [
-                    {
-                        "SessionAuth": []
-                    }
-                ],
                 "description": "全站文章列表，仅管理员；支持 pageNum/pageSize/status 查询参数。",
                 "produces": [
                     "application/json"
@@ -93,16 +88,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            }
-        },
-        "/admin/payment/list": {
-            "get": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/admin/payment/list": {
+            "get": {
                 "description": "全站支付记录列表，仅管理员；支持 pageNum/pageSize/status/userId/productType 查询参数。",
                 "produces": [
                     "application/json"
@@ -186,16 +181,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            }
-        },
-        "/admin/statistics/overview": {
-            "get": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/admin/statistics/overview": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -234,16 +229,73 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            }
-        },
-        "/admin/users/list": {
-            "get": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
+                ]
+            }
+        },
+        "/admin/users": {
+            "post": {
+                "description": "仅管理员。默认密码 12345678；角色 user/admin（默认 user）。对齐旧 POST /user/add。",
+                "consumes": [
+                    "application/json"
                 ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-users"
+                ],
+                "summary": "管理端创建用户",
+                "parameters": [
+                    {
+                        "description": "开户参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_app_user.AdminAddRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功，data 为用户对象",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ]
+            }
+        },
+        "/admin/users/list": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -302,16 +354,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            }
-        },
-        "/admin/users/{id}": {
-            "delete": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/admin/users/{id}": {
+            "delete": {
                 "produces": [
                     "application/json"
                 ],
@@ -359,16 +411,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            }
-        },
-        "/admin/users/{id}/revoke-vip": {
-            "post": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/admin/users/{id}/revoke-vip": {
+            "post": {
                 "produces": [
                     "application/json"
                 ],
@@ -422,16 +474,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            }
-        },
-        "/admin/users/{id}/upgrade-vip": {
-            "post": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/admin/users/{id}/upgrade-vip": {
+            "post": {
                 "produces": [
                     "application/json"
                 ],
@@ -485,16 +537,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            }
-        },
-        "/article/confirm-outline": {
-            "post": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/article/confirm-outline": {
+            "post": {
                 "description": "在 OUTLINE_EDITING 阶段确认大纲；仅文章作者或管理员可操作。",
                 "consumes": [
                     "application/json"
@@ -548,16 +600,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            }
-        },
-        "/article/confirm-title": {
-            "post": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/article/confirm-title": {
+            "post": {
                 "description": "在 TITLE_SELECTING 阶段确认主/副标题；仅文章作者或管理员可操作。",
                 "consumes": [
                     "application/json"
@@ -611,16 +663,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            }
-        },
-        "/article/create": {
-            "post": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/article/create": {
+            "post": {
                 "description": "登录用户创建一篇文章任务，进入生成流水线（具体异步逻辑由服务层处理）。",
                 "consumes": [
                     "application/json"
@@ -655,7 +707,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/wood-passage-creator_internal_module_article.Article"
+                                            "$ref": "#/definitions/wood-passage-creator_internal_app_article.ArticleData"
                                         }
                                     }
                                 }
@@ -674,16 +726,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            }
-        },
-        "/article/delete": {
-            "post": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/article/delete": {
+            "post": {
                 "description": "按主键软删除；需登录。权限由业务层校验（作者或管理员）。",
                 "produces": [
                     "application/json"
@@ -732,16 +784,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            }
-        },
-        "/article/execution-logs/{taskId}": {
-            "get": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/article/execution-logs/{taskId}": {
+            "get": {
                 "description": "返回该 task 下各 agent 步骤的耗时与状态汇总。",
                 "produces": [
                     "application/json"
@@ -771,23 +823,23 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/wood-passage-creator_internal_module_article.AgentExecutionStats"
+                                            "$ref": "#/definitions/wood-passage-creator_internal_app_article.ExecutionLogsData"
                                         }
                                     }
                                 }
                             ]
                         }
                     }
-                }
-            }
-        },
-        "/article/list/self": {
-            "get": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/article/list/self": {
+            "get": {
                 "description": "仅返回当前登录用户自己的文章；支持 pageNum/pageSize/status 查询参数。",
                 "produces": [
                     "application/json"
@@ -853,16 +905,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            }
-        },
-        "/article/modify-outline": {
-            "post": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/article/modify-outline": {
+            "post": {
                 "description": "仅 VIP/管理员；阶段须为 OUTLINE_EDITING。按自然语言建议改大纲并落库。",
                 "consumes": [
                     "application/json"
@@ -899,7 +951,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/wood-passage-creator_internal_module_article.OutlineSection"
+                                                "$ref": "#/definitions/wood-passage-creator_internal_app_article.OutlineSectionData"
                                             }
                                         }
                                     }
@@ -925,17 +977,17 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            }
-        },
-        "/article/progress/{taskId}": {
-            "get": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
-                "description": "按 taskId 建立 text/event-stream；需先登录且有权访问该任务。使用 SSE named events：connected / outline_delta / outline_done / task_error。",
+                ]
+            }
+        },
+        "/article/progress/{taskId}": {
+            "get": {
+                "description": "按 taskId 建立 text/event-stream；首帧 task_snapshot，后续使用 runId/seq/phase/data envelope，结构化大纲与逐图结果见 SSE_NOTES.md。",
                 "produces": [
                     "text/event-stream"
                 ],
@@ -977,16 +1029,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            }
-        },
-        "/article/{taskId}": {
-            "get": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/article/{taskId}": {
+            "get": {
                 "description": "使用创建任务时的 taskId 查询文章详情。",
                 "produces": [
                     "application/json"
@@ -1016,7 +1068,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/wood-passage-creator_internal_module_article.Article"
+                                            "$ref": "#/definitions/wood-passage-creator_internal_app_article.ArticleData"
                                         }
                                     }
                                 }
@@ -1041,7 +1093,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ]
             }
         },
         "/auth/login": {
@@ -1097,11 +1154,6 @@ const docTemplate = `{
         },
         "/auth/logout": {
             "post": {
-                "security": [
-                    {
-                        "SessionAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1122,16 +1174,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            }
-        },
-        "/auth/me": {
-            "get": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/auth/me": {
+            "get": {
                 "description": "根据 session 从数据库加载最新用户信息（角色/配额等），用于前端刷新登录态。",
                 "produces": [
                     "application/json"
@@ -1171,7 +1223,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ]
             }
         },
         "/auth/register": {
@@ -1227,11 +1284,6 @@ const docTemplate = `{
         },
         "/payment/list": {
             "get": {
-                "security": [
-                    {
-                        "SessionAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1290,16 +1342,16 @@ const docTemplate = `{
                             ]
                         }
                     }
-                }
-            }
-        },
-        "/payment/vip/mock-complete": {
-            "post": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/payment/vip/mock-complete": {
+            "post": {
                 "description": "将 PENDING 会话标为 SUCCEEDED 并为对应用户开通 VIP（幂等）。",
                 "consumes": [
                     "application/json"
@@ -1341,16 +1393,16 @@ const docTemplate = `{
                             ]
                         }
                     }
-                }
-            }
-        },
-        "/payment/vip/mock-session": {
-            "post": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/payment/vip/mock-session": {
+            "post": {
                 "description": "不连接 Stripe；写入 PENDING 支付记录并返回假 checkoutUrl。",
                 "produces": [
                     "application/json"
@@ -1378,16 +1430,16 @@ const docTemplate = `{
                             ]
                         }
                     }
-                }
-            }
-        },
-        "/users/{id}": {
-            "get": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/users/{id}": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -1441,14 +1493,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
-            },
-            "patch": {
+                },
                 "security": [
                     {
                         "SessionAuth": []
                     }
-                ],
+                ]
+            },
+            "patch": {
                 "consumes": [
                     "application/json"
                 ],
@@ -1520,7 +1572,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/wood-passage-creator_internal_pkg_response.Response"
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ]
             }
         }
     },
@@ -1541,6 +1598,102 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 64,
                     "minLength": 1
+                }
+            }
+        },
+        "wood-passage-creator_internal_app_article.ArticleData": {
+            "type": "object",
+            "properties": {
+                "completedTime": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "coverImage": {
+                    "type": "string"
+                },
+                "createTime": {
+                    "type": "string"
+                },
+                "enabledImageMethods": {
+                    "description": "任务授权快照；nil 或空列表均不授权工具",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wood-passage-creator_internal_port.ImageMethod"
+                    }
+                },
+                "errorMessage": {
+                    "type": "string"
+                },
+                "fullContent": {
+                    "type": "string"
+                },
+                "generationWarnings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wood-passage-creator_internal_module_article.GenerationWarning"
+                    }
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wood-passage-creator_internal_port.ImageResult"
+                    }
+                },
+                "mainTitle": {
+                    "type": "string"
+                },
+                "outline": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wood-passage-creator_internal_module_article.OutlineSection"
+                    }
+                },
+                "phase": {
+                    "description": "当前阶段",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wood-passage-creator_internal_module_article.ArticlePhase"
+                        }
+                    ]
+                },
+                "status": {
+                    "$ref": "#/definitions/wood-passage-creator_internal_module_article.ArticleStatus"
+                },
+                "style": {
+                    "description": "文章风格",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wood-passage-creator_internal_module_article.ArticleStyle"
+                        }
+                    ]
+                },
+                "subTitle": {
+                    "type": "string"
+                },
+                "taskId": {
+                    "type": "string"
+                },
+                "titleOptions": {
+                    "description": "标题方案列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wood-passage-creator_internal_module_article.TitleOption"
+                    }
+                },
+                "topic": {
+                    "type": "string"
+                },
+                "userDescription": {
+                    "description": "用户补充描述",
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "integer"
                 }
             }
         },
@@ -1624,16 +1777,82 @@ const docTemplate = `{
                     "description": "省略或空数组时按用户权限启用当前可用 Provider",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/wood-passage-creator_internal_port.ImageMethod"
+                        "type": "string",
+                        "enum": [
+                            "PEXELS",
+                            "ICONIFY",
+                            "EMOJI_PACK",
+                            "MERMAID",
+                            "SVG_DIAGRAM",
+                            "NANO_BANANA"
+                        ]
                     }
                 },
                 "style": {
-                    "$ref": "#/definitions/wood-passage-creator_internal_module_article.ArticleStyle"
+                    "enum": [
+                        "",
+                        "tech",
+                        "emotional",
+                        "educational",
+                        "humorous"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wood-passage-creator_internal_module_article.ArticleStyle"
+                        }
+                    ]
                 },
                 "topic": {
                     "type": "string",
                     "maxLength": 512,
                     "minLength": 1
+                }
+            }
+        },
+        "wood-passage-creator_internal_app_article.ExecutionLogsData": {
+            "type": "object",
+            "properties": {
+                "agentCount": {
+                    "type": "integer"
+                },
+                "agentDurations": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "logs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wood-passage-creator_internal_module_article.AgentLog"
+                    }
+                },
+                "overallStatus": {
+                    "description": "SUCCESS/FAILED/RUNNING/NOT_FOUND",
+                    "type": "string"
+                },
+                "taskId": {
+                    "type": "string"
+                },
+                "totalDurationMs": {
+                    "type": "integer"
+                }
+            }
+        },
+        "wood-passage-creator_internal_app_article.OutlineSectionData": {
+            "type": "object",
+            "properties": {
+                "points": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "section": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
                 }
             }
         },
@@ -1721,6 +1940,39 @@ const docTemplate = `{
                 }
             }
         },
+        "wood-passage-creator_internal_app_user.AdminAddRequest": {
+            "type": "object",
+            "required": [
+                "userAccount"
+            ],
+            "properties": {
+                "userAccount": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "minLength": 3
+                },
+                "userAvatar": {
+                    "type": "string",
+                    "maxLength": 1024
+                },
+                "userName": {
+                    "type": "string",
+                    "maxLength": 256,
+                    "minLength": 1
+                },
+                "userProfile": {
+                    "type": "string",
+                    "maxLength": 512
+                },
+                "userRole": {
+                    "type": "string",
+                    "enum": [
+                        "user",
+                        "admin"
+                    ]
+                }
+            }
+        },
         "wood-passage-creator_internal_app_user.UpdateRequest": {
             "type": "object",
             "properties": {
@@ -1760,36 +2012,6 @@ const docTemplate = `{
                     }
                 },
                 "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "wood-passage-creator_internal_module_article.AgentExecutionStats": {
-            "type": "object",
-            "properties": {
-                "agentCount": {
-                    "type": "integer"
-                },
-                "agentDurations": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "integer"
-                    }
-                },
-                "logs": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/wood-passage-creator_internal_module_article.AgentLog"
-                    }
-                },
-                "overallStatus": {
-                    "description": "SUCCESS/FAILED/RUNNING/NOT_FOUND",
-                    "type": "string"
-                },
-                "taskId": {
-                    "type": "string"
-                },
-                "totalDurationMs": {
                     "type": "integer"
                 }
             }
@@ -1860,11 +2082,14 @@ const docTemplate = `{
                 "content": {
                     "type": "string"
                 },
+                "coverImage": {
+                    "type": "string"
+                },
                 "createTime": {
                     "type": "string"
                 },
                 "enabledImageMethods": {
-                    "description": "nil=不限制；非 nil 空列表=不启用",
+                    "description": "任务授权快照；nil 或空列表均不授权工具",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/wood-passage-creator_internal_port.ImageMethod"
@@ -1875,6 +2100,12 @@ const docTemplate = `{
                 },
                 "fullContent": {
                     "type": "string"
+                },
+                "generationWarnings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wood-passage-creator_internal_module_article.GenerationWarning"
+                    }
                 },
                 "id": {
                     "type": "integer"
@@ -1958,6 +2189,15 @@ const docTemplate = `{
                 "PhaseTitleGenerating": "生成标题中",
                 "PhaseTitleSelecting": "等待选择标题"
             },
+            "x-enum-descriptions": [
+                "等待处理",
+                "生成标题中",
+                "等待选择标题",
+                "生成大纲中",
+                "等待编辑大纲",
+                "生成正文中",
+                "完成"
+            ],
             "x-enum-varnames": [
                 "PhasePending",
                 "PhaseTitleGenerating",
@@ -1996,6 +2236,32 @@ const docTemplate = `{
                 "StyleEmotional",
                 "StyleEducational",
                 "StyleHumorous"
+            ]
+        },
+        "wood-passage-creator_internal_module_article.GenerationWarning": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "$ref": "#/definitions/wood-passage-creator_internal_module_article.GenerationWarningCode"
+                },
+                "imageId": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "integer"
+                }
+            }
+        },
+        "wood-passage-creator_internal_module_article.GenerationWarningCode": {
+            "type": "string",
+            "enum": [
+                "IMAGE_SKIPPED"
+            ],
+            "x-enum-varnames": [
+                "WarningImageSkipped"
             ]
         },
         "wood-passage-creator_internal_module_article.OutlineSection": {
@@ -2228,8 +2494,17 @@ const docTemplate = `{
                 "PICSUM"
             ],
             "x-enum-comments": {
-                "MethodPicsum": "仅系统 fallback，不可出现在请求中"
+                "MethodPicsum": "仅兼容历史配图数据，不再注册或执行。"
             },
+            "x-enum-descriptions": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "仅兼容历史配图数据，不再注册或执行。"
+            ],
             "x-enum-varnames": [
                 "MethodPexels",
                 "MethodIconify",
@@ -2251,9 +2526,6 @@ const docTemplate = `{
                 },
                 "method": {
                     "$ref": "#/definitions/wood-passage-creator_internal_port.ImageMethod"
-                },
-                "placeholderId": {
-                    "type": "string"
                 },
                 "position": {
                     "type": "integer"

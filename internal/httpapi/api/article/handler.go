@@ -5,16 +5,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/labstack/echo/v5"
 	articleapp "wood-passage-creator/internal/app/article"
 	"wood-passage-creator/internal/httpapi/binding"
 	"wood-passage-creator/internal/httpapi/middleware"
-	article "wood-passage-creator/internal/module/article"
 	"wood-passage-creator/internal/pkg/page"
 	"wood-passage-creator/internal/pkg/response"
 	"wood-passage-creator/internal/pkg/sse"
-
-
-	"github.com/labstack/echo/v5"
 )
 
 // Handler 文章 HTTP 传输层。
@@ -33,7 +30,7 @@ func NewHandler(svc *articleapp.Service) *Handler {
 // @Accept       json
 // @Produce      json
 // @Param        body body articleapp.CreateArticleRequest true "创建参数"
-// @Success      200 {object} response.Response{data=article.Article} "成功"
+// @Success      200 {object} response.Response{data=articleapp.ArticleData} "成功"
 // @Failure      400 {object} response.Response "参数错误"
 // @Failure      401 {object} response.Response "未登录"
 // @Security     SessionAuth
@@ -118,7 +115,7 @@ func (h *Handler) ConfirmOutline(c *echo.Context) error {
 // @Tags         article
 // @Produce      json
 // @Param        taskId path string true "任务 ID（taskId）"
-// @Success      200 {object} response.Response{data=article.Article} "成功"
+// @Success      200 {object} response.Response{data=articleapp.ArticleData} "成功"
 // @Failure      400 {object} response.Response "参数错误"
 // @Failure      401 {object} response.Response "未登录"
 // @Failure      404 {object} response.Response "文章不存在"
@@ -247,7 +244,7 @@ func (h *Handler) Delete(c *echo.Context) error {
 
 // GetProgress godoc
 // @Summary      SSE 订阅文章生成进度
-// @Description  按 taskId 建立 text/event-stream；需先登录且有权访问该任务。使用 SSE named events：connected / outline_delta / outline_done / task_error。
+// @Description  按 taskId 建立 text/event-stream；首帧 task_snapshot，后续使用 runId/seq/phase/data envelope，结构化大纲与逐图结果见 SSE_NOTES.md。
 // @Tags         article
 // @Produce      text/event-stream
 // @Param        taskId path string true "任务 ID"
@@ -315,7 +312,7 @@ func (h *Handler) GetProgress(c *echo.Context) error {
 			}
 
 			// 本段终态：结束 SSE 连接
-			if article.IsTerminalSSEEvent(msg.Name) {
+			if msg.Terminal {
 				return nil
 			}
 
@@ -330,7 +327,7 @@ func (h *Handler) GetProgress(c *echo.Context) error {
 // @Accept       json
 // @Produce      json
 // @Param        body body articleapp.AiModifyOutlineRequest true "任务 ID 与修改建议"
-// @Success      200 {object} response.Response{data=[]article.OutlineSection}
+// @Success      200 {object} response.Response{data=[]articleapp.OutlineSectionData}
 // @Failure      400 {object} response.Response
 // @Failure      401 {object} response.Response
 // @Failure      403 {object} response.Response "非 VIP 或阶段不允许"
@@ -361,7 +358,7 @@ func (h *Handler) ModifyOutline(c *echo.Context) error {
 // @Tags         article
 // @Produce      json
 // @Param        taskId path string true "任务 ID"
-// @Success      200 {object} response.Response{data=article.AgentExecutionStats}
+// @Success      200 {object} response.Response{data=articleapp.ExecutionLogsData}
 // @Security     SessionAuth
 // @Router       /article/execution-logs/{taskId} [get]
 func (h *Handler) GetExecutionLogs(c *echo.Context) error {

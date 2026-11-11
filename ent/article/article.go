@@ -37,6 +37,8 @@ const (
 	FieldFullContent = "full_content"
 	// FieldImages holds the string denoting the images field in the database.
 	FieldImages = "images"
+	// FieldGenerationWarnings holds the string denoting the generation_warnings field in the database.
+	FieldGenerationWarnings = "generation_warnings"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldPhase holds the string denoting the phase field in the database.
@@ -91,6 +93,7 @@ var Columns = []string{
 	FieldContent,
 	FieldFullContent,
 	FieldImages,
+	FieldGenerationWarnings,
 	FieldStatus,
 	FieldPhase,
 	FieldErrorMessage,

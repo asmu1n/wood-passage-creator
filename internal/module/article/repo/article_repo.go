@@ -3,13 +3,12 @@ package repo
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"wood-passage-creator/ent"
 	entm "wood-passage-creator/ent/article"
 	"wood-passage-creator/internal/infra/database"
 	"wood-passage-creator/internal/module/article"
-
-	"github.com/samber/lo"
 )
 
 type ArticleRepo struct {
@@ -31,7 +30,7 @@ func (r *ArticleRepo) Create(ctx context.Context, params article.CreateArticlePa
 	if err != nil {
 		return nil, err
 	}
-	return toDomain(row), nil
+	return toDomain(row)
 }
 
 func (r *ArticleRepo) Delete(ctx context.Context, id int64) error {
@@ -51,7 +50,7 @@ func (r *ArticleRepo) GetByID(ctx context.Context, id int64) (*article.Article, 
 		}
 		return nil, err
 	}
-	return toDomain(row), nil
+	return toDomain(row)
 }
 
 func (r *ArticleRepo) GetByTaskID(ctx context.Context, taskID string) (*article.Article, error) {
@@ -64,7 +63,7 @@ func (r *ArticleRepo) GetByTaskID(ctx context.Context, taskID string) (*article.
 		}
 		return nil, err
 	}
-	return toDomain(row), nil
+	return toDomain(row)
 }
 
 func (r *ArticleRepo) Update(ctx context.Context, id int64, params article.UpdateArticleParams) (*article.Article, error) {
@@ -80,7 +79,7 @@ func (r *ArticleRepo) Update(ctx context.Context, id int64, params article.Updat
 		}
 		return nil, err
 	}
-	return toDomain(row), nil
+	return toDomain(row)
 }
 
 func (r *ArticleRepo) UpdateByTaskID(ctx context.Context, taskID string, params article.UpdateArticleParams) (*article.Article, error) {
@@ -92,9 +91,26 @@ func (r *ArticleRepo) UpdateByTaskID(ctx context.Context, taskID string, params 
 		if ent.IsNotFound(err) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
 	return r.Update(ctx, id, params)
+}
+
+// UpdateIfPhase atomically claims a confirmation transition.
+func (r *ArticleRepo) UpdateIfPhase(ctx context.Context, id int64, expected article.ArticlePhase, params article.UpdateArticleParams) (*article.Article, error) {
+	b := r.Cli(ctx).Article.UpdateOneID(id).Where(entm.IsDeleteEQ(false), entm.PhaseEQ(entm.Phase(expected)))
+	if err := applyUpdate(b, params); err != nil {
+		return nil, err
+	}
+	row, err := b.Save(ctx)
+	if ent.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return toDomain(row)
 }
 
 func (r *ArticleRepo) UpdateStatus(ctx context.Context, taskID string, status article.ArticleStatus) error {
@@ -164,7 +180,8 @@ func listPage(ctx context.Context, base *ent.ArticleQuery, params article.ListAr
 	if err != nil {
 		return nil, 0, err
 	}
-	return toDomainList(rows), total, nil
+	items, err := toDomainList(rows)
+	return items, total, err
 }
 
 func applyUpdate(b *ent.ArticleUpdateOne, in article.UpdateArticleParams) error {
@@ -205,6 +222,13 @@ func applyUpdate(b *ent.ArticleUpdateOne, in article.UpdateArticleParams) error 
 		}
 		b.SetImages(raw)
 	}
+	if in.GenerationWarnings != nil {
+		raw, err := json.Marshal(in.GenerationWarnings)
+		if err != nil {
+			return err
+		}
+		b.SetGenerationWarnings(raw)
+	}
 	if in.EnabledImageMethods != nil {
 		b.SetEnabledImageMethods(in.EnabledImageMethods)
 	}
@@ -212,9 +236,9 @@ func applyUpdate(b *ent.ArticleUpdateOne, in article.UpdateArticleParams) error 
 	return nil
 }
 
-func toDomain(row *ent.Article) *article.Article {
+func toDomain(row *ent.Article) (*article.Article, error) {
 	if row == nil {
-		return nil
+		return nil, nil
 	}
 	out := &article.Article{
 		ID:                  row.ID,
@@ -243,12 +267,23 @@ func toDomain(row *ent.Article) *article.Article {
 	if len(row.Images) > 0 {
 		_ = json.Unmarshal(row.Images, &out.Images)
 	}
+	if len(row.GenerationWarnings) > 0 {
+		if err := json.Unmarshal(row.GenerationWarnings, &out.GenerationWarnings); err != nil {
+			return nil, fmt.Errorf("decode generation warnings for article %d: %w", row.ID, err)
+		}
+	}
 	out.FillCoverImage()
-	return out
+	return out, nil
 }
 
-func toDomainList(rows []*ent.Article) []*article.Article {
-	return lo.Map(rows, func(row *ent.Article, _ int) *article.Article {
-		return toDomain(row)
-	})
+func toDomainList(rows []*ent.Article) ([]*article.Article, error) {
+	items := make([]*article.Article, 0, len(rows))
+	for _, row := range rows {
+		item, err := toDomain(row)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
 }

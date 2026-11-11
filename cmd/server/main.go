@@ -10,6 +10,7 @@ import (
 
 	appcore "wood-passage-creator/internal/app"
 	articleapp "wood-passage-creator/internal/app/article"
+	"wood-passage-creator/internal/app/article/workflow"
 	authapp "wood-passage-creator/internal/app/auth"
 	paymentapp "wood-passage-creator/internal/app/payment"
 	statsapp "wood-passage-creator/internal/app/statistics"
@@ -31,7 +32,6 @@ import (
 	"wood-passage-creator/internal/infra/objectstore"
 	"wood-passage-creator/internal/infra/redis"
 	modart "wood-passage-creator/internal/module/article"
-	articleagent "wood-passage-creator/internal/module/article/agent"
 	articlerepo "wood-passage-creator/internal/module/article/repo"
 	paymentrepo "wood-passage-creator/internal/module/payment/repo"
 	statisticsrepo "wood-passage-creator/internal/module/statistics/repo"
@@ -41,6 +41,8 @@ import (
 
 	_ "wood-passage-creator/docs/api/swagger"
 
+	"github.com/firebase/genkit/go/core/api"
+	"github.com/firebase/genkit/go/plugins/googlegenai"
 	"github.com/labstack/echo-contrib/v5/session"
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"
@@ -95,11 +97,14 @@ func main() {
 	}
 	defer redisClient.Close()
 
-	textModel, err := llm.NewChatModel(ctx, cfg.LLM)
-	if err != nil {
-		logger.Fatal("init chat model failed", logger.FieldErr, err)
+	var plugins []api.Plugin
+	if cfg.NanoBanana.APIKey != "" {
+		plugins = append(plugins, &googlegenai.GoogleAI{APIKey: cfg.NanoBanana.APIKey})
 	}
-	structuredModelInjector := llm.InjectJSONSchemaChatModel(ctx, cfg.LLM)
+	genkitRuntime, err := llm.NewGenkit(ctx, cfg.LLM, articleworkflow.PromptFS, plugins...)
+	if err != nil {
+		logger.Fatal("init Genkit runtime failed", logger.FieldErr, err)
+	}
 
 	// 装配：module=领域+repo；app=全部用例；httpapi/api 只依赖 app。
 	// 跨 module 强一致写：Runtime.Tx + repo Cli(ctx) 共享同一事务。
@@ -111,21 +116,29 @@ func main() {
 	authSvc := authapp.NewService(userRepo, statsSvc)
 	paymentSvc := paymentapp.NewService(paymentrepo.New(db), userSvc)
 	objStore := objectstore.NewFromConfig(cfg.R2)
-	imgGen := articleagent.NewToolCallingGenerator(textModel, image.NewProviderExecutor(cfg, textModel, objStore))
 	articleRepo := articlerepo.NewArticleRepo(db)
 	agentLogRepo := articlerepo.NewAgentLogRepo(db)
 	agentLogRecorder := modart.NewAgentLogRecorder(agentLogRepo)
+	planningFlows, err := articleworkflow.NewPlanningFlows(genkitRuntime, agentLogRecorder)
+	if err != nil {
+		logger.Fatal("init Genkit planning flows failed", logger.FieldErr, err)
+	}
+	sources, err := articleworkflow.NewImageSources(genkitRuntime, cfg.NanoBanana)
+	if err != nil {
+		logger.Fatal("init Genkit image sources failed", logger.FieldErr, err)
+	}
+	executor := image.NewProviderExecutor(cfg, sources, objStore)
+	articleFlows, err := articleworkflow.NewArticleFlows(genkitRuntime, executor, agentLogRecorder)
+	if err != nil {
+		logger.Fatal("init Genkit article flow failed", logger.FieldErr, err)
+	}
 	articleSvc := articleapp.NewService(
 		articleRepo,
 		agentLogRepo,
 		userSvc,
-		articleagent.NewOrchestrator(
-			textModel,
-			structuredModelInjector,
-			imgGen,
-			agentLogRecorder,
-		),
-		imgGen,
+		planningFlows,
+		articleFlows,
+		executor,
 		ssehub,
 		statsSvc,
 	)

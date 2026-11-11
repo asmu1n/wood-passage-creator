@@ -6,6 +6,10 @@ import (
 	"wood-passage-creator/internal/port"
 )
 
+type ArticleData = module.Article
+type OutlineSectionData = module.OutlineSection
+type ExecutionLogsData = module.AgentExecutionStats
+
 // ArticleListData 文章分页 data 形态，供 swag 展示。
 type ArticleListData struct {
 	Records  []*module.Article `json:"records"`
@@ -17,8 +21,8 @@ type ArticleListData struct {
 // CreateArticleRequest 创建文章入参（JSON body）。
 type CreateArticleRequest struct {
 	Topic               string               `json:"topic" validate:"required,min=1,max=512"`
-	Style               *module.ArticleStyle `json:"style" validate:"omitempty"`
-	EnabledImageMethods []port.ImageMethod   `json:"enabledImageMethods" validate:"omitempty,dive"` // 省略或空数组时按用户权限启用当前可用 Provider
+	Style               *module.ArticleStyle `json:"style" validate:"omitempty,oneof='' tech emotional educational humorous"`
+	EnabledImageMethods []port.ImageMethod   `json:"enabledImageMethods" validate:"omitempty,dive" swaggertype:"array,string" enums:"PEXELS,ICONIFY,EMOJI_PACK,MERMAID,SVG_DIAGRAM,NANO_BANANA"` // 省略或空数组时按用户权限启用当前可用 Provider
 }
 
 // QueryArticleRequest 查询文章入参（query）。

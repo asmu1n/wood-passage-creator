@@ -35,7 +35,7 @@ func (p *Pexels) Metadata() port.ImageProviderMetadata {
 		Method:             port.MethodPexels,
 		Access:             port.ImageAccessFree,
 		PlannerDescription: "Pexels 免费图库，适合真实照片",
-		PlannerUsageGuide:  "imageSource=PEXELS；keywords 填英文检索词；无需 prompt。",
+		PlannerUsageGuide:  "适合真实照片；执行工具时 keywords 填简短英文检索词，无需 prompt。",
 		ToolName:           "search_pexels_image",
 		ToolDescription:    "Search Pexels for a realistic stock photo. Use concise English keywords.",
 	}

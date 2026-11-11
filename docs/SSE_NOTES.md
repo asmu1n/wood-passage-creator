@@ -1,19 +1,9 @@
-# SSE 进度推送说明（Wood Passage Creator）
+# 文章工作流 SSE 协议
 
-> 与实现保持同步的契约笔记。权威事件名与 payload 见 `internal/module/article/sse.go`；订阅/推送在 `internal/app/article`。  
-> 最后对齐代码日期：以仓库当前 `sse.go` / `pkg/sse` 为准。
+本文描述已启用的协议。前后端同步切换，不混用旧 `connected`、`outline_delta`、
+`image_complete` 或 `merge_done`。原始模型文本不再用于大纲 UI。
 
----
-
-## 1. 范式
-
-采用 **B 范式**：
-
-- 传输层：`event: <name>` + `data: <json>`
-- 业务 JSON **不再**内嵌自定义 `type` 做路由
-- 前端：`EventSource` + `addEventListener(eventName, ...)`
-
-连接：
+## 1. 连接与权限
 
 ```http
 GET /api/article/progress/{taskId}
@@ -21,152 +11,135 @@ Cookie: session=...
 Accept: text/event-stream
 ```
 
-需登录；仅作者或管理员可订。
+仅作者或管理员可订阅。鉴权在写入 SSE 响应头之前完成，心跳仍为 `: ping` 注释。
+每段工作流完成或失败后结束本次订阅，用户确认标题/大纲后建立下一段订阅。
+断开进度连接不取消后台生成。
 
----
+## 2. 帧与类型
 
-## 2. 架构
-
-```text
-Browser (EventSource)
-    │  GET /api/article/progress/:taskId
-    ▼
-httpapi/api/article.GetProgress ← 头、读 channel、写帧、心跳、终态退出
-    │  app/article.SubscribeProgress
-    ▼
-app/article.Service         ← 鉴权、publish（事件常量仍在 module/article/sse.go）
-    │
-pkg/sse.Hub                  ← topic=taskId，fan-out（多页同订互不踢）
-    ▲
-流水线 / Orchestrator 回调   ← onProgress → publish
-```
-
-| 层级 | 位置 | 职责 |
-|------|------|------|
-| 帧编码 | `internal/pkg/sse/frame.go` | `WriteEvent` / `WriteComment` / `Flush` |
-| 总线 | `internal/pkg/sse/manager.go` | Subscribe / Publish（接口与实现同包） |
-| 业务事件 | `internal/module/article/sse.go` | 事件名、payload、`IsTerminalSSEEvent` |
-| HTTP | `internal/httpapi/api/article/handler.go` | 长连接循环 |
-
----
-
-## 3. 帧格式
-
-业务帧：
+业务名称来自 SSE `event:`，JSON 不再重复声明路由类型：
 
 ```text
-event: outline_delta
-data: {"delta":"## 一、"}
+event: content_delta
+data: {"runId":"run-1","seq":7,"phase":"CONTENT_GENERATING","data":{"delta":"正文增量"}}
 
 ```
 
-心跳（注释帧，JS 无回调，仅保活）：
+| 字段 | 说明 |
+|------|------|
+| `runId` | 一次阶段执行的身份，不是 article/task ID |
+| `seq` | 运行内递增版本；初始快照可为 0，必须处于 JavaScript 安全整数范围 |
+| `phase` | 文章业务阶段；人工确认仍由数据库状态表达 |
+| `data` | 与事件名称绑定的类型化业务 payload |
+
+Go 定义：`internal/app/article/workflow/events.go`；TypeScript 定义：
+`frontend/src/types/articleWorkflow.ts`。前端先校验 JSON 和完整 payload，再加入 `type`
+判别字段，不能通过类型断言直接信任网络数据。
+
+## 3. 事件
+
+| event | data | 本段终态 |
+|-------|------|----------|
+| `task_snapshot` | 完整当前投影，见下一节 | 由 `data.terminal` 决定 |
+| `titles_done` | `{ options: TitleOption[] }` | 是 |
+| `outline_snapshot` | `{ sections: OutlinePreviewSection[] }` | 否 |
+| `outline_done` | `{ sections: OutlineSection[] }` | 是 |
+| `content_delta` | `{ delta: string }` | 否 |
+| `content_generated` | `{ content: string }`，完整正文用于校准 | 否 |
+| `images_planned` | `{ tasks: ImageTask[] }` | 否 |
+| `image_finished` | `{ outcome: ImageOutcome, summary: ImageSummary }` | 否 |
+| `images_done` | `{ outcomes: ImageOutcome[], summary: ImageSummary }` | 否 |
+| `content_done` | `{ content, fullContent, images, warnings }` | 是 |
+| `task_error` | `{ code, message }`，可公开的错误信息 | 是 |
+
+成功终态只在结果及对应阶段持久化之后发布。阶段持久化和终态发布共用进度锁，避免
+下一阶段抢先覆盖上一阶段的完成事件。原始 Provider 错误仍写入服务端诊断日志，不进入
+进度错误消息。`GENERATION_TIMEOUT` 与 `GENERATION_FAILED` 区分超时及一般失败。
+
+## 4. 快照、重连与边界
+
+订阅首帧一定是仅发给该订阅者的 `task_snapshot`，不是广播：
+
+```json
+{
+  "runId": "run-1",
+  "seq": 7,
+  "phase": "CONTENT_GENERATING",
+  "data": {
+    "status": "PROCESSING",
+    "terminal": false,
+    "step": "images",
+    "editorial": {
+      "mainTitle": "主标题",
+      "subTitle": "副标题",
+      "userDescription": ""
+    },
+    "content": "完整的当前正文",
+    "imageSummary": {"total": 3, "settled": 2, "succeeded": 1, "skipped": 1}
+  }
+}
+```
+
+快照整体替换前端投影，缺省字段表示清空，不是“保留旧值”。可选字段还包括 `topic`、
+`titleOptions`、`outline`、`fullContent`、`images`、`imageOutcomes`、`warnings` 和 `error`。
+`step` 为 `titles`、`outline`、`content`、`image_plan`、`images`、`merge` 或 `completed`。
+数组在完整结果中发送 `[]` 而不是 `null`。
+
+活跃任务从内存投影构造快照，订阅和事件更新串行，保证快照后的第一条事件版本连续。
+已经结束的任务释放内存投影；新订阅重新读取数据库恢复结果。历史图片通过
+`savedImages` 保留既有持久化格式（包括旧 PICSUM 记录），不伪造新的图片任务或改写历史正文。
+
+等待标题选择、大纲确认及已完成/失败的快照均为终态；HTTP Handler 发出后立即结束订阅。
+因此任务在浏览器连上之前已结束时，不需要等待一个已经错过的完成事件。
+
+慢订阅者缓冲区满时会被关闭，不能静默丢弃文本增量，也不能发送到已关闭 channel。
+前端遇到连接中断、版本缺口或不匹配的运行身份时重新订阅，读取新快照修复状态；重复和
+过期版本不重复应用。重连采用有上限的退避，连续失败达到上限后明确提示连接错误。
+新建任务将 task ID 放入当前页面查询参数，刷新该页面可重新订阅该任务。
+
+这不是持久化事件日志，不依赖 `Last-Event-ID` 重放。运行中投影及 fan-out 仍是进程内能力，
+多实例共享进度、进程重启后恢复模型执行和持久化任务续跑不在本步范围内。
+
+## 5. 大纲与配图语义
+
+大纲预览是累计对象快照，每次整体替换。预览字段可以尚未完整，不等同于最终大纲；
+`outline_done` 才提供完整校验后的章节。前端不拼接 JSON 字符串或猜测不完整 JSON。
+Genkit 大纲 Flow 只使用类型化 `ExecuteStream`，原来的双路原始增量入口已经移除。
+
+配图规划只返回插入点 ID、用途、描述与首选方式，不返回整篇正文或占位符。
+模型看不到插入字节偏移，任务 ID 和排序由代码分配。封面固定 `position=1`，
+正文图片不会因封面跳过而重新编号。
+
+`ImageOutcome` 只有两种终态：
+
+- `succeeded`：包含 `task` 和 `asset`，不含 `warning`。
+- `skipped`：包含 `task` 和 `IMAGE_SKIPPED` 警告，不含 `asset`。
+
+`summary` 为 `{ total, settled, succeeded, skipped }`，
+满足 `settled = succeeded + skipped <= total`。图片进度按 `settled / total` 计算，
+零任务直接处理结束，不除以零。跳过不发 `task_error`；文章仍可完成。
+最终图文及警告通过 `content_done` 直接提供，无需为补全文再竞态读取 REST。
+警告同时存储于 `articles.generation_warnings`，文章详情刷新后仍可见。
+
+## 6. 典型时序
 
 ```text
-: ping
-
+创建：snapshot → titles_done | task_error
+确认标题：snapshot → outline_snapshot* → outline_done | task_error
+确认大纲：snapshot → content_delta* → content_generated → images_planned
+         → image_finished* → images_done → content_done | task_error
+晚订阅已结束阶段：terminal snapshot → 关闭
 ```
 
-- `data` 多行会拆成多条 `data:` 行（实现见 `WriteEvent`）
-- 写后必须 `Flush`，否则浏览器收不到增量
+确认操作通过数据库预期阶段条件更新原子领取下一阶段；重复请求不能启动多份生成任务。
+人工确认不使用长期挂起的模型或 Flow 实例。
 
----
+## 7. 执行日志与相关 API
 
-## 4. 事件表（完整）
+`GET /api/article/execution-logs/{taskId}` 保留现有摘要与日志格式。每次执行仍是一条业务记录，
+Genkit 内部 prompt/model/tool span 不重复写成业务步骤。重复大纲修改的同名耗时累加，
+前端同时支持当前与历史步骤名，并按“执行步骤”展示记录数。
 
-### 通用
-
-| event | 终态? | payload 要点 |
-|-------|-------|----------------|
-| `connected` | 否 | `{ phase, status }` 订阅瞬间快照 |
-| `task_error` | **是** | `{ message, phase? }` |
-
-### Phase1 标题
-
-| event | 终态? | payload |
-|-------|-------|---------|
-| `titles_done` | **是** | `{ phase, titleOptions }` |
-
-### Phase2 大纲
-
-| event | 终态? | payload |
-|-------|-------|---------|
-| `outline_delta` | 否 | `{ delta }` 文本增量（累积为 `{"sections":[...]}` JSON 对象） |
-| `outline_done` | **是** | `{ phase, outline }`（`outline` 为 section 数组，已解析） |
-
-### Phase3 正文 + 配图
-
-| event | 终态? | payload |
-|-------|-------|---------|
-| `content_delta` | 否 | `{ delta }` |
-| `content_generated` | 否 | `{ phase, contentLength }` 正文生成完 |
-| `images_planned` | 否 | `{ phase, count }` 分析出配图需求数 |
-| `image_complete` | 否 | `{ image, done, total }` **单张** |
-| `images_done` | 否 | `{ phase, count, images[] }` **全量** |
-| `merge_done` | 否 | `{ phase, fullContentLength }` |
-| `content_done` | **是** | `{ phase, status }` 默认不推全文 |
-
-`IsTerminalSSEEvent`：`titles_done` | `outline_done` | `content_done` | `task_error`  
-→ Handler 收到后结束本次 SSE 连接（用户确认标题/大纲后需重新订阅进入下一阶段）。
-
----
-
-## 5. 推荐时序
-
-```text
-# 创建任务后订一次
-connected → titles_done | task_error
-
-# 确认标题后重连
-connected → outline_delta* → outline_done | task_error
-
-# 确认大纲后重连
-connected → content_delta* → content_generated
-         → images_planned
-         → image_complete* → images_done
-         → merge_done → content_done | task_error
-```
-
-REST 负责阶段动作（confirm-title / confirm-outline / modify-outline），**不**与 SSE 混在同一长连接里发命令。
-
----
-
-## 6. Fan-out 与重连
-
-- 同一 `taskId` 多标签页：`Subscribe` 各有独立 channel，互不踢除
-- 缓冲区满：丢该订阅者本条，不影响其它人（见 hub 实现）
-- 终态后连接关闭；需要下一段进度请再 `EventSource` 打开
-
----
-
-## 7. 前端示例
-
-```js
-const es = new EventSource(`/api/article/progress/${taskId}`, { withCredentials: true })
-
-es.addEventListener('connected', (e) => { /* JSON.parse(e.data) */ })
-es.addEventListener('outline_delta', (e) => { /* append delta */ })
-es.addEventListener('image_complete', (e) => { /* single image */ })
-es.addEventListener('content_done', (e) => { es.close() })
-es.addEventListener('task_error', (e) => { es.close() })
-```
-
----
-
-## 8. 相关 REST（非 SSE）
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/article/create` | 创建任务 |
-| POST | `/api/article/confirm-title` | 进 Phase2 |
-| POST | `/api/article/confirm-outline` | 进 Phase3 |
-| POST | `/api/article/modify-outline` | VIP AI 改大纲 |
-| GET | `/api/article/execution-logs/{taskId}` | Agent 耗时日志 |
-
----
-
-## 9. 维护约定
-
-- 新增事件：先改 `sse.go` 常量与 payload，再改本笔记与前端监听
-- 改帧格式：只动 `pkg/sse/frame.go`，并补单测
-- OpenAPI：SSE 长连接 swag 描述有限，细节以本文 + `sse.go` 为准
+REST 继续负责 `/create`、`/confirm-title`、`/confirm-outline` 和 `/modify-outline`，
+不在 SSE 连接中发送命令。新增或修改事件时必须同步更新 Go/TypeScript 契约、
+解析校验、投影、终态判断及相关测试。

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	appcore "wood-passage-creator/internal/app"
+	"wood-passage-creator/internal/app/article/workflow"
 	module "wood-passage-creator/internal/module/article"
 	moduser "wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/logger"
@@ -15,6 +16,7 @@ import (
 	"wood-passage-creator/internal/port"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 // UserQuota 文章创建时的配额扣减（由 app/user.Service 实现；须在同一 ctx/事务内调用）。
@@ -28,14 +30,25 @@ type overviewCacheInvalidator interface {
 	InvalidateOverview(ctx context.Context)
 }
 
-// Service 文章应用用例（编排 agent 仍在 module/article）。
+type planningWorkflow interface {
+	GenerateTitles(context.Context, articleworkflow.GenerateTitlesInput) (articleworkflow.TitlesResult, error)
+	GenerateOutline(context.Context, articleworkflow.GenerateOutlineInput, articleworkflow.EmitProgress) (articleworkflow.OutlineResult, error)
+	ReviseOutline(context.Context, articleworkflow.ReviseOutlineInput) (articleworkflow.OutlineResult, error)
+}
+
+type articleWorkflow interface {
+	GenerateArticle(context.Context, articleworkflow.GenerateArticleInput, articleworkflow.EmitProgress) (articleworkflow.ArticleResult, error)
+}
+
+// Service owns persistence, authorization and phase transitions.
 type Service struct {
 	repo         module.Repository
 	agentLogs    module.AgentLogRepository
 	userQuota    UserQuota
-	orchestrator module.AgentOrchestrator
+	planning     planningWorkflow
+	articleFlow  articleWorkflow
 	imageCatalog port.ImageProviderCatalog
-	sse          sse.SSEHub
+	progress     *progressTracker
 	statsCache   overviewCacheInvalidator
 	log          *slog.Logger
 }
@@ -44,7 +57,8 @@ func NewService(
 	repo module.Repository,
 	agentLogs module.AgentLogRepository,
 	userQuota UserQuota,
-	orch module.AgentOrchestrator,
+	planning planningWorkflow,
+	articleFlow articleWorkflow,
 	imageCatalog port.ImageProviderCatalog,
 	sseHub sse.SSEHub,
 	statsCache overviewCacheInvalidator,
@@ -53,9 +67,10 @@ func NewService(
 		repo:         repo,
 		agentLogs:    agentLogs,
 		userQuota:    userQuota,
-		orchestrator: orch,
+		planning:     planning,
+		articleFlow:  articleFlow,
 		imageCatalog: imageCatalog,
-		sse:          sseHub,
+		progress:     newProgressTracker(sseHub),
 		statsCache:   statsCache,
 		log:          logger.Module("app.article"),
 	}
@@ -124,8 +139,9 @@ func (s *Service) ConfirmOutline(ctx context.Context, actor moduser.Actor, taskI
 		return response.NewBizErrorWithDetail(response.ParamsError, "当前阶段不允许确认大纲")
 	}
 
-	article, err = s.repo.Update(ctx, article.ID, module.UpdateArticleParams{
+	article, err = s.repo.UpdateIfPhase(ctx, article.ID, module.PhaseOutlineEditing, module.UpdateArticleParams{
 		Outline: outline,
+		Phase:   new(module.PhaseContentGenerating),
 	})
 	if err != nil {
 		s.log.Error("confirm outline update failed",
@@ -137,6 +153,9 @@ func (s *Service) ConfirmOutline(ctx context.Context, actor moduser.Actor, taskI
 		)
 		return err
 	}
+	if article == nil {
+		return response.NewBizErrorWithDetail(response.Forbidden, "大纲已经确认或阶段已发生变化")
+	}
 
 	s.log.Info("outline confirmed",
 		logger.FieldPurpose, logger.PurposeBiz,
@@ -146,7 +165,7 @@ func (s *Service) ConfirmOutline(ctx context.Context, actor moduser.Actor, taskI
 		"sections", len(outline),
 	)
 
-	go s.runPhase3Async(article, actor.Role)
+	go s.runPhase3Async(article)
 
 	return nil
 }
@@ -161,10 +180,11 @@ func (s *Service) ConfirmTitle(ctx context.Context, actor moduser.Actor, params 
 		return response.NewBizErrorWithDetail(response.Forbidden, "当前阶段不允许确认标题")
 	}
 
-	article, err = s.repo.Update(ctx, article.ID, module.UpdateArticleParams{
+	article, err = s.repo.UpdateIfPhase(ctx, article.ID, module.PhaseTitleSelecting, module.UpdateArticleParams{
 		MainTitle:       &params.SelectedMainTitle,
 		SubTitle:        &params.SelectedSubTitle,
 		UserDescription: params.UserDescription,
+		Phase:           new(module.PhaseOutlineGenerating),
 	})
 	if err != nil {
 		s.log.Error("confirm title update failed",
@@ -175,6 +195,9 @@ func (s *Service) ConfirmTitle(ctx context.Context, actor moduser.Actor, params 
 			"user_id", actor.ID,
 		)
 		return err
+	}
+	if article == nil {
+		return response.NewBizErrorWithDetail(response.Forbidden, "标题已经确认或阶段已发生变化")
 	}
 
 	s.log.Info("title confirmed",
@@ -330,42 +353,39 @@ func (s *Service) runPhase1Async(taskID string, topic string, style *module.Arti
 		return
 	}
 
-	state := &module.ArticleState{
-		ArticleID: art.ID,
-		TaskID:    taskID,
-		Topic:     topic,
-		Style:     style,
-		Phase:     module.PhaseTitleGenerating,
+	run, err := s.progress.begin(art, module.PhaseTitleGenerating)
+	if err != nil {
+		s.failPhase1(ctx, taskID, err)
+		return
 	}
-
-	if err := s.orchestrator.RunPhase1(ctx, state); err != nil {
+	result, err := s.planning.GenerateTitles(ctx, articleworkflow.GenerateTitlesInput{
+		Run: run, Topic: topic, Style: style,
+	})
+	if err != nil {
 		s.failPhase1(ctx, taskID, fmt.Errorf("run phase1: %w", err))
 		return
 	}
-	if len(state.TitleOptions) == 0 {
+	if len(result.Options) == 0 {
 		s.failPhase1(ctx, taskID, fmt.Errorf("run phase1: empty title options"))
 		return
 	}
 
-	if err := s.repo.UpdateTitleOptions(ctx, taskID, state.TitleOptions); err != nil {
-		s.failPhase1(ctx, taskID, fmt.Errorf("save title options: %w", err))
+	if err := s.progress.complete(taskID, run.RunID, module.PhaseTitleSelecting, articleworkflow.TitlesDone(result), func() error {
+		updated, err := s.repo.UpdateByTaskID(ctx, taskID, module.UpdateArticleParams{TitleOptions: result.Options, Phase: new(module.PhaseTitleSelecting)})
+		if err == nil && updated == nil {
+			return fmt.Errorf("article disappeared before saving title options")
+		}
+		return err
+	}); err != nil {
+		s.failPhase1(ctx, taskID, err)
 		return
 	}
-	if err := s.repo.UpdatePhase(ctx, taskID, module.PhaseTitleSelecting); err != nil {
-		s.failPhase1(ctx, taskID, fmt.Errorf("update phase to title_selecting: %w", err))
-		return
-	}
-
-	s.publish(taskID, module.EventTitlesDone, module.TitlesDonePayload{
-		Phase:        module.PhaseTitleSelecting,
-		TitleOptions: state.TitleOptions,
-	})
 
 	s.log.Info("phase1 completed",
 		logger.FieldPurpose, logger.PurposeJob,
 		logger.FieldEvent, "article.phase1.done",
 		"task_id", taskID,
-		"options", len(state.TitleOptions),
+		"options", len(result.Options),
 	)
 }
 
@@ -394,7 +414,8 @@ func (s *Service) failPhase1(ctx context.Context, taskID string, err error) {
 		)
 	}
 
-	msg := truncateErr(err, 1000)
+	publicError := publicGenerationError(ctx, err)
+	msg := publicError.Message
 	status := module.StatusFailed
 	if _, uerr := s.repo.UpdateByTaskID(ctx, taskID, module.UpdateArticleParams{
 		Status:       &status,
@@ -409,7 +430,7 @@ func (s *Service) failPhase1(ctx context.Context, taskID string, err error) {
 	} else {
 		s.invalidateStatsOverview(ctx)
 	}
-	s.publishSSEError(taskID, msg)
+	s.publishSSEError(taskID, module.PhaseTitleGenerating, publicError)
 }
 
 func (s *Service) runPhase2Async(article *module.Article) {
@@ -427,42 +448,30 @@ func (s *Service) runPhase2Async(article *module.Article) {
 		return
 	}
 
-	state := &module.ArticleState{
-		ArticleID: article.ID,
-		TaskID:    article.TaskID,
-		Style:     article.Style,
-		Phase:     module.PhaseOutlineGenerating,
-		MainTitle: article.MainTitle,
-		SubTitle:  article.SubTitle,
-	}
-
-	if article.UserDescription != nil {
-		state.UserDescription = *article.UserDescription
-	}
-
 	taskID := article.TaskID
-	onProgress := func(ctx context.Context, name string, data any) {
-		s.publish(taskID, name, data)
+	run, err := s.progress.begin(article, module.PhaseOutlineGenerating)
+	if err != nil {
+		s.failPhase2(ctx, taskID, err)
+		return
 	}
-	if err := s.orchestrator.RunPhase2(ctx, state, onProgress); err != nil {
+	result, err := s.planning.GenerateOutline(ctx, articleworkflow.GenerateOutlineInput{
+		Run: run, Editorial: articleEditorial(article),
+	}, s.emitProgress(taskID, module.PhaseOutlineGenerating))
+	if err != nil {
 		s.failPhase2(ctx, taskID, err)
 		return
 	}
 
-	if err := s.repo.UpdateOutline(ctx, taskID, state.Outline); err != nil {
+	if err := s.progress.complete(taskID, run.RunID, module.PhaseOutlineEditing, articleworkflow.OutlineDone(result), func() error {
+		updated, err := s.repo.UpdateByTaskID(ctx, taskID, module.UpdateArticleParams{Outline: result.Sections, Phase: new(module.PhaseOutlineEditing)})
+		if err == nil && updated == nil {
+			return fmt.Errorf("article disappeared before saving outline")
+		}
+		return err
+	}); err != nil {
 		s.failPhase2(ctx, taskID, err)
 		return
 	}
-
-	if err := s.repo.UpdatePhase(ctx, taskID, module.PhaseOutlineEditing); err != nil {
-		s.failPhase2(ctx, taskID, err)
-		return
-	}
-
-	s.publish(taskID, module.EventOutlineDone, module.OutlineDonePayload{
-		Phase:   module.PhaseOutlineEditing,
-		Outline: state.Outline,
-	})
 
 	s.log.Info("phase2 done",
 		logger.FieldPurpose, logger.PurposeJob,
@@ -497,7 +506,8 @@ func (s *Service) failPhase2(ctx context.Context, taskID string, err error) {
 		)
 	}
 
-	msg := truncateErr(err, 1000)
+	publicError := publicGenerationError(ctx, err)
+	msg := publicError.Message
 	status := module.StatusFailed
 	if _, uerr := s.repo.UpdateByTaskID(ctx, taskID, module.UpdateArticleParams{
 		Status:       &status,
@@ -512,10 +522,10 @@ func (s *Service) failPhase2(ctx context.Context, taskID string, err error) {
 	} else {
 		s.invalidateStatsOverview(ctx)
 	}
-	s.publishSSEError(taskID, msg)
+	s.publishSSEError(taskID, module.PhaseOutlineGenerating, publicError)
 }
 
-func (s *Service) runPhase3Async(article *module.Article, userRole moduser.UserRole) {
+func (s *Service) runPhase3Async(article *module.Article) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
@@ -530,33 +540,34 @@ func (s *Service) runPhase3Async(article *module.Article, userRole moduser.UserR
 		return
 	}
 
-	state := &module.ArticleState{
-		ArticleID:           article.ID,
-		TaskID:              article.TaskID,
-		MainTitle:           article.MainTitle,
-		SubTitle:            article.SubTitle,
-		Style:               article.Style,
-		Outline:             article.Outline,
-		Phase:               module.PhaseContentGenerating,
-		EnabledImageMethods: article.EnabledImageMethods,
-	}
-
 	taskID := article.TaskID
-	onProgress := func(ctx context.Context, name string, data any) {
-		s.publish(taskID, name, data)
+	run, err := s.progress.begin(article, module.PhaseContentGenerating)
+	if err != nil {
+		s.failPhase3(ctx, taskID, err)
+		return
 	}
-	if err := s.orchestrator.RunPhase3(ctx, state, onProgress); err != nil {
+	result, err := s.articleFlow.GenerateArticle(ctx, articleworkflow.GenerateArticleInput{
+		Run: run, Editorial: articleEditorial(article), Outline: article.Outline,
+	}, s.emitProgress(taskID, module.PhaseContentGenerating))
+	if err != nil {
 		s.failPhase3(ctx, taskID, err)
 		return
 	}
 
-	if _, err := s.Update(ctx, article.ID, module.UpdateArticleParams{
-		Content:       &state.Content,
-		FullContent:   &state.FullContent,
-		Status:        new(module.StatusCompleted),
-		Phase:         new(module.PhaseCompleted),
-		Images:        state.Images,
-		CompletedTime: new(time.Now()),
+	if err := s.progress.complete(taskID, run.RunID, module.PhaseCompleted, articleworkflow.ContentDone(result), func() error {
+		updated, err := s.Update(ctx, article.ID, module.UpdateArticleParams{
+			Content:            &result.Content,
+			FullContent:        &result.FullContent,
+			Status:             new(module.StatusCompleted),
+			Phase:              new(module.PhaseCompleted),
+			Images:             storedImages(result.Images),
+			GenerationWarnings: result.Warnings,
+			CompletedTime:      new(time.Now()),
+		})
+		if err == nil && updated == nil {
+			return fmt.Errorf("article disappeared before saving content")
+		}
+		return err
 	}); err != nil {
 		s.log.Error("phase3 persist content failed",
 			logger.FieldPurpose, logger.PurposeJob,
@@ -564,14 +575,9 @@ func (s *Service) runPhase3Async(article *module.Article, userRole moduser.UserR
 			logger.FieldErr, err,
 			"task_id", article.TaskID,
 		)
-		s.failPhase3(ctx, state.TaskID, err)
+		s.failPhase3(ctx, taskID, err)
 		return
 	}
-
-	s.publish(taskID, module.EventContentDone, module.ContentDonePayload{
-		Phase:  module.PhaseCompleted,
-		Status: module.StatusCompleted,
-	})
 
 	s.invalidateStatsOverview(ctx)
 
@@ -580,6 +586,24 @@ func (s *Service) runPhase3Async(article *module.Article, userRole moduser.UserR
 		logger.FieldEvent, "article.phase3.completed",
 		"task_id", article.TaskID,
 	)
+}
+
+func storedImages(images []articleworkflow.GeneratedImage) []port.ImageResult {
+	return lo.Map(images, func(image articleworkflow.GeneratedImage, _ int) port.ImageResult {
+		return port.ImageResult{
+			Position: image.Task.Position, URL: image.Asset.URL, Method: image.Asset.Method,
+			Description: image.Task.Brief,
+		}
+	})
+}
+
+func (s *Service) emitProgress(taskID string, phase module.ArticlePhase) articleworkflow.EmitProgress {
+	return func(ctx context.Context, payload articleworkflow.ProgressPayload) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		return s.progress.emit(taskID, phase, payload)
+	}
 }
 
 // failPhase3 将任务标为失败并写入错误信息；仅用于异步 Phase3 的失败/panic 路径。
@@ -607,7 +631,8 @@ func (s *Service) failPhase3(ctx context.Context, taskID string, err error) {
 		)
 	}
 
-	msg := truncateErr(err, 1000)
+	publicError := publicGenerationError(ctx, err)
+	msg := publicError.Message
 	status := module.StatusFailed
 	if _, uerr := s.repo.UpdateByTaskID(ctx, taskID, module.UpdateArticleParams{
 		Status:       &status,
@@ -622,7 +647,7 @@ func (s *Service) failPhase3(ctx context.Context, taskID string, err error) {
 	} else {
 		s.invalidateStatsOverview(ctx)
 	}
-	s.publishSSEError(taskID, msg)
+	s.publishSSEError(taskID, module.PhaseContentGenerating, publicError)
 }
 
 func (s *Service) ModifyOutline(ctx context.Context, actor moduser.Actor, req AiModifyOutlineRequest) ([]module.OutlineSection, error) {
@@ -646,15 +671,12 @@ func (s *Service) ModifyOutline(ctx context.Context, actor moduser.Actor, req Ai
 		return nil, response.NewBizErrorWithDetail(response.Forbidden, "当前阶段不允许修改大纲")
 	}
 
-	state := &module.ArticleState{
-		ArticleID: article.ID,
-		TaskID:    article.TaskID,
-		MainTitle: article.MainTitle,
-		SubTitle:  article.SubTitle,
-		Outline:   article.Outline,
-	}
-
-	newOutline, err := s.orchestrator.ModifyOutline(ctx, state, req.ModifySuggestion)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+	result, err := s.planning.ReviseOutline(ctx, articleworkflow.ReviseOutlineInput{
+		Run: newPlanningRun(article), Editorial: articleEditorial(article),
+		Sections: article.Outline, ModifySuggestion: req.ModifySuggestion,
+	})
 	if err != nil {
 		s.log.Error("modify outline failed",
 			logger.FieldPurpose, logger.PurposeBiz,
@@ -667,11 +689,32 @@ func (s *Service) ModifyOutline(ctx context.Context, actor moduser.Actor, req Ai
 	}
 
 	// 写回修改后的大纲
-	if _, err := s.repo.Update(ctx, article.ID, module.UpdateArticleParams{Outline: newOutline}); err != nil {
+	if _, err := s.repo.Update(ctx, article.ID, module.UpdateArticleParams{Outline: result.Sections}); err != nil {
 		return nil, err
 	}
 
-	return newOutline, nil
+	return result.Sections, nil
+}
+
+func newPlanningRun(article *module.Article) articleworkflow.RunContext {
+	return articleworkflow.RunContext{
+		ArticleID: article.ID, TaskID: article.TaskID, RunID: uuid.NewString(),
+		AllowedImageMethods: append([]port.ImageMethod{}, article.EnabledImageMethods...),
+	}
+}
+
+func articleEditorial(article *module.Article) articleworkflow.EditorialContext {
+	editorial := articleworkflow.EditorialContext{Style: article.Style}
+	if article.MainTitle != nil {
+		editorial.MainTitle = *article.MainTitle
+	}
+	if article.SubTitle != nil {
+		editorial.SubTitle = *article.SubTitle
+	}
+	if article.UserDescription != nil {
+		editorial.UserDescription = *article.UserDescription
+	}
+	return editorial
 }
 
 // GetExecutionLogs 按 taskId 返回 agent 执行日志与汇总（需能访问该任务）。
@@ -706,7 +749,7 @@ func (s *Service) GetExecutionLogs(ctx context.Context, actor moduser.Actor, tas
 	for _, entry := range logs {
 		if entry.DurationMs != nil {
 			total += *entry.DurationMs
-			durations[entry.AgentName] = *entry.DurationMs
+			durations[entry.AgentName] += *entry.DurationMs
 		}
 		switch entry.Status {
 		case module.AgentLogFailed:
@@ -725,17 +768,6 @@ func (s *Service) GetExecutionLogs(ctx context.Context, actor moduser.Actor, tas
 		OverallStatus:   overall,
 		Logs:            logs,
 	}, nil
-}
-
-func truncateErr(err error, max int) string {
-	if err == nil {
-		return ""
-	}
-	msg := err.Error()
-	if max <= 0 || len(msg) <= max {
-		return msg
-	}
-	return msg[:max] + "..."
 }
 
 // resolveEnabledImageMethods 从当前实际可用的 Provider Catalog 解析默认值与访问权限。

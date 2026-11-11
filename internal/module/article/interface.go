@@ -15,6 +15,7 @@ type Repository interface {
 	GetByID(ctx context.Context, id int64) (*Article, error)
 
 	Update(ctx context.Context, id int64, params UpdateArticleParams) (*Article, error)
+	UpdateIfPhase(ctx context.Context, id int64, expected ArticlePhase, params UpdateArticleParams) (*Article, error)
 	UpdateByTaskID(ctx context.Context, taskID string, params UpdateArticleParams) (*Article, error)
 	UpdateStatus(ctx context.Context, taskID string, status ArticleStatus) error
 	UpdatePhase(ctx context.Context, taskID string, phase ArticlePhase) error
@@ -53,6 +54,7 @@ type UpdateArticleParams struct {
 	TitleOptions        []TitleOption
 	Outline             []OutlineSection
 	Images              []port.ImageResult
+	GenerationWarnings  []GenerationWarning
 	EnabledImageMethods []port.ImageMethod
 }
 
@@ -60,17 +62,6 @@ type UpdateArticleParams struct {
 type ListArticlesParams struct {
 	Status *ArticleStatus
 	page.PageRequest
-}
-
-// ProgressFunc 任务进度回调（由 Service 注入，内部通常 publish 到 SSE）。
-// name 为 SSE event 名；data 为 payload（将被 JSON 序列化）。
-type ProgressFunc func(ctx context.Context, name string, data any)
-
-type AgentOrchestrator interface {
-	RunPhase1(ctx context.Context, state *ArticleState) error
-	RunPhase2(ctx context.Context, state *ArticleState, onProgress ProgressFunc) error
-	RunPhase3(ctx context.Context, state *ArticleState, onProgress ProgressFunc) error
-	ModifyOutline(ctx context.Context, state *ArticleState, modifySuggestion string) ([]OutlineSection, error)
 }
 
 // CreateAgentLogParams 写入一条执行日志。

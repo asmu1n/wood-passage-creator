@@ -80,6 +80,10 @@ func (Article) Fields() []ent.Field {
 				dialect.Postgres: "jsonb",
 			}).
 			Comment("配图结果列表（JSON）"),
+		field.JSON("generation_warnings", json.RawMessage{}).
+			Optional().
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}).
+			Comment("非致命生成警告（JSON）"),
 		field.Enum("status").
 			Values("PENDING", "PROCESSING", "COMPLETED", "FAILED").
 			Default("PENDING").

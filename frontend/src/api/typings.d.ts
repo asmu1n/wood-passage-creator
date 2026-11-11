@@ -136,6 +136,7 @@ declare namespace API {
     content?: string
     fullContent?: string
     images?: ImageItem[]
+    generationWarnings?: GenerationWarning[]
     status?: string
     phase?: string
     errorMessage?: string
@@ -164,6 +165,13 @@ declare namespace API {
     sectionTitle?: string
     description?: string
     imageSource?: string
+  }
+
+  type GenerationWarning = {
+    code: 'IMAGE_SKIPPED'
+    imageId: string
+    position: number
+    message: string
   }
 
   type OutlineSection = {

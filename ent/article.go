@@ -43,6 +43,8 @@ type Article struct {
 	FullContent *string `json:"full_content,omitempty"`
 	// 配图结果列表（JSON）
 	Images json.RawMessage `json:"images,omitempty"`
+	// 非致命生成警告（JSON）
+	GenerationWarnings json.RawMessage `json:"generation_warnings,omitempty"`
 	// 文章状态：PENDING/PROCESSING/COMPLETED/FAILED
 	Status article.Status `json:"status,omitempty"`
 	// 当前阶段：PENDING/TITLE_GENERATING/TITLE_SELECTING/OUTLINE_GENERATING/OUTLINE_EDITING/CONTENT_GENERATING/COMPLETED
@@ -103,7 +105,7 @@ func (*Article) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case article.FieldTitleOptions, article.FieldOutline, article.FieldImages, article.FieldEnabledImageMethods:
+		case article.FieldTitleOptions, article.FieldOutline, article.FieldImages, article.FieldGenerationWarnings, article.FieldEnabledImageMethods:
 			values[i] = new([]byte)
 		case article.FieldIsDelete:
 			values[i] = new(sql.NullBool)
@@ -209,6 +211,14 @@ func (_m *Article) assignValues(columns []string, values []any) error {
 			} else if value != nil && len(*value) > 0 {
 				if err := json.Unmarshal(*value, &_m.Images); err != nil {
 					return fmt.Errorf("unmarshal field images: %w", err)
+				}
+			}
+		case article.FieldGenerationWarnings:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field generation_warnings", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.GenerationWarnings); err != nil {
+					return fmt.Errorf("unmarshal field generation_warnings: %w", err)
 				}
 			}
 		case article.FieldStatus:
@@ -357,6 +367,9 @@ func (_m *Article) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("images=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Images))
+	builder.WriteString(", ")
+	builder.WriteString("generation_warnings=")
+	builder.WriteString(fmt.Sprintf("%v", _m.GenerationWarnings))
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Status))

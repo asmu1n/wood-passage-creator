@@ -10,6 +10,13 @@
       <p class="article-subtitle">{{ article.subTitle }}</p>
     </div>
     <div class="content-preview">
+      <a-alert
+        v-for="warning in article.generationWarnings || []"
+        :key="warning.imageId"
+        type="warning"
+        show-icon
+        :message="warning.message"
+      />
       <div ref="previewRef" v-html="markdownToHtml(article.fullContent || article.content || '')" class="markdown-body"></div>
     </div>
   </div>

@@ -6,8 +6,8 @@
       <p class="article-subtitle">{{ article.subTitle }}</p>
     </div>
 
-    <!-- 大纲预览（流式解析展示） -->
-    <div v-if="outlineRaw" class="outline-preview">
+    <!-- 大纲结构化预览 -->
+    <div v-if="outlinePreview.length" class="outline-preview">
       <div class="section-label">
         <BulbOutlined />
         <span>文章大纲</span>
@@ -15,8 +15,8 @@
       </div>
       <div class="outline-list">
         <div
-          v-for="item in parsedOutline"
-          :key="item.section"
+          v-for="(item, index) in outlinePreview"
+          :key="item.section ?? index"
           class="outline-item"
         >
           <div class="outline-title">{{ item.section }}. {{ item.title }}</div>
@@ -40,7 +40,7 @@
         <span>正在生成配图</span>
       </div>
       <a-progress :percent="imageProgress" status="active" :stroke-color="{ from: '#22C55E', to: '#16A34A' }" />
-      <p class="progress-hint">{{ imageCount }}/{{ totalImages }} 张图片已完成</p>
+      <p class="progress-hint">{{ imageSummary.settled }}/{{ imageSummary.total }} 项已处理，成功 {{ imageSummary.succeeded }} 张，跳过 {{ imageSummary.skipped }} 张</p>
     </div>
 
     <!-- 加载占位 -->
@@ -55,22 +55,20 @@
 import { computed } from 'vue'
 import { BulbOutlined, PictureOutlined } from '@ant-design/icons-vue'
 import { markdownToHtml } from '@/utils/markdown'
-import { parseOutlineStream } from '@/utils/outlineStream'
+import type { ImageSummary, OutlinePreviewSection } from '@/types/articleWorkflow'
 
 const props = defineProps<{
   article: Partial<API.ArticleVO>
-  outlineRaw: string
+  outlinePreview: OutlinePreviewSection[]
   isOutlineStreaming: boolean
   isStreaming: boolean
   currentStep: number
-  imageCount: number
-  totalImages: number
-  imageProgress: number
+  imageSummary: ImageSummary
 }>()
 
-const showImageProgress = computed(() => props.currentStep === 4 && props.imageProgress > 0)
+const imageProgress = computed(() => props.imageSummary.total === 0 ? 100 : Math.round(props.imageSummary.settled / props.imageSummary.total * 100))
+const showImageProgress = computed(() => props.currentStep === 4)
 const showLoadingPlaceholder = computed(() => props.currentStep === 0 && !props.article.mainTitle)
-const parsedOutline = computed(() => parseOutlineStream(props.outlineRaw))
 </script>
 
 <style scoped lang="scss">
