@@ -37,6 +37,7 @@ func NewPlanningFlows(g *genkit.Genkit, logs article.AgentLogRecorder) (*Plannin
 	}
 	p := &PlanningFlows{stepRecorder: stepRecorder{logs: logs, log: logger.Module("article.workflow")}}
 
+	// 初始化标题生成、提纲生成、提纲修改的 flow
 	p.titles = genkit.DefineFlow(g, string(FlowGenerateTitles),
 		func(ctx context.Context, input GenerateTitlesInput) (TitlesResult, error) {
 			p.start(ctx, input.Run)
@@ -130,15 +131,21 @@ func (p *PlanningFlows) start(ctx context.Context, run RunContext) {
 func (p *PlanningFlows) GenerateTitles(ctx context.Context, input GenerateTitlesInput) (TitlesResult, error) {
 	return runWorkflowStep(p.stepRecorder, ctx, input.Run, "title_generator",
 		map[string]any{"topic": input.Topic, "style": input.Style},
-		func(out TitlesResult) any { return map[string]any{"options": len(out.Options)} },
-		func(ctx context.Context) (TitlesResult, error) { return p.titles.Run(ctx, input) },
+		func(out TitlesResult) any {
+			return map[string]any{"options": len(out.Options)}
+		},
+		func(ctx context.Context) (TitlesResult, error) {
+			return p.titles.Run(ctx, input)
+		},
 	)
 }
 
 func (p *PlanningFlows) GenerateOutline(ctx context.Context, input GenerateOutlineInput, emit EmitProgress) (OutlineResult, error) {
 	return runWorkflowStep(p.stepRecorder, ctx, input.Run, "outline_generator",
 		map[string]any{"mainTitle": input.Editorial.MainTitle, "subTitle": input.Editorial.SubTitle},
-		func(out OutlineResult) any { return map[string]any{"sections": len(out.Sections)} },
+		func(out OutlineResult) any {
+			return map[string]any{"sections": len(out.Sections)}
+		},
 		func(ctx context.Context) (OutlineResult, error) {
 			return p.outline.Action.Run(ctx, input, func(ctx context.Context, snapshot OutlineSnapshot) error {
 				if emit != nil {
@@ -153,8 +160,12 @@ func (p *PlanningFlows) GenerateOutline(ctx context.Context, input GenerateOutli
 func (p *PlanningFlows) ReviseOutline(ctx context.Context, input ReviseOutlineInput) (OutlineResult, error) {
 	return runWorkflowStep(p.stepRecorder, ctx, input.Run, "outline_modifier",
 		map[string]any{"sections": len(input.Sections), "suggestionLength": len(input.ModifySuggestion)},
-		func(out OutlineResult) any { return map[string]any{"sections": len(out.Sections)} },
-		func(ctx context.Context) (OutlineResult, error) { return p.revise.Run(ctx, input) },
+		func(out OutlineResult) any {
+			return map[string]any{"sections": len(out.Sections)}
+		},
+		func(ctx context.Context) (OutlineResult, error) {
+			return p.revise.Run(ctx, input)
+		},
 	)
 }
 

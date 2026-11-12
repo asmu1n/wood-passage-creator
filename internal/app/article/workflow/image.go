@@ -250,8 +250,10 @@ func newImageExecutor(g *genkit.Genkit, provider port.ProviderExecutor) (*imageE
 		return nil, fmt.Errorf("image execution prompt is missing")
 	}
 	return &imageExecutor{
-		runtime: g, provider: provider, executePrompt: prompt,
-		log: logger.Module("article.workflow"),
+		runtime:       g,
+		provider:      provider,
+		executePrompt: prompt,
+		log:           logger.Module("article.workflow"),
 	}, nil
 }
 
@@ -363,13 +365,17 @@ func skippedImage(task ImageTask, reason string) ImageOutcome {
 }
 
 func (e *imageExecutor) executeImage(ctx context.Context, input imageExecutionInput) (ImageOutcome, error) {
+	// 获取当前可用的 image tool providers
 	providers := e.permittedProviders(input.Run.AllowedImageMethods)
 	if len(providers) == 0 {
 		return skippedImage(input.Task, "没有可用且已授权的配图工具"), nil
 	}
+
+	// 包装需要使用的 image tool
 	guides := lo.Map(providers, func(p port.ImageProviderMetadata, _ int) ImageToolGuide {
 		return ImageToolGuide{Method: p.Method, ToolName: p.ToolName, UsageGuide: p.PlannerUsageGuide}
 	})
+	// 根据当前的 image task 以及可用的 image tool providers，生成一个 prompt 用于模型决策
 	rendered, err := e.executePrompt.Render(ctx, ImageExecutePromptInput{
 		Kind: input.Task.Kind, Brief: input.Task.Brief, PreferredMethod: input.Task.PreferredMethod, Tools: guides,
 	})
@@ -381,6 +387,7 @@ func (e *imageExecutor) executeImage(ctx context.Context, input imageExecutionIn
 	bound := make(map[string]ai.Tool, len(providers))
 	attempts := 0
 	var asset *ImageAsset
+	// 遍历生成 tools，绑定 tool name 到实际的 provider 执行逻辑
 	for _, provider := range providers {
 		if bound[provider.ToolName] != nil {
 			return ImageOutcome{}, fmt.Errorf("duplicate provider tool %q", provider.ToolName)
@@ -428,10 +435,12 @@ func (e *imageExecutor) executeImage(ctx context.Context, input imageExecutionIn
 		bound[provider.ToolName] = tool
 	}
 	seen := map[string]bool{}
+	// 维护一个 tool loop ，直到模型返回一个成功的配图结果，或者达到最大模型轮次和最大工具调用次数
 	for turn := 0; turn < input.Budget.MaxModelTurns && attempts < input.Budget.MaxToolAttempts; turn++ {
 		if err := ctx.Err(); err != nil {
 			return ImageOutcome{}, err
 		}
+		// 获取 llm 返回的 tool 调用决策
 		resp, err := genkit.Generate(ctx, e.runtime,
 			ai.WithMessages(messages...), ai.WithTools(tools...), ai.WithReturnToolRequests(true),
 		)
@@ -456,6 +465,7 @@ func (e *imageExecutor) executeImage(ctx context.Context, input imageExecutionIn
 		}
 		messages = resp.History()
 		responses := make([]*ai.Part, 0, len(requests))
+		// 执行模型返回的 tool 调用决策，直到成功生成配图，或者达到最大模型轮次和最大工具调用次数（往往只有一个 request）
 		for _, part := range requests {
 			req := part.ToolRequest
 			feedback := imageToolFeedback{Error: "Request exactly one tool per turn."}

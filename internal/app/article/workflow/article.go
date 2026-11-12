@@ -177,6 +177,7 @@ func NewArticleFlows(g *genkit.Genkit, executor port.ProviderExecutor, logs arti
 	return f, nil
 }
 
+// 对外接口所使用的函数
 func (f *ArticleFlows) GenerateArticle(ctx context.Context, input GenerateArticleInput, emit EmitProgress) (ArticleResult, error) {
 	return f.flow.Action.Run(ctx, input, func(ctx context.Context, update articleUpdate) error {
 		if emit == nil {
