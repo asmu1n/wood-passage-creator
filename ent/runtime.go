@@ -90,17 +90,17 @@ func init() {
 	// article.TopicValidator is a validator for the "topic" field. It is called by the builders before save.
 	article.TopicValidator = articleDescTopic.Validators[0].(func(string) error)
 	// articleDescCreateTime is the schema descriptor for create_time field.
-	articleDescCreateTime := articleFields[17].Descriptor()
+	articleDescCreateTime := articleFields[18].Descriptor()
 	// article.DefaultCreateTime holds the default value on creation for the create_time field.
 	article.DefaultCreateTime = articleDescCreateTime.Default.(func() time.Time)
 	// articleDescUpdateTime is the schema descriptor for update_time field.
-	articleDescUpdateTime := articleFields[19].Descriptor()
+	articleDescUpdateTime := articleFields[20].Descriptor()
 	// article.DefaultUpdateTime holds the default value on creation for the update_time field.
 	article.DefaultUpdateTime = articleDescUpdateTime.Default.(func() time.Time)
 	// article.UpdateDefaultUpdateTime holds the default value on update for the update_time field.
 	article.UpdateDefaultUpdateTime = articleDescUpdateTime.UpdateDefault.(func() time.Time)
 	// articleDescIsDelete is the schema descriptor for is_delete field.
-	articleDescIsDelete := articleFields[20].Descriptor()
+	articleDescIsDelete := articleFields[21].Descriptor()
 	// article.DefaultIsDelete holds the default value on creation for the is_delete field.
 	article.DefaultIsDelete = articleDescIsDelete.Default.(bool)
 	// articleDescID is the schema descriptor for id field.

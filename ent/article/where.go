@@ -675,6 +675,16 @@ func ImagesNotNil() predicate.Article {
 	return predicate.Article(sql.FieldNotNull(FieldImages))
 }
 
+// GenerationWarningsIsNil applies the IsNil predicate on the "generation_warnings" field.
+func GenerationWarningsIsNil() predicate.Article {
+	return predicate.Article(sql.FieldIsNull(FieldGenerationWarnings))
+}
+
+// GenerationWarningsNotNil applies the NotNil predicate on the "generation_warnings" field.
+func GenerationWarningsNotNil() predicate.Article {
+	return predicate.Article(sql.FieldNotNull(FieldGenerationWarnings))
+}
+
 // StatusEQ applies the EQ predicate on the "status" field.
 func StatusEQ(v Status) predicate.Article {
 	return predicate.Article(sql.FieldEQ(FieldStatus, v))

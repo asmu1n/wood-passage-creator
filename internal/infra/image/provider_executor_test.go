@@ -87,10 +87,9 @@ func TestProviderExecutor_Execute(t *testing.T) {
 		providers: map[port.ImageMethod]port.Provider{
 			port.MethodPexels: stubProvider{method: port.MethodPexels, url: "https://example.com/a.jpg"},
 		},
-		fallback: NewPicsum(),
 	}
 	req := port.ImageRequirement{
-		Position: 1, ImageSource: port.MethodPexels, Keywords: "city", PlaceholderID: "{{IMAGE_PLACEHOLDER_1}}",
+		Position: 1, Keywords: "city",
 	}
 	img, err := g.Execute(context.Background(), "t1", req, port.MethodPexels)
 	if err != nil {
@@ -101,31 +100,16 @@ func TestProviderExecutor_Execute(t *testing.T) {
 	}
 }
 
-func TestProviderExecutor_FallbackOnError(t *testing.T) {
+func TestProviderExecutor_DoesNotFallbackOnError(t *testing.T) {
 	g := &providerExecutor{
 		providers: map[port.ImageMethod]port.Provider{
 			port.MethodPexels: stubProvider{method: port.MethodPexels, err: fmt.Errorf("boom")},
 		},
-		fallback: NewPicsum(),
 	}
 	req := port.ImageRequirement{
-		Position: 1, ImageSource: port.MethodPexels, PlaceholderID: "{{IMAGE_PLACEHOLDER_1}}",
+		Position: 1,
 	}
-	img, err := g.ExecuteWithFallback(context.Background(), "t1", req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if img.Method != port.MethodPicsum {
-		t.Fatalf("got %+v", img)
-	}
-}
-
-func TestPicsumFetch(t *testing.T) {
-	u, err := NewPicsum().Fetch(context.Background(), port.ImageRequirement{Position: 7})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if u != "https://picsum.photos/seed/7/800/600" {
-		t.Fatal(u)
+	if _, err := g.Execute(context.Background(), "t1", req, port.MethodPexels); err == nil {
+		t.Fatal("provider failure must not produce an unrelated fallback image")
 	}
 }

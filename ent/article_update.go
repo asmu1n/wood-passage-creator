@@ -229,6 +229,24 @@ func (_u *ArticleUpdate) ClearImages() *ArticleUpdate {
 	return _u
 }
 
+// SetGenerationWarnings sets the "generation_warnings" field.
+func (_u *ArticleUpdate) SetGenerationWarnings(v json.RawMessage) *ArticleUpdate {
+	_u.mutation.SetGenerationWarnings(v)
+	return _u
+}
+
+// AppendGenerationWarnings appends value to the "generation_warnings" field.
+func (_u *ArticleUpdate) AppendGenerationWarnings(v json.RawMessage) *ArticleUpdate {
+	_u.mutation.AppendGenerationWarnings(v)
+	return _u
+}
+
+// ClearGenerationWarnings clears the value of the "generation_warnings" field.
+func (_u *ArticleUpdate) ClearGenerationWarnings() *ArticleUpdate {
+	_u.mutation.ClearGenerationWarnings()
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *ArticleUpdate) SetStatus(v article.Status) *ArticleUpdate {
 	_u.mutation.SetStatus(v)
@@ -556,6 +574,17 @@ func (_u *ArticleUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.ImagesCleared() {
 		_spec.ClearField(article.FieldImages, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.GenerationWarnings(); ok {
+		_spec.SetField(article.FieldGenerationWarnings, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedGenerationWarnings(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, article.FieldGenerationWarnings, value)
+		})
+	}
+	if _u.mutation.GenerationWarningsCleared() {
+		_spec.ClearField(article.FieldGenerationWarnings, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(article.FieldStatus, field.TypeEnum, value)
@@ -885,6 +914,24 @@ func (_u *ArticleUpdateOne) AppendImages(v json.RawMessage) *ArticleUpdateOne {
 // ClearImages clears the value of the "images" field.
 func (_u *ArticleUpdateOne) ClearImages() *ArticleUpdateOne {
 	_u.mutation.ClearImages()
+	return _u
+}
+
+// SetGenerationWarnings sets the "generation_warnings" field.
+func (_u *ArticleUpdateOne) SetGenerationWarnings(v json.RawMessage) *ArticleUpdateOne {
+	_u.mutation.SetGenerationWarnings(v)
+	return _u
+}
+
+// AppendGenerationWarnings appends value to the "generation_warnings" field.
+func (_u *ArticleUpdateOne) AppendGenerationWarnings(v json.RawMessage) *ArticleUpdateOne {
+	_u.mutation.AppendGenerationWarnings(v)
+	return _u
+}
+
+// ClearGenerationWarnings clears the value of the "generation_warnings" field.
+func (_u *ArticleUpdateOne) ClearGenerationWarnings() *ArticleUpdateOne {
+	_u.mutation.ClearGenerationWarnings()
 	return _u
 }
 
@@ -1245,6 +1292,17 @@ func (_u *ArticleUpdateOne) sqlSave(ctx context.Context) (_node *Article, err er
 	}
 	if _u.mutation.ImagesCleared() {
 		_spec.ClearField(article.FieldImages, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.GenerationWarnings(); ok {
+		_spec.SetField(article.FieldGenerationWarnings, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedGenerationWarnings(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, article.FieldGenerationWarnings, value)
+		})
+	}
+	if _u.mutation.GenerationWarningsCleared() {
+		_spec.ClearField(article.FieldGenerationWarnings, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(article.FieldStatus, field.TypeEnum, value)

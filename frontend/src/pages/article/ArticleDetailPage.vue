@@ -57,7 +57,7 @@
                 <ClockCircleOutlined class="section-icon" />
                 执行日志
                 <a-tag :color="getStatusColor(executionStats.overallStatus ?? '')" class="status-tag-small">
-                  {{ executionStats.overallStatus ?? '' }}
+                  {{ getStatusText(executionStats.overallStatus ?? '') }}
                 </a-tag>
               </h2>
               <ThunderboltOutlined :class="['toggle-icon', { expanded: showExecutionLogs }]" />
@@ -72,7 +72,7 @@
                     <span class="value">{{ executionStats.totalDurationMs ?? 0 }}ms</span>
                   </div>
                   <div class="stat-item">
-                    <span class="label">智能体数量</span>
+                    <span class="label">执行步骤</span>
                     <span class="value">{{ executionStats.agentCount ?? 0 }}</span>
                   </div>
                   <div class="stat-item">
@@ -97,7 +97,7 @@
                     </div>
                     <div class="timeline-content">
                       <div class="timeline-header">
-                        <span class="agent-name">{{ getAgentDisplayName(log.agentName ?? '') }}</span>
+                        <span class="agent-name">{{ getExecutionStepName(log.agentName ?? '') }}</span>
                         <span class="duration">{{ log.durationMs ?? 0 }}ms</span>
                       </div>
                       <div class="timeline-time">
@@ -134,6 +134,13 @@
           <a-divider v-if="article.outline && article.outline.length > 0" />
 
           <!-- 完整图文（优先展示） -->
+          <a-alert
+            v-for="warning in article.generationWarnings || []"
+            :key="warning.imageId"
+            type="warning"
+            show-icon
+            :message="warning.message"
+          />
           <div v-if="article.fullContent" class="content-section">
             <h2 class="section-title">
               <FileTextOutlined class="section-icon" />
@@ -193,6 +200,7 @@ import {
 import { getArticle, getExecutionLogs } from '@/api/articleController'
 import { marked } from 'marked'
 import { renderMermaid } from '@/utils/markdown'
+import { getExecutionStepName } from '@/utils/executionLogs'
 import dayjs from 'dayjs'
 
 const router = useRouter()
@@ -305,6 +313,8 @@ const formatDate = (date: string) => {
 // 获取状态颜色
 const getStatusColor = (status: string) => {
   const colorMap: Record<string, string> = {
+    SUCCESS: 'success',
+    RUNNING: 'processing',
     PENDING: 'default',
     PROCESSING: 'processing',
     COMPLETED: 'success',
@@ -316,26 +326,14 @@ const getStatusColor = (status: string) => {
 // 获取状态文本
 const getStatusText = (status: string) => {
   const textMap: Record<string, string> = {
+    SUCCESS: '已完成',
+    RUNNING: '执行中',
     PENDING: '等待中',
     PROCESSING: '生成中',
     COMPLETED: '已完成',
     FAILED: '失败',
   }
   return textMap[status] || status
-}
-
-// 获取智能体显示名称
-const getAgentDisplayName = (agentName: string) => {
-  const nameMap: Record<string, string> = {
-    'agent1_generate_titles': '生成标题',
-    'agent2_generate_outline': '生成大纲',
-    'agent3_generate_content': '生成正文',
-    'agent4_analyze_image_requirements': '分析配图需求',
-    'agent5_generate_images': '生成配图',
-    'agent6_merge_content': '图文合成',
-    'ai_modify_outline': 'AI修改大纲'
-  }
-  return nameMap[agentName] || agentName
 }
 
 // 重试（重新创建文章）

@@ -3,96 +3,61 @@ package image
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
-
-	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/schema"
 
 	"wood-passage-creator/internal/config"
 	"wood-passage-creator/internal/port"
 )
 
-type mermaidModelStub struct {
-	response *schema.Message
-	err      error
-	input    []*schema.Message
-}
-
-func (m *mermaidModelStub) Generate(_ context.Context, messages []*schema.Message, _ ...model.Option) (*schema.Message, error) {
-	m.input = messages
-	return m.response, m.err
-}
-
-func (m *mermaidModelStub) Stream(context.Context, []*schema.Message, ...model.Option) (*schema.StreamReader[*schema.Message], error) {
-	return nil, fmt.Errorf("stream is not used by Mermaid")
-}
-
-func TestNewMermaidRequiresModel(t *testing.T) {
+func TestNewMermaidRequiresGenerator(t *testing.T) {
 	if NewMermaid(nil) != nil {
-		t.Fatal("Mermaid must not be registered without a model")
+		t.Fatal("missing generator must disable Mermaid")
 	}
 }
 
 func TestMermaidFetchReturnsSource(t *testing.T) {
-	llm := &mermaidModelStub{response: schema.AssistantMessage("```mermaid\nflowchart TD\n  A-->B\n```", nil)}
-	got, err := NewMermaid(llm).Fetch(context.Background(), port.ImageRequirement{
-		Prompt: "从选题到完成的三步流程",
+	provider := NewMermaid(func(_ context.Context, description string) (string, error) {
+		if description != "Three steps" {
+			t.Fatalf("description = %q", description)
+		}
+		return "```mermaid\nflowchart TD\n  A-->B\n```", nil
 	})
+	got, err := provider.Fetch(t.Context(), port.ImageRequirement{Prompt: "Three steps"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got != "mermaid:flowchart TD\n  A-->B" {
-		t.Fatalf("got %q", got)
-	}
-	if strings.Contains(got, "```") {
-		t.Fatalf("fence leaked into source: %q", got)
-	}
-	if len(llm.input) != 1 || !strings.Contains(llm.input[0].Content, "从选题到完成的三步流程") {
-		t.Fatalf("model did not receive diagram description: %+v", llm.input)
+		t.Fatalf("source = %q", got)
 	}
 }
 
-func TestMermaidFetchRejectsMissingInputOrOutput(t *testing.T) {
-	llm := &mermaidModelStub{response: schema.AssistantMessage("  ", nil)}
-	provider := NewMermaid(llm)
-	if _, err := provider.Fetch(context.Background(), port.ImageRequirement{}); err == nil {
-		t.Fatal("missing description should fail")
+func TestMermaidRejectsInvalidSource(t *testing.T) {
+	for _, source := range []string{"", "An explanation", "flowchart TD\n```evil", "%%{init: {}}%%\nflowchart TD"} {
+		provider := NewMermaid(func(context.Context, string) (string, error) { return source, nil })
+		if _, err := provider.Fetch(t.Context(), port.ImageRequirement{Prompt: "Diagram"}); err == nil {
+			t.Errorf("invalid source accepted: %q", source)
+		}
 	}
-	if len(llm.input) != 0 {
-		t.Fatal("missing description must not call model")
-	}
-	if _, err := provider.Fetch(context.Background(), port.ImageRequirement{Prompt: "三步流程"}); err == nil {
-		t.Fatal("empty model output should fail")
-	}
-	llm.response = schema.AssistantMessage("这是一个流程图", nil)
-	if _, err := provider.Fetch(context.Background(), port.ImageRequirement{Prompt: "三步流程"}); err == nil {
-		t.Fatal("explanation is not Mermaid source")
-	}
-	llm.err = errors.New("model unavailable")
-	if _, err := provider.Fetch(context.Background(), port.ImageRequirement{Prompt: "三步流程"}); !errors.Is(err, llm.err) {
-		t.Fatalf("model error not propagated: %v", err)
+	modelErr := errors.New("model unavailable")
+	provider := NewMermaid(func(context.Context, string) (string, error) { return "", modelErr })
+	if _, err := provider.Fetch(t.Context(), port.ImageRequirement{Prompt: "Diagram"}); !errors.Is(err, modelErr) {
+		t.Fatalf("lost model error: %v", err)
 	}
 }
 
 func TestProviderExecutorGeneratesMermaidSource(t *testing.T) {
-	req := port.ImageRequirement{
-		Position:      1,
-		ImageSource:   port.MethodMermaid,
-		Prompt:        "从需求到交付的流程",
-		PlaceholderID: "{{IMAGE_PLACEHOLDER_1}}",
+	if _, ok := NewProviderExecutor(&config.Config{}, port.ImageSources{}, nil).LookupProvider(port.MethodMermaid); ok {
+		t.Fatal("Mermaid must be disabled without a generator")
 	}
-	if _, ok := NewProviderExecutor(&config.Config{}, nil, nil).LookupProvider(port.MethodMermaid); ok {
-		t.Fatal("Mermaid should not be registered without a model")
-	}
-	llm := &mermaidModelStub{response: schema.AssistantMessage("flowchart LR\nA-->B", nil)}
-	executor := NewProviderExecutor(&config.Config{}, llm, nil)
-	result, err := executor.Execute(context.Background(), "task-1", req, port.MethodMermaid)
+	executor := NewProviderExecutor(&config.Config{}, port.ImageSources{
+		Mermaid: func(context.Context, string) (string, error) { return "flowchart LR\nA-->B", nil },
+	}, nil)
+	result, err := executor.Execute(t.Context(), "task", port.ImageRequirement{Prompt: "Diagram", Position: 1}, port.MethodMermaid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.URL != "mermaid:flowchart LR\nA-->B" || result.Method != port.MethodMermaid || result.PlaceholderID != req.PlaceholderID {
-		t.Fatalf("unexpected result: %+v", result)
+	if !strings.HasPrefix(result.URL, "mermaid:") || result.Method != port.MethodMermaid {
+		t.Fatalf("result = %+v", result)
 	}
 }

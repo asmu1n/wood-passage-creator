@@ -32,7 +32,7 @@ func (p *Iconify) Metadata() port.ImageProviderMetadata {
 		Method:             port.MethodIconify,
 		Access:             port.ImageAccessFree,
 		PlannerDescription: "Iconify 开源图标库，适合简洁图标",
-		PlannerUsageGuide:  "imageSource=ICONIFY；keywords 填图标语义（如 rocket、chart）。",
+		PlannerUsageGuide:  "适合简洁图标；执行工具时 keywords 填图标语义（如 rocket、chart）。",
 		ToolName:           "search_iconify_icon",
 		ToolDescription:    "Search Iconify for a clean vector icon. Use a short icon concept as keywords.",
 	}

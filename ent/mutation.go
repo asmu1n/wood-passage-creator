@@ -1296,6 +1296,8 @@ type ArticleMutation struct {
 	full_content                *string
 	images                      *json.RawMessage
 	appendimages                json.RawMessage
+	generation_warnings         *json.RawMessage
+	appendgeneration_warnings   json.RawMessage
 	status                      *article.Status
 	phase                       *article.Phase
 	error_message               *string
@@ -1969,6 +1971,71 @@ func (m *ArticleMutation) ResetImages() {
 	delete(m.clearedFields, article.FieldImages)
 }
 
+// SetGenerationWarnings sets the "generation_warnings" field.
+func (m *ArticleMutation) SetGenerationWarnings(jm json.RawMessage) {
+	m.generation_warnings = &jm
+	m.appendgeneration_warnings = nil
+}
+
+// GenerationWarnings returns the value of the "generation_warnings" field in the mutation.
+func (m *ArticleMutation) GenerationWarnings() (r json.RawMessage, exists bool) {
+	v := m.generation_warnings
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGenerationWarnings returns the old "generation_warnings" field's value of the Article entity.
+// If the Article object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ArticleMutation) OldGenerationWarnings(ctx context.Context) (v json.RawMessage, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGenerationWarnings is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGenerationWarnings requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGenerationWarnings: %w", err)
+	}
+	return oldValue.GenerationWarnings, nil
+}
+
+// AppendGenerationWarnings adds jm to the "generation_warnings" field.
+func (m *ArticleMutation) AppendGenerationWarnings(jm json.RawMessage) {
+	m.appendgeneration_warnings = append(m.appendgeneration_warnings, jm...)
+}
+
+// AppendedGenerationWarnings returns the list of values that were appended to the "generation_warnings" field in this mutation.
+func (m *ArticleMutation) AppendedGenerationWarnings() (json.RawMessage, bool) {
+	if len(m.appendgeneration_warnings) == 0 {
+		return nil, false
+	}
+	return m.appendgeneration_warnings, true
+}
+
+// ClearGenerationWarnings clears the value of the "generation_warnings" field.
+func (m *ArticleMutation) ClearGenerationWarnings() {
+	m.generation_warnings = nil
+	m.appendgeneration_warnings = nil
+	m.clearedFields[article.FieldGenerationWarnings] = struct{}{}
+}
+
+// GenerationWarningsCleared returns if the "generation_warnings" field was cleared in this mutation.
+func (m *ArticleMutation) GenerationWarningsCleared() bool {
+	_, ok := m.clearedFields[article.FieldGenerationWarnings]
+	return ok
+}
+
+// ResetGenerationWarnings resets all changes to the "generation_warnings" field.
+func (m *ArticleMutation) ResetGenerationWarnings() {
+	m.generation_warnings = nil
+	m.appendgeneration_warnings = nil
+	delete(m.clearedFields, article.FieldGenerationWarnings)
+}
+
 // SetStatus sets the "status" field.
 func (m *ArticleMutation) SetStatus(a article.Status) {
 	m.status = &a
@@ -2476,7 +2543,7 @@ func (m *ArticleMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ArticleMutation) Fields() []string {
-	fields := make([]string, 0, 20)
+	fields := make([]string, 0, 21)
 	if m.task_id != nil {
 		fields = append(fields, article.FieldTaskID)
 	}
@@ -2509,6 +2576,9 @@ func (m *ArticleMutation) Fields() []string {
 	}
 	if m.images != nil {
 		fields = append(fields, article.FieldImages)
+	}
+	if m.generation_warnings != nil {
+		fields = append(fields, article.FieldGenerationWarnings)
 	}
 	if m.status != nil {
 		fields = append(fields, article.FieldStatus)
@@ -2567,6 +2637,8 @@ func (m *ArticleMutation) Field(name string) (ent.Value, bool) {
 		return m.FullContent()
 	case article.FieldImages:
 		return m.Images()
+	case article.FieldGenerationWarnings:
+		return m.GenerationWarnings()
 	case article.FieldStatus:
 		return m.Status()
 	case article.FieldPhase:
@@ -2616,6 +2688,8 @@ func (m *ArticleMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldFullContent(ctx)
 	case article.FieldImages:
 		return m.OldImages(ctx)
+	case article.FieldGenerationWarnings:
+		return m.OldGenerationWarnings(ctx)
 	case article.FieldStatus:
 		return m.OldStatus(ctx)
 	case article.FieldPhase:
@@ -2719,6 +2793,13 @@ func (m *ArticleMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetImages(v)
+		return nil
+	case article.FieldGenerationWarnings:
+		v, ok := value.(json.RawMessage)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGenerationWarnings(v)
 		return nil
 	case article.FieldStatus:
 		v, ok := value.(article.Status)
@@ -2840,6 +2921,9 @@ func (m *ArticleMutation) ClearedFields() []string {
 	if m.FieldCleared(article.FieldImages) {
 		fields = append(fields, article.FieldImages)
 	}
+	if m.FieldCleared(article.FieldGenerationWarnings) {
+		fields = append(fields, article.FieldGenerationWarnings)
+	}
 	if m.FieldCleared(article.FieldErrorMessage) {
 		fields = append(fields, article.FieldErrorMessage)
 	}
@@ -2889,6 +2973,9 @@ func (m *ArticleMutation) ClearField(name string) error {
 		return nil
 	case article.FieldImages:
 		m.ClearImages()
+		return nil
+	case article.FieldGenerationWarnings:
+		m.ClearGenerationWarnings()
 		return nil
 	case article.FieldErrorMessage:
 		m.ClearErrorMessage()
@@ -2942,6 +3029,9 @@ func (m *ArticleMutation) ResetField(name string) error {
 		return nil
 	case article.FieldImages:
 		m.ResetImages()
+		return nil
+	case article.FieldGenerationWarnings:
+		m.ResetGenerationWarnings()
 		return nil
 	case article.FieldStatus:
 		m.ResetStatus()

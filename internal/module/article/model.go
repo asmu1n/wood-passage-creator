@@ -6,26 +6,27 @@ import (
 )
 
 type Article struct {
-	ID                  int64              `json:"id"`
-	TaskID              string             `json:"taskId"`
-	UserID              int64              `json:"userId"`
-	Topic               string             `json:"topic"`
-	UserDescription     *string            `json:"userDescription"` // 用户补充描述
-	MainTitle           *string            `json:"mainTitle"`
-	SubTitle            *string            `json:"subTitle"`
-	TitleOptions        []TitleOption      `json:"titleOptions"` // 标题方案列表
-	Outline             []OutlineSection   `json:"outline"`
-	Content             *string            `json:"content"`
-	FullContent         *string            `json:"fullContent"`
-	Images              []port.ImageResult `json:"images"`
-	CoverImage          *string            `json:"coverImage,omitempty"`
-	Status              ArticleStatus      `json:"status"`
-	Phase               ArticlePhase       `json:"phase"` // 当前阶段
-	ErrorMessage        *string            `json:"errorMessage"`
-	Style               *ArticleStyle      `json:"style"`                         // 文章风格
-	EnabledImageMethods []port.ImageMethod `json:"enabledImageMethods,omitempty"` // nil=不限制；非 nil 空列表=不启用
-	CreateTime          time.Time          `json:"createTime"`
-	CompletedTime       *time.Time         `json:"completedTime"`
+	ID                  int64               `json:"id"`
+	TaskID              string              `json:"taskId"`
+	UserID              int64               `json:"userId"`
+	Topic               string              `json:"topic"`
+	UserDescription     *string             `json:"userDescription"` // 用户补充描述
+	MainTitle           *string             `json:"mainTitle"`
+	SubTitle            *string             `json:"subTitle"`
+	TitleOptions        []TitleOption       `json:"titleOptions"` // 标题方案列表
+	Outline             []OutlineSection    `json:"outline"`
+	Content             *string             `json:"content"`
+	FullContent         *string             `json:"fullContent"`
+	Images              []port.ImageResult  `json:"images"`
+	GenerationWarnings  []GenerationWarning `json:"generationWarnings,omitempty"`
+	CoverImage          *string             `json:"coverImage,omitempty"`
+	Status              ArticleStatus       `json:"status"`
+	Phase               ArticlePhase        `json:"phase"` // 当前阶段
+	ErrorMessage        *string             `json:"errorMessage"`
+	Style               *ArticleStyle       `json:"style"`                         // 文章风格
+	EnabledImageMethods []port.ImageMethod  `json:"enabledImageMethods,omitempty"` // 任务授权快照；nil 或空列表均不授权工具
+	CreateTime          time.Time           `json:"createTime"`
+	CompletedTime       *time.Time          `json:"completedTime"`
 }
 
 // FillCoverImage 从配图列表派生封面 URL（对齐旧 saveArticleContent：position == 1）。
@@ -88,42 +89,6 @@ type OutlineSection struct {
 	Section int      `json:"section"`
 	Title   string   `json:"title"`
 	Points  []string `json:"points"`
-}
-
-// AgentTitleSchema 标题生成节点的结构化输出。
-type AgentTitleSchema struct {
-	Options []TitleOption `json:"options"`
-}
-
-// AgentOutlineSchema 大纲生成及修改节点的结构化输出。
-type AgentOutlineSchema struct {
-	Sections []OutlineSection `json:"sections"`
-}
-
-// AgentImageAnalyzeSchema 配图分析节点的结构化输出。
-type AgentImageAnalyzeSchema struct {
-	ContentWithPlaceholders string                  `json:"contentWithPlaceholders"`
-	ImageRequirements       []port.ImageRequirement `json:"imageRequirements"`
-}
-
-// ArticleState 文章生成状态（智能体间共享）
-type ArticleState struct {
-	ArticleID               int64                   `json:"articleId,omitempty"` // 写 agent_log 用
-	TaskID                  string                  `json:"taskId"`
-	Topic                   string                  `json:"topic"`
-	UserDescription         string                  `json:"userDescription"`               // 用户补充描述
-	Style                   *ArticleStyle           `json:"style"`                         // 文章风格
-	Phase                   ArticlePhase            `json:"phase"`                         // 当前阶段
-	EnabledImageMethods     []port.ImageMethod      `json:"enabledImageMethods,omitempty"` // nil=不限制；非 nil 空列表=不启用
-	TitleOptions            []TitleOption           `json:"titleOptions"`                  // 标题方案列表
-	MainTitle               *string                 `json:"mainTitle"`
-	SubTitle                *string                 `json:"subTitle"`
-	Outline                 []OutlineSection        `json:"outline"`
-	Content                 string                  `json:"content"`
-	ContentWithPlaceholders string                  `json:"contentWithPlaceholders"` // 包含占位符的正文
-	FullContent             string                  `json:"fullContent"`
-	ImageRequirements       []port.ImageRequirement `json:"imageRequirements"`
-	Images                  []port.ImageResult      `json:"images"`
 }
 
 type AgentLogStatus string

@@ -2,58 +2,37 @@ package articleapp
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 
-	modart "wood-passage-creator/internal/module/article"
+	"wood-passage-creator/internal/app/article/workflow"
+	module "wood-passage-creator/internal/module/article"
 	moduser "wood-passage-creator/internal/module/user"
 	"wood-passage-creator/internal/pkg/logger"
 	"wood-passage-creator/internal/pkg/response"
 	"wood-passage-creator/internal/pkg/sse"
 )
 
-// SubscribeProgress 校验访问权并订阅 task 进度事件（Hub fan-out）。
-func (s *Service) SubscribeProgress(
-	ctx context.Context,
-	taskID string,
-	actor moduser.Actor,
-) (ch <-chan sse.SSEEvent, cancel func(), err error) {
-	art, err := s.loadAccessibleByTaskID(ctx, taskID, actor)
-	if err != nil {
+func (s *Service) SubscribeProgress(ctx context.Context, taskID string, actor moduser.Actor) (<-chan sse.SSEEvent, func(), error) {
+	if _, err := s.loadAccessibleByTaskID(ctx, taskID, actor); err != nil {
 		return nil, nil, err
 	}
-	if s.sse == nil {
+	if s.progress == nil || s.progress.hub == nil {
 		return nil, nil, response.NewBizErrorWithDetail(response.SystemError, "sse unavailable")
 	}
-
-	ch, unsub := s.sse.Subscribe(taskID)
-	s.publish(taskID, modart.EventConnected, modart.ConnectedPayload{
-		Phase:  art.Phase,
-		Status: art.Status,
-	})
-	return ch, unsub, nil
-}
-
-func (s *Service) publish(taskID string, name string, data any) {
-	if s.sse == nil || taskID == "" || name == "" {
-		return
-	}
-	b, err := json.Marshal(data)
-	if err != nil {
-		s.log.Error("sse marshal failed",
-			logger.FieldPurpose, logger.PurposeBiz,
-			logger.FieldEvent, "article.sse.marshal_failed",
-			logger.FieldErr, err,
-			"task_id", taskID,
-			"name", name)
-		return
-	}
-	s.sse.Publish(sse.SSEEvent{
-		Topic: taskID,
-		Name:  name,
-		Data:  b,
+	return s.progress.subscribe(ctx, taskID, func(ctx context.Context) (*module.Article, error) {
+		return s.loadAccessibleByTaskID(ctx, taskID, actor)
 	})
 }
 
-func (s *Service) publishSSEError(taskID, msg string) {
-	s.publish(taskID, modart.EventTaskError, modart.TaskErrorPayload{Message: msg})
+func publicGenerationError(ctx context.Context, err error) articleworkflow.TaskError {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return articleworkflow.TaskError{Code: "GENERATION_TIMEOUT", Message: "文章生成超时，请稍后重新创建"}
+	}
+	return articleworkflow.TaskError{Code: "GENERATION_FAILED", Message: "文章生成失败，请稍后重新创建"}
+}
+
+func (s *Service) publishSSEError(taskID string, phase module.ArticlePhase, payload articleworkflow.TaskError) {
+	if err := s.progress.emit(taskID, phase, payload); err != nil {
+		s.log.Error("publish progress failure", logger.FieldEvent, "article.progress.failed", logger.FieldErr, err, "task_id", taskID)
+	}
 }

@@ -14,6 +14,68 @@ definitions:
     - modifySuggestion
     - taskId
     type: object
+  wood-passage-creator_internal_app_article.ArticleData:
+    properties:
+      completedTime:
+        type: string
+      content:
+        type: string
+      coverImage:
+        type: string
+      createTime:
+        type: string
+      enabledImageMethods:
+        description: 任务授权快照；nil 或空列表均不授权工具
+        items:
+          $ref: '#/definitions/wood-passage-creator_internal_port.ImageMethod'
+        type: array
+      errorMessage:
+        type: string
+      fullContent:
+        type: string
+      generationWarnings:
+        items:
+          $ref: '#/definitions/wood-passage-creator_internal_module_article.GenerationWarning'
+        type: array
+      id:
+        type: integer
+      images:
+        items:
+          $ref: '#/definitions/wood-passage-creator_internal_port.ImageResult'
+        type: array
+      mainTitle:
+        type: string
+      outline:
+        items:
+          $ref: '#/definitions/wood-passage-creator_internal_module_article.OutlineSection'
+        type: array
+      phase:
+        allOf:
+        - $ref: '#/definitions/wood-passage-creator_internal_module_article.ArticlePhase'
+        description: 当前阶段
+      status:
+        $ref: '#/definitions/wood-passage-creator_internal_module_article.ArticleStatus'
+      style:
+        allOf:
+        - $ref: '#/definitions/wood-passage-creator_internal_module_article.ArticleStyle'
+        description: 文章风格
+      subTitle:
+        type: string
+      taskId:
+        type: string
+      titleOptions:
+        description: 标题方案列表
+        items:
+          $ref: '#/definitions/wood-passage-creator_internal_module_article.TitleOption'
+        type: array
+      topic:
+        type: string
+      userDescription:
+        description: 用户补充描述
+        type: string
+      userId:
+        type: integer
+    type: object
   wood-passage-creator_internal_app_article.ArticleListData:
     properties:
       pageNum:
@@ -69,16 +131,61 @@ definitions:
       enabledImageMethods:
         description: 省略或空数组时按用户权限启用当前可用 Provider
         items:
-          $ref: '#/definitions/wood-passage-creator_internal_port.ImageMethod'
+          enum:
+          - PEXELS
+          - ICONIFY
+          - EMOJI_PACK
+          - MERMAID
+          - SVG_DIAGRAM
+          - NANO_BANANA
+          type: string
         type: array
       style:
-        $ref: '#/definitions/wood-passage-creator_internal_module_article.ArticleStyle'
+        allOf:
+        - $ref: '#/definitions/wood-passage-creator_internal_module_article.ArticleStyle'
+        enum:
+        - ""
+        - tech
+        - emotional
+        - educational
+        - humorous
       topic:
         maxLength: 512
         minLength: 1
         type: string
     required:
     - topic
+    type: object
+  wood-passage-creator_internal_app_article.ExecutionLogsData:
+    properties:
+      agentCount:
+        type: integer
+      agentDurations:
+        additionalProperties:
+          type: integer
+        type: object
+      logs:
+        items:
+          $ref: '#/definitions/wood-passage-creator_internal_module_article.AgentLog'
+        type: array
+      overallStatus:
+        description: SUCCESS/FAILED/RUNNING/NOT_FOUND
+        type: string
+      taskId:
+        type: string
+      totalDurationMs:
+        type: integer
+    type: object
+  wood-passage-creator_internal_app_article.OutlineSectionData:
+    properties:
+      points:
+        items:
+          type: string
+        type: array
+      section:
+        type: integer
+      title:
+        type: string
     type: object
   wood-passage-creator_internal_app_auth.LoginRequest:
     properties:
@@ -140,6 +247,30 @@ definitions:
       total:
         type: integer
     type: object
+  wood-passage-creator_internal_app_user.AdminAddRequest:
+    properties:
+      userAccount:
+        maxLength: 20
+        minLength: 3
+        type: string
+      userAvatar:
+        maxLength: 1024
+        type: string
+      userName:
+        maxLength: 256
+        minLength: 1
+        type: string
+      userProfile:
+        maxLength: 512
+        type: string
+      userRole:
+        enum:
+        - user
+        - admin
+        type: string
+    required:
+    - userAccount
+    type: object
   wood-passage-creator_internal_app_user.UpdateRequest:
     properties:
       userAvatar:
@@ -168,26 +299,6 @@ definitions:
           $ref: '#/definitions/wood-passage-creator_internal_module_user.User'
         type: array
       total:
-        type: integer
-    type: object
-  wood-passage-creator_internal_module_article.AgentExecutionStats:
-    properties:
-      agentCount:
-        type: integer
-      agentDurations:
-        additionalProperties:
-          type: integer
-        type: object
-      logs:
-        items:
-          $ref: '#/definitions/wood-passage-creator_internal_module_article.AgentLog'
-        type: array
-      overallStatus:
-        description: SUCCESS/FAILED/RUNNING/NOT_FOUND
-        type: string
-      taskId:
-        type: string
-      totalDurationMs:
         type: integer
     type: object
   wood-passage-creator_internal_module_article.AgentLog:
@@ -235,10 +346,12 @@ definitions:
         type: string
       content:
         type: string
+      coverImage:
+        type: string
       createTime:
         type: string
       enabledImageMethods:
-        description: nil=不限制；非 nil 空列表=不启用
+        description: 任务授权快照；nil 或空列表均不授权工具
         items:
           $ref: '#/definitions/wood-passage-creator_internal_port.ImageMethod'
         type: array
@@ -246,6 +359,10 @@ definitions:
         type: string
       fullContent:
         type: string
+      generationWarnings:
+        items:
+          $ref: '#/definitions/wood-passage-creator_internal_module_article.GenerationWarning'
+        type: array
       id:
         type: integer
       images:
@@ -303,6 +420,14 @@ definitions:
       PhasePending: 等待处理
       PhaseTitleGenerating: 生成标题中
       PhaseTitleSelecting: 等待选择标题
+    x-enum-descriptions:
+    - 等待处理
+    - 生成标题中
+    - 等待选择标题
+    - 生成大纲中
+    - 等待编辑大纲
+    - 生成正文中
+    - 完成
     x-enum-varnames:
     - PhasePending
     - PhaseTitleGenerating
@@ -335,6 +460,23 @@ definitions:
     - StyleEmotional
     - StyleEducational
     - StyleHumorous
+  wood-passage-creator_internal_module_article.GenerationWarning:
+    properties:
+      code:
+        $ref: '#/definitions/wood-passage-creator_internal_module_article.GenerationWarningCode'
+      imageId:
+        type: string
+      message:
+        type: string
+      position:
+        type: integer
+    type: object
+  wood-passage-creator_internal_module_article.GenerationWarningCode:
+    enum:
+    - IMAGE_SKIPPED
+    type: string
+    x-enum-varnames:
+    - WarningImageSkipped
   wood-passage-creator_internal_module_article.OutlineSection:
     properties:
       points:
@@ -493,7 +635,15 @@ definitions:
     - PICSUM
     type: string
     x-enum-comments:
-      MethodPicsum: 仅系统 fallback，不可出现在请求中
+      MethodPicsum: 仅兼容历史配图数据，不再注册或执行。
+    x-enum-descriptions:
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - 仅兼容历史配图数据，不再注册或执行。
     x-enum-varnames:
     - MethodPexels
     - MethodIconify
@@ -510,8 +660,6 @@ definitions:
         type: string
       method:
         $ref: '#/definitions/wood-passage-creator_internal_port.ImageMethod'
-      placeholderId:
-        type: string
       position:
         type: integer
       sectionTitle:
@@ -662,6 +810,42 @@ paths:
       summary: 系统概览统计（管理员）
       tags:
       - admin-statistics
+  /admin/users:
+    post:
+      consumes:
+      - application/json
+      description: 仅管理员。默认密码 12345678；角色 user/admin（默认 user）。对齐旧 POST /user/add。
+      parameters:
+      - description: 开户参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/wood-passage-creator_internal_app_user.AdminAddRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功，data 为用户对象
+          schema:
+            $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
+      security:
+      - SessionAuth: []
+      summary: 管理端创建用户
+      tags:
+      - admin-users
   /admin/users/{id}:
     delete:
       parameters:
@@ -831,7 +1015,7 @@ paths:
             - $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/wood-passage-creator_internal_module_article.Article'
+                  $ref: '#/definitions/wood-passage-creator_internal_app_article.ArticleData'
               type: object
         "400":
           description: 参数错误
@@ -952,7 +1136,7 @@ paths:
             - $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/wood-passage-creator_internal_module_article.Article'
+                  $ref: '#/definitions/wood-passage-creator_internal_app_article.ArticleData'
               type: object
         "400":
           description: 参数错误
@@ -1023,7 +1207,7 @@ paths:
             - $ref: '#/definitions/wood-passage-creator_internal_pkg_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/wood-passage-creator_internal_module_article.AgentExecutionStats'
+                  $ref: '#/definitions/wood-passage-creator_internal_app_article.ExecutionLogsData'
               type: object
       security:
       - SessionAuth: []
@@ -1099,7 +1283,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/wood-passage-creator_internal_module_article.OutlineSection'
+                    $ref: '#/definitions/wood-passage-creator_internal_app_article.OutlineSectionData'
                   type: array
               type: object
         "400":
@@ -1121,8 +1305,8 @@ paths:
       - article
   /article/progress/{taskId}:
     get:
-      description: 按 taskId 建立 text/event-stream；需先登录且有权访问该任务。使用 SSE named events：connected
-        / outline_delta / outline_done / task_error。
+      description: 按 taskId 建立 text/event-stream；首帧 task_snapshot，后续使用 runId/seq/phase/data
+        envelope，结构化大纲与逐图结果见 SSE_NOTES.md。
       parameters:
       - description: 任务 ID
         in: path

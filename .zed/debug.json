@@ -1,0 +1,16 @@
+[
+    {
+        "label": "Debug Server (Genkit)",
+        "adapter": "Delve",
+        "request": "launch",
+        "mode": "debug",
+        "program": "./cmd/server",
+        "cwd": "$ZED_WORKTREE_ROOT",
+        "envFile": "$ZED_WORKTREE_ROOT/.env",
+        "env": {
+            "GENKIT_ENV": "dev",
+            "GENKIT_REFLECTION_ENABLED": "true",
+            "GENKIT_REFLECTION_HOST": "127.0.0.1",
+        },
+    },
+]

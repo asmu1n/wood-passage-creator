@@ -159,8 +159,8 @@
               </div>
               <div v-if="parsedOutline.length > 0" class="outline-list">
                 <div
-                  v-for="item in parsedOutline"
-                  :key="item.section"
+                  v-for="(item, idx) in parsedOutline"
+                  :key="item.section ?? idx"
                   class="outline-item fade-in"
                 >
                   <div class="outline-title">{{ item.section }}. {{ item.title }}</div>
@@ -194,8 +194,8 @@
             <p class="article-subtitle">{{ article.subTitle }}</p>
           </div>
 
-          <!-- 大纲预览（流式解析展示） -->
-          <div v-if="outlineRaw" class="outline-preview">
+          <!-- 大纲结构化预览 -->
+          <div v-if="parsedOutline.length" class="outline-preview">
             <div class="section-label">
               <BulbOutlined />
               <span>文章大纲</span>
@@ -222,13 +222,13 @@
           </div>
 
           <!-- 配图进度 -->
-          <div v-if="currentStep === 4 && imageProgress > 0" class="image-progress-box">
+          <div v-if="currentStep === 4" class="image-progress-box">
             <div class="progress-header">
               <PictureOutlined />
               <span>正在生成配图</span>
             </div>
             <a-progress :percent="imageProgress" status="active" :stroke-color="{ from: '#22C55E', to: '#16A34A' }" />
-            <p class="progress-hint">{{ imageCount }}/{{ totalImages }} 张图片已完成</p>
+            <p class="progress-hint">{{ imageCount }}/{{ totalImages }} 项已处理，成功 {{ succeededImages }} 张，跳过 {{ skippedImages }} 张</p>
           </div>
 
           <!-- 加载占位 -->
@@ -250,6 +250,13 @@
             <p class="article-subtitle">{{ article.subTitle }}</p>
           </div>
           <div class="content-preview">
+            <a-alert
+              v-for="warning in article.generationWarnings || []"
+              :key="warning.imageId"
+              type="warning"
+              show-icon
+              :message="warning.message"
+            />
             <div ref="completedRef" v-html="markdownToHtml(article.fullContent || article.content || '')" class="markdown-body"></div>
           </div>
           </div>
@@ -559,9 +566,10 @@ import {
   CrownOutlined,
   FileTextOutlined
 } from '@ant-design/icons-vue'
-import { createArticle, confirmTitle, confirmOutline, getArticle } from '@/api/articleController'
-import { connectSSE, closeSSE, type SSEMessage } from '@/utils/sse'
-import { parseOutlineStream, type OutlineStreamItem } from '@/utils/outlineStream'
+import { createArticle, confirmTitle, confirmOutline } from '@/api/articleController'
+import { connectSSE, closeSSE, type ProgressConnection } from '@/utils/sse'
+import { applyArticleProgressEvent, createArticleProgressState } from '@/utils/articleProgress'
+import type { ArticleProgressEvent, OutlinePreviewSection } from '@/types/articleWorkflow'
 import { isAdmin as checkIsAdmin, isVip as checkIsVip, hasQuota as checkHasQuota } from '@/utils/permission'
 import { marked } from 'marked'
 import { renderMermaid } from '@/utils/markdown'
@@ -630,17 +638,18 @@ const titleOptions = ref<Array<{mainTitle: string, subTitle: string}>>([])
 const outline = ref<Array<{section: number, title: string, points: string[]}>>([])
 
 // 大纲数据（流式）
-const outlineRaw = ref('')
-
-const parsedOutline = computed<OutlineStreamItem[]>(() => parseOutlineStream(outlineRaw.value))
+const parsedOutline = ref<OutlinePreviewSection[]>([])
+const progressState = createArticleProgressState()
 
 // 内容区域引用（用于自动滚动）
 const mainContentRef = ref<HTMLElement | null>(null)
 
 // 配图进度
 const imageCount = ref(0)
-const totalImages = ref(5)
+const totalImages = ref(0)
 const imageProgress = ref(0)
+const skippedImages = ref(0)
+const succeededImages = ref(0)
 
 // 文章数据
 const article = ref<Partial<API.ArticleVO>>({
@@ -651,7 +660,7 @@ const article = ref<Partial<API.ArticleVO>>({
   images: [],
 })
 
-let eventSource: EventSource | null = null
+let eventSource: ProgressConnection | null = null
 
 // Markdown 转 HTML
 const markdownToHtml = (markdown: string | undefined) => {
@@ -709,6 +718,7 @@ const startCreate = async () => {
       throw new Error('创建任务失败：未返回任务ID')
     }
     taskId.value = newTaskId
+    await router.replace({ query: { ...route.query, taskId: newTaskId } })
     addLog(`任务创建成功，ID: ${newTaskId}`, 'success')
 
     // 刷新用户信息（更新配额）
@@ -755,127 +765,54 @@ const startSSE = () => {
 }
 
 // 处理 SSE 消息（事件名 = 后端 event:）
-const handleSSEMessage = (msg: SSEMessage) => {
-  console.log('SSE消息:', msg)
+const handleSSEMessage = (msg: ArticleProgressEvent) => {
+  applyArticleProgressEvent(progressState, msg)
+  if (msg.type === 'task_snapshot') topic.value = progressState.topic
+  currentPhase.value = progressState.phase === 'PENDING' ? 'TITLE_GENERATING' : progressState.phase
+  titleOptions.value = progressState.titleOptions
+  outline.value = progressState.outline
+  parsedOutline.value = progressState.outlinePreview
+  article.value.content = progressState.content
+  article.value.fullContent = progressState.fullContent
+  article.value.images = progressState.images
+  article.value.generationWarnings = progressState.warnings
+  if (progressState.editorial) {
+    article.value.mainTitle = progressState.editorial.mainTitle
+    article.value.subTitle = progressState.editorial.subTitle
+  }
+  isCreating.value = !progressState.terminal
+  isCompleted.value = progressState.status === 'COMPLETED'
+  isOutlineStreaming.value = progressState.phase === 'OUTLINE_GENERATING' && !progressState.terminal
+  isStreaming.value = progressState.phase === 'CONTENT_GENERATING' && progressState.step === 'content' && !progressState.terminal
+  const steps: Record<string, number> = { titles: 0, outline: 1, content: 2, image_plan: 3, images: 4, merge: 5, completed: 6 }
+  currentStep.value = steps[progressState.step] ?? 0
+  if (progressState.phase === 'TITLE_SELECTING') currentStep.value = 1
+  imageCount.value = progressState.summary.settled
+  totalImages.value = progressState.summary.total
+  succeededImages.value = progressState.summary.succeeded
+  skippedImages.value = progressState.summary.skipped
+  imageProgress.value = totalImages.value === 0 ? 100 : Math.round(imageCount.value / totalImages.value * 100)
 
+  if (progressState.error) {
+    errorMessage.value = progressState.error
+    errorVisible.value = true
+    currentPhase.value = 'INPUT'
+    addLog(progressState.error, 'error')
+    return
+  }
   switch (msg.type) {
-    case 'connected':
-      addLog(`已连接进度流（phase=${msg.phase || '-'}）`, 'info')
+    case 'task_snapshot': addLog(`已同步进度（${msg.phase}）`, 'info'); break
+    case 'titles_done': addLog(`生成了 ${msg.data.options.length} 个标题方案`, 'success'); break
+    case 'outline_done': addLog('大纲生成完成，等待确认', 'success'); break
+    case 'content_generated': addLog('正文生成完成', 'success'); break
+    case 'images_planned': addLog(`配图计划 ${msg.data.tasks.length} 张`, 'info'); break
+    case 'image_finished':
+      addLog(msg.data.outcome.status === 'skipped' ? msg.data.outcome.warning.message : `配图 ${imageCount.value}/${totalImages.value}`, msg.data.outcome.status === 'skipped' ? 'warning' : 'info')
       break
-
-    case 'titles_done':
-      currentPhase.value = 'TITLE_SELECTING'
-      titleOptions.value = msg.titleOptions || []
-      isCreating.value = false
-      currentStep.value = 1
-      addLog(`生成了 ${titleOptions.value.length} 个标题方案`, 'success')
-      break
-
-    case 'outline_delta':
-      currentPhase.value = 'OUTLINE_GENERATING'
-      isOutlineStreaming.value = true
-      outlineRaw.value += msg.delta || ''
-      scrollToBottom()
-      break
-
-    case 'outline_done':
-      currentPhase.value = 'OUTLINE_EDITING'
-      outline.value = msg.outline || []
-      isCreating.value = false
-      isOutlineStreaming.value = false
-      addLog('大纲生成完成，等待确认', 'success')
-      break
-
-    case 'content_delta':
-      currentPhase.value = 'CONTENT_GENERATING'
-      currentStep.value = 2
-      isStreaming.value = true
-      article.value.content += msg.delta || ''
-      scrollToBottom()
-      break
-
-    case 'content_generated':
-      isStreaming.value = false
-      currentStep.value = 3
-      addLog('正文生成完成', 'success')
-      break
-
-    case 'images_planned':
-      currentStep.value = 4
-      totalImages.value = msg.count || totalImages.value || 0
-      imageCount.value = 0
-      imageProgress.value = 0
-      addLog(`配图计划 ${totalImages.value} 张`, 'success')
-      break
-
-    case 'image_complete':
-      imageCount.value = msg.done ?? imageCount.value + 1
-      totalImages.value = msg.total || totalImages.value
-      if (totalImages.value > 0) {
-        imageProgress.value = Math.round((imageCount.value / totalImages.value) * 100)
-      }
-      addLog(`配图 ${imageCount.value}/${totalImages.value}`, 'info')
-      break
-
-    case 'images_done':
-      currentStep.value = 5
-      if (msg.images) {
-        article.value.images = msg.images
-      }
-      addLog('所有配图生成完成', 'success')
-      break
-
-    case 'merge_done':
-      if (typeof msg.fullContentLength === 'number') {
-        addLog(`图文合成完成（约 ${msg.fullContentLength} 字）`, 'success')
-      } else {
-        addLog('图文合成完成', 'success')
-      }
-      scrollToBottom()
-      break
-
-    case 'content_done':
-      currentPhase.value = 'COMPLETED'
-      currentStep.value = 6
-      isCompleted.value = true
-      isCreating.value = false
-      isStreaming.value = false
-      message.success('文章创作完成!')
-      addLog('✨ 文章创作完成！', 'success')
-      // 拉一次详情补全 fullContent
-      void refreshArticleSnapshot()
-      break
-
-    case 'task_error':
-      errorMessage.value = msg.message || '创作失败'
-      errorVisible.value = true
-      isCreating.value = false
-      isStreaming.value = false
-      isOutlineStreaming.value = false
-      currentPhase.value = 'INPUT'
-      addLog(`创作失败: ${errorMessage.value}`, 'error')
-      break
-
-    default:
-      console.log('未处理的 SSE 事件', msg.type, msg)
+    case 'images_done': addLog(`配图结束：成功 ${msg.data.summary.succeeded} 张，跳过 ${msg.data.summary.skipped} 张`, 'info'); break
+    case 'content_done': message.success('文章创作完成！'); addLog('文章创作完成！', 'success'); break
   }
-}
-
-const refreshArticleSnapshot = async () => {
-  if (!taskId.value) return
-  try {
-    const res = await getArticle({ taskId: taskId.value })
-    if (res.data.code === 0 && res.data.data) {
-      const a = res.data.data
-      article.value.mainTitle = a.mainTitle || article.value.mainTitle
-      article.value.subTitle = a.subTitle || article.value.subTitle
-      article.value.content = a.content || article.value.content
-      article.value.fullContent = a.fullContent || article.value.fullContent
-      article.value.images = a.images || article.value.images
-    }
-  } catch (e) {
-    console.warn('refresh article failed', e)
-  }
+  scrollToBottom()
 }
 
 // 确认标题
@@ -893,7 +830,7 @@ const handleConfirmTitle = async (data: {mainTitle: string, subTitle: string, us
     article.value.subTitle = data.subTitle
     currentPhase.value = 'OUTLINE_GENERATING'
     isCreating.value = true
-    outlineRaw.value = ''
+    parsedOutline.value = []
     // phase2：重新订阅直到 outline_done
     startSSE()
     message.success('标题已确认，正在生成大纲...')
@@ -913,8 +850,7 @@ const handleConfirmOutline = async (outlineData: Array<{section: number, title: 
       taskId: taskId.value,
       outline: outlineData
     })
-    // 更新 outlineRaw 为用户修改后的大纲，确保 CONTENT_GENERATING 阶段展示正确的大纲
-    outlineRaw.value = JSON.stringify({ sections: outlineData })
+    parsedOutline.value = outlineData
     outline.value = outlineData
     currentPhase.value = 'CONTENT_GENERATING'
     isCreating.value = true
@@ -937,6 +873,8 @@ const handleSSEError = (error: Event) => {
   if (isCreating.value || currentPhase.value.endsWith('_GENERATING')) {
     message.error('进度连接中断，请刷新或重试')
     isCreating.value = false
+    isStreaming.value = false
+    isOutlineStreaming.value = false
   }
 }
 
@@ -975,7 +913,15 @@ const resetCreate = () => {
   currentStep.value = 0
   imageCount.value = 0
   imageProgress.value = 0
-  outlineRaw.value = ''
+  parsedOutline.value = []
+  Object.assign(progressState, createArticleProgressState())
+  closeSSE(eventSource)
+  eventSource = null
+  taskId.value = ''
+  void router.replace({ query: { ...route.query, taskId: undefined } })
+  totalImages.value = 0
+  skippedImages.value = 0
+  succeededImages.value = 0
   confirmLoading.value = false
   realtimeLogs.value = []
   article.value = {
@@ -991,6 +937,11 @@ const resetCreate = () => {
 onMounted(() => {
   if (route.query.topic) {
     topic.value = route.query.topic as string
+  }
+  if (typeof route.query.taskId === 'string') {
+    taskId.value = route.query.taskId
+    isCreating.value = true
+    startSSE()
   }
 })
 

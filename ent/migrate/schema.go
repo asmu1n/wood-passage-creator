@@ -81,6 +81,7 @@ var (
 		{Name: "content", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "full_content", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "images", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "generation_warnings", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"PENDING", "PROCESSING", "COMPLETED", "FAILED"}, Default: "PENDING"},
 		{Name: "phase", Type: field.TypeEnum, Enums: []string{"PENDING", "TITLE_GENERATING", "TITLE_SELECTING", "OUTLINE_GENERATING", "OUTLINE_EDITING", "CONTENT_GENERATING", "COMPLETED"}, Default: "PENDING"},
 		{Name: "error_message", Type: field.TypeString, Nullable: true, Size: 2147483647},
@@ -100,7 +101,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "articles_users_articles",
-				Columns:    []*schema.Column{ArticlesColumns[20]},
+				Columns:    []*schema.Column{ArticlesColumns[21]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -109,22 +110,22 @@ var (
 			{
 				Name:    "article_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{ArticlesColumns[20]},
+				Columns: []*schema.Column{ArticlesColumns[21]},
 			},
 			{
 				Name:    "article_status",
 				Unique:  false,
-				Columns: []*schema.Column{ArticlesColumns[11]},
+				Columns: []*schema.Column{ArticlesColumns[12]},
 			},
 			{
 				Name:    "article_create_time",
 				Unique:  false,
-				Columns: []*schema.Column{ArticlesColumns[16]},
+				Columns: []*schema.Column{ArticlesColumns[17]},
 			},
 			{
 				Name:    "article_is_delete",
 				Unique:  false,
-				Columns: []*schema.Column{ArticlesColumns[19]},
+				Columns: []*schema.Column{ArticlesColumns[20]},
 			},
 		},
 	}

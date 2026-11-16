@@ -14,7 +14,7 @@
 | 业务可扩展 | 用例在 `app/`；领域 + repo 在 `module/`；HTTP 在 `httpapi/api` |
 | 依赖清晰 | app/module 依赖 `port`；不直接依赖 Redis/DB 实现细节 |
 | 跨域强一致 | 全局 `app.Runtime` 提供事务能力，repo 通过 `Cli(ctx)` 共享事务 |
-| 改动半径可控 | HTTP 只依赖 app；agent 流水线暂留 `module/article` |
+| 改动半径可控 | HTTP 只依赖 app；全部 AI 工作流由 app/article/workflow 的 Genkit 编排 |
 | 入口干净 | `cmd/server` 只做装配与生命周期 |
 | 配置分层 | `config.yml` 主配置；`.env` 仅密钥 |
 
@@ -34,13 +34,13 @@
 ├── ent/schema/              # 表结构（改后 go generate）
 ├── internal/
 │   ├── app/                 # ★ 应用用例 + *Request（事务边界在此）
-│   ├── module/              # ★ 领域模型 + Repository + repo（article 含 agent）
+│   ├── module/              # ★ 领域模型 + Repository + repo
 │   ├── httpapi/             # 协议基建 + api/* Handler（只依赖 app）
 │   │   ├── api/             # auth/user/article/payment/statistics
 │   │   └── docsui/          # Scalar 文档页
 │   ├── port/                # Cache / Locker / ObjectStore / TxManager 等能力契约
 │   ├── infra/               # DB/Redis/LLM/Image/ObjectStore 等实现
-│   ├── pkg/                 # logger、page、response、sse、llmkit
+│   ├── pkg/                 # logger、page、response、sse 等通用工具
 │   └── config/
 ├── config.yml               # 非密钥配置主文件
 ├── .env.example             # 仅密钥与 compose 基础设施口令
@@ -54,7 +54,7 @@
 | `cmd/server` | 组装依赖、初始化 `app.Runtime`、注册 `httpapi` Registrar |
 | `internal/app/*` | **全部业务用例**与 HTTP `*Request`；跨 module 写由 `Runtime` 编排 |
 | `internal/module/*` | 实体、Repository、repo（`Cli(ctx)`）；**无** Service/HTTP |
-| `internal/module/article/agent` | 生成流水线（标题/大纲/正文/配图），暂留 module |
+| `internal/app/article/workflow` | Genkit 标题、大纲、正文、配图 Flow、图文合成与 Prompt 资产 |
 | `internal/httpapi` | middleware、binding、error、health；`api/*` 只调 app |
 | `internal/port` | 技术端口（Cache / Locker / ObjectStore / Tx…） |
 | `internal/infra` | port 实现（DB/Redis/LLM/Image/ObjectStore 等） |
@@ -83,7 +83,7 @@ cmd/server
 1. HTTP **只依赖 app**，不依赖 repo / infra。  
 2. app 依赖 module 的 **Repository 接口** 与实体；**不** import `infra`。  
 3. 跨 module **强一致写**：app 内 `CurrentRuntime().WithinTx` + 多方 repo（同一 ctx）。
-4. module **无** Service；agent 例外地放在 `module/article`。  
+4. module **无** Service；AI 工作流与 Prompt 放在 `app/article/workflow`。
 5. 避免循环依赖：鉴权在 `httpapi/middleware`。
 
 ---
@@ -107,6 +107,12 @@ POST /api/payment/vip/mock-complete
 GET /api/article/progress/:taskId
   → SSE：app SubscribeProgress → pkg/sse.Hub fan-out
 ```
+
+全部生成阶段已通过共享 Genkit Go 运行时执行，继续复用现有 LLM 配置。
+前后端 SSE 已统一为带运行身份和版本的业务事件，大纲使用结构化快照；订阅及重连从完整快照恢复。
+业务执行日志和人工确认阶段保持不变；配图采用只读位置规划与逐图有界执行，
+失败项跳过并持久化警告，不改写正文或使用随机图兜底。
+运行与调试方式见 [`internal/app/README.md`](internal/app/README.md)。
 
 ---
 

@@ -130,6 +130,12 @@ func (_c *ArticleCreate) SetImages(v json.RawMessage) *ArticleCreate {
 	return _c
 }
 
+// SetGenerationWarnings sets the "generation_warnings" field.
+func (_c *ArticleCreate) SetGenerationWarnings(v json.RawMessage) *ArticleCreate {
+	_c.mutation.SetGenerationWarnings(v)
+	return _c
+}
+
 // SetStatus sets the "status" field.
 func (_c *ArticleCreate) SetStatus(v article.Status) *ArticleCreate {
 	_c.mutation.SetStatus(v)
@@ -461,6 +467,10 @@ func (_c *ArticleCreate) createSpec() (*Article, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Images(); ok {
 		_spec.SetField(article.FieldImages, field.TypeJSON, value)
 		_node.Images = value
+	}
+	if value, ok := _c.mutation.GenerationWarnings(); ok {
+		_spec.SetField(article.FieldGenerationWarnings, field.TypeJSON, value)
+		_node.GenerationWarnings = value
 	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(article.FieldStatus, field.TypeEnum, value)

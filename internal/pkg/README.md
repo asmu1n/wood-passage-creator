@@ -8,7 +8,6 @@
 | `response` | 统一 API 响应体、业务错误码（`BizError`/`OK`/`Fail`）；HTTP 写出与错误映射在 `httpapi` |
 | `logger` | 薄封装 `log/slog`：`Init` / `Module` + `purpose` / `event` 结构化字段 |
 | `sse` | SSE 帧写入 + 内存 fan-out 订阅 |
-| `llmkit` | LLM 侧薄工具 |
 | `types`（可选） | 跨模块基础类型；有需要时再新增本目录下的包 |
 
 业务模块代码在 `internal/module/`；基础设施在 `internal/infra/`；端口在 `internal/port/`。

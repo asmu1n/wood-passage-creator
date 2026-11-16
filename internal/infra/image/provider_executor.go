@@ -7,8 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cloudwego/eino/components/model"
-
+	"github.com/samber/lo"
 	"wood-passage-creator/internal/config"
 	"wood-passage-creator/internal/infra/objectstore"
 	"wood-passage-creator/internal/pkg/logger"
@@ -19,38 +18,36 @@ import (
 type providerExecutor struct {
 	log       *slog.Logger
 	providers map[port.ImageMethod]port.Provider
-	fallback  port.Provider
 	store     port.ObjectStore
 }
 
+var _ port.ProviderExecutor = (*providerExecutor)(nil)
+
 // NewProviderExecutor 按完整配置注册可用 Provider。
-// llm 用于 MERMAID 和 SVG_DIAGRAM；可 nil（则不注册这两种 Provider）。
+// sources contains the configured Genkit-backed generation capabilities.
 // store 为 port.ObjectStore（cmd 装配；未配置可为 nil，fetch 时跳过转存）。
-func NewProviderExecutor(cfg *config.Config, llm model.BaseChatModel, store port.ObjectStore) *providerExecutor {
+func NewProviderExecutor(cfg *config.Config, sources port.ImageSources, store port.ObjectStore) *providerExecutor {
 	if cfg == nil {
 		cfg = &config.Config{}
 	}
 	g := &providerExecutor{
 		log:       logger.Module("infra.image"),
 		providers: make(map[port.ImageMethod]port.Provider),
-		fallback:  NewPicsum(),
 		store:     store,
 	}
 
 	g.Register(NewPexels(cfg.Pexels.APIKey))
 	g.Register(NewIconify(cfg.Iconify))
 	g.Register(NewEmojiPack(cfg.EmojiPack))
-	g.Register(NewNanoBanana(cfg.NanoBanana))
-	if llm != nil {
-		g.Register(NewMermaid(llm))
-		g.Register(NewSVGDiagram(cfg.SVGDiagram, llm))
-	}
+	g.Register(NewNanoBanana(sources.NanoBanana))
+	g.Register(NewMermaid(sources.Mermaid))
+	g.Register(NewSVGDiagram(cfg.SVGDiagram, sources.SVG))
 	return g
 }
 
 // Register 注册/覆盖一种配图来源（nil 跳过）。
 func (g *providerExecutor) Register(p port.Provider) {
-	if g == nil || p == nil {
+	if g == nil || lo.IsNil(p) {
 		return
 	}
 	metadata := p.Metadata()
@@ -128,40 +125,11 @@ func (g *providerExecutor) Execute(ctx context.Context, taskID string, req port.
 	if g == nil {
 		return port.ImageResult{}, fmt.Errorf("image provider executor is nil")
 	}
-	url, usedMethod, err := g.tryProvider(ctx, method, req, false)
+	url, usedMethod, err := g.tryProvider(ctx, method, req)
 	if err != nil {
 		return port.ImageResult{}, err
 	}
 	return g.publishResult(ctx, taskID, req, url, usedMethod), nil
-}
-
-// ExecuteWithFallback 执行首选 provider，失败时使用系统 fallback。
-func (g *providerExecutor) ExecuteWithFallback(ctx context.Context, taskID string, req port.ImageRequirement) (port.ImageResult, error) {
-	if g == nil {
-		return port.ImageResult{}, fmt.Errorf("image provider executor is nil")
-	}
-	src := req.ImageSource.Normalize()
-	if src == "" {
-		src = port.MethodPexels
-	}
-
-	url, method, err := g.tryProvider(ctx, src, req, false)
-	if err != nil && g.fallback != nil {
-		fallbackMethod := g.fallback.Metadata().Method.Normalize()
-		g.log.Info("image fallback",
-			logger.FieldPurpose, logger.PurposeJob,
-			logger.FieldEvent, "image.generate.fallback",
-			"task_id", taskID,
-			"from", src,
-			"to", fallbackMethod,
-			"position", req.Position,
-		)
-		url, method, err = g.tryProvider(ctx, fallbackMethod, req, true)
-	}
-	if err != nil {
-		return port.ImageResult{}, err
-	}
-	return g.publishResult(ctx, taskID, req, url, method), nil
 }
 
 func (g *providerExecutor) publishResult(ctx context.Context, taskID string, req port.ImageRequirement, url string, method port.ImageMethod) port.ImageResult {
@@ -182,22 +150,19 @@ func (g *providerExecutor) publishResult(ctx context.Context, taskID string, req
 	}
 
 	return port.ImageResult{
-		Position:      req.Position,
-		URL:           url,
-		Method:        method,
-		Keywords:      req.Keywords,
-		SectionTitle:  req.SectionTitle,
-		Description:   req.Type,
-		PlaceholderID: req.PlaceholderID,
+		Position:     req.Position,
+		URL:          url,
+		Method:       method,
+		Keywords:     req.Keywords,
+		SectionTitle: req.SectionTitle,
+		Description:  req.Type,
 	}
 }
 
-func (g *providerExecutor) tryProvider(ctx context.Context, method port.ImageMethod, req port.ImageRequirement, isFallback bool) (url string, usedMethod port.ImageMethod, err error) {
+func (g *providerExecutor) tryProvider(ctx context.Context, method port.ImageMethod, req port.ImageRequirement) (url string, usedMethod port.ImageMethod, err error) {
 	method = method.Normalize()
 	var p port.Provider
-	if isFallback {
-		p = g.fallback
-	} else if g.providers != nil {
+	if g.providers != nil {
 		p = g.providers[method]
 	}
 	if p == nil {
