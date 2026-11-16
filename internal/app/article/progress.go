@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 
-	"wood-passage-creator/internal/app/article/workflow"
+	articleworkflow "wood-passage-creator/internal/app/article/workflow"
 	module "wood-passage-creator/internal/module/article"
 	"wood-passage-creator/internal/pkg/sse"
 )
@@ -34,6 +34,7 @@ func newProgressTracker(hub sse.SSEHub) *progressTracker {
 	return &progressTracker{active: map[string]*taskProgress{}, hub: hub}
 }
 
+// 生成 llm 任务快照
 func persistedSnapshot(a *module.Article) articleworkflow.TaskSnapshot {
 	snapshot := articleworkflow.TaskSnapshot{
 		Topic:  a.Topic,
@@ -73,6 +74,7 @@ func persistedSnapshot(a *module.Article) articleworkflow.TaskSnapshot {
 	return snapshot
 }
 
+// 创建/更新 任务快照信息
 func (p *progressTracker) begin(a *module.Article, phase module.ArticlePhase) (articleworkflow.RunContext, error) {
 	run := newPlanningRun(a)
 	state := &taskProgress{runID: run.RunID, phase: phase, snapshot: persistedSnapshot(a)}
@@ -100,6 +102,7 @@ func (p *progressTracker) begin(a *module.Article, phase module.ArticlePhase) (a
 	return run, nil
 }
 
+// sse event 结构体包装
 func progressEvent(taskID string, state *taskProgress, payload articleworkflow.ProgressPayload) (sse.SSEEvent, error) {
 	event := articleworkflow.Event[articleworkflow.ProgressPayload]{
 		RunID: state.runID, Seq: state.seq, Phase: state.phase, Data: payload,
@@ -132,6 +135,7 @@ func (p *progressTracker) complete(taskID, runID string, phase module.ArticlePha
 	return p.emitLocked(taskID, phase, payload)
 }
 
+// 包装任务进度结构体，然后包装并派发 event
 func (p *progressTracker) emitLocked(taskID string, phase module.ArticlePhase, payload articleworkflow.ProgressPayload) error {
 	state := p.active[taskID]
 	if state == nil {
@@ -162,6 +166,7 @@ func (p *progressTracker) emitLocked(taskID string, phase module.ArticlePhase, p
 	return nil
 }
 
+// 更新任务进度信息
 func (state *taskProgress) apply(payload articleworkflow.ProgressPayload) error {
 	s := &state.snapshot
 	switch v := payload.(type) {

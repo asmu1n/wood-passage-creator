@@ -463,6 +463,7 @@ func (e *imageExecutor) executeImage(ctx context.Context, input imageExecutionIn
 		if len(requests) == 0 {
 			return skippedImage(input.Task, "模型未能找到可行的配图方案"), nil
 		}
+		// 当前 messages 快照 和初始化当轮 tool responses 切片
 		messages = resp.History()
 		responses := make([]*ai.Part, 0, len(requests))
 		// 执行模型返回的 tool 调用决策，直到成功生成配图，或者达到最大模型轮次和最大工具调用次数（往往只有一个 request）
