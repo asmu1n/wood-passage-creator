@@ -4,25 +4,28 @@ import (
 	"context"
 	"time"
 
-	"projecttemp/ent"
-	entgen "projecttemp/ent/user"
-	"projecttemp/internal/module/user"
-	"projecttemp/internal/pkg/page"
+	"wood-passage-creator/ent"
+	entgen "wood-passage-creator/ent/user"
+	"wood-passage-creator/internal/infra/database"
+	"wood-passage-creator/internal/module/user"
+	"wood-passage-creator/internal/pkg/page"
+
+	"github.com/samber/lo"
 )
 
 type UserRepo struct {
-	client *ent.Client
+	database.DB
 }
 
-func New(client *ent.Client) user.Repository {
-	return &UserRepo{client: client}
+func New(db database.DB) user.Repository {
+	return &UserRepo{db}
 }
 
 func (r *UserRepo) Create(ctx context.Context, in user.CreateRepoParams) (*user.User, error) {
-	b := r.client.User.Create().
+	b := r.Cli(ctx).User.Create().
 		SetUserAccount(in.UserAccount).
 		SetUserPassword(in.UserPassword).
-		SetUserRole(toEntRole(in.UserRole)).
+		SetUserRole(entgen.UserRole(in.UserRole)).
 		SetQuota(in.Quota)
 
 	if in.UserName != nil {
@@ -45,21 +48,25 @@ func (r *UserRepo) Create(ctx context.Context, in user.CreateRepoParams) (*user.
 	return toDomain(row), nil
 }
 
-func (r *UserRepo) QueryList(ctx context.Context, params page.PageRequest) ([]*user.User, error) {
-	rows, err := r.client.User.Query().
-		Where(entgen.IsDeleteEQ(false)).
+func (r *UserRepo) List(ctx context.Context, params page.PageRequest) ([]*user.User, int, error) {
+	base := r.Cli(ctx).User.Query().
+		Where(entgen.IsDeleteEQ(false))
+
+	count, err := base.Clone().Count(ctx)
+
+	rows, err := base.Clone().
 		Offset(int(params.Offset())).
 		Limit(int(params.Limit())).
 		All(ctx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return toDomainList(rows), nil
+	return toDomainList(rows), count, nil
 }
 
-func (r *UserRepo) FindByID(ctx context.Context, id int64) (*user.User, error) {
-	row, err := r.client.User.Query().
+func (r *UserRepo) GetByID(ctx context.Context, id int64) (*user.User, error) {
+	row, err := r.Cli(ctx).User.Query().
 		Where(
 			entgen.IDEQ(id),
 			entgen.IsDeleteEQ(false),
@@ -74,8 +81,8 @@ func (r *UserRepo) FindByID(ctx context.Context, id int64) (*user.User, error) {
 	return toDomain(row), nil
 }
 
-func (r *UserRepo) FindByAccount(ctx context.Context, account string) (*user.UserWithSecret, error) {
-	row, err := r.client.User.Query().
+func (r *UserRepo) GetByAccount(ctx context.Context, account string) (*user.UserWithSecret, error) {
+	row, err := r.Cli(ctx).User.Query().
 		Where(
 			entgen.UserAccountEQ(account),
 			entgen.IsDeleteEQ(false),
@@ -92,7 +99,7 @@ func (r *UserRepo) FindByAccount(ctx context.Context, account string) (*user.Use
 }
 
 func (r *UserRepo) Update(ctx context.Context, id int64, in user.UpdateRepoParams) (*user.User, error) {
-	b := r.client.User.UpdateOneID(id).
+	b := r.Cli(ctx).User.UpdateOneID(id).
 		Where(entgen.IsDeleteEQ(false)).
 		SetEditTime(time.Now())
 
@@ -109,10 +116,15 @@ func (r *UserRepo) Update(ctx context.Context, id int64, in user.UpdateRepoParam
 		b.SetUserProfile(*in.UserProfile)
 	}
 	if in.UserRole != nil {
-		b.SetUserRole(toEntRole(*in.UserRole))
+		b.SetUserRole(entgen.UserRole(*in.UserRole))
 	}
 	if in.Quota != nil {
 		b.SetQuota(*in.Quota)
+	}
+	if in.ClearVipTime {
+		b.ClearVipTime()
+	} else if in.VipTime != nil {
+		b.SetVipTime(*in.VipTime)
 	}
 
 	row, err := b.Save(ctx)
@@ -126,7 +138,7 @@ func (r *UserRepo) Update(ctx context.Context, id int64, in user.UpdateRepoParam
 }
 
 func (r *UserRepo) ExistsAccount(ctx context.Context, account string) (bool, error) {
-	return r.client.User.Query().
+	return r.Cli(ctx).User.Query().
 		Where(
 			entgen.UserAccountEQ(account),
 			entgen.IsDeleteEQ(false),
@@ -135,7 +147,7 @@ func (r *UserRepo) ExistsAccount(ctx context.Context, account string) (bool, err
 }
 
 func (r *UserRepo) Delete(ctx context.Context, id int64) error {
-	n, err := r.client.User.Update().
+	n, err := r.Cli(ctx).User.Update().
 		Where(entgen.IDEQ(id), entgen.IsDeleteEQ(false)).
 		SetIsDelete(true).
 		SetEditTime(time.Now()).
@@ -147,6 +159,29 @@ func (r *UserRepo) Delete(ctx context.Context, id int64) error {
 		return nil
 	}
 	return nil
+}
+
+func (r *UserRepo) DecrementQuota(ctx context.Context, id int64) (int, error) {
+	n, err := r.Cli(ctx).User.Update().
+		Where(
+			entgen.IDEQ(id),
+			entgen.IsDeleteEQ(false),
+			entgen.QuotaGT(0),
+		).
+		AddQuota(-1).
+		Save(ctx)
+	return n, err
+}
+
+func (r *UserRepo) IncrementQuota(ctx context.Context, id int64) (int, error) {
+	n, err := r.Cli(ctx).User.Update().
+		Where(
+			entgen.IDEQ(id),
+			entgen.IsDeleteEQ(false),
+		).
+		AddQuota(1).
+		Save(ctx)
+	return n, err
 }
 
 func toDomain(row *ent.User) *user.User {
@@ -166,20 +201,7 @@ func toDomain(row *ent.User) *user.User {
 }
 
 func toDomainList(rows []*ent.User) []*user.User {
-	users := make([]*user.User, 0, len(rows))
-	for _, row := range rows {
-		users = append(users, toDomain(row))
-	}
-	return users
-}
-
-func toEntRole(r user.UserRole) entgen.UserRole {
-	switch r {
-	case user.RoleAdmin:
-		return entgen.UserRoleAdmin
-	case user.RoleVIP:
-		return entgen.UserRoleVip
-	default:
-		return entgen.UserRoleUser
-	}
+	return lo.Map(rows, func(row *ent.User, _ int) *user.User {
+		return toDomain(row)
+	})
 }

@@ -1,8 +1,11 @@
 package user
 
-import "time"
+import (
+	"time"
+	"wood-passage-creator/internal/pkg/response"
+)
 
-// UserRole 与 ent schema / API 对齐。
+// UserRole 与 ent schema / API 对齐（纯枚举，不含权限方法；鉴权统一走 Actor）。
 type UserRole string
 
 const (
@@ -11,9 +14,36 @@ const (
 	RoleVIP   UserRole = "vip"
 )
 
-// IsValid 判断角色是否有效。
-func (r UserRole) IsValid() bool {
-	return r == RoleUser || r == RoleAdmin || r == RoleVIP
+// ---------- Actor：用例执行者；仅保留 Require* 做权限断言 ----------
+
+// Actor 由 HTTP 中间件加载后传入 Service，禁止在 Service 内解析 session。
+type Actor struct {
+	ID   int64
+	Role UserRole
+}
+
+// RequireAdmin 非管理员 → 403。
+func (a Actor) RequireAdmin() error {
+	if a.Role != RoleAdmin {
+		return response.NewBizErrorWithDetail(response.Forbidden, "需要管理员权限")
+	}
+	return nil
+}
+
+// RequireVipOrAdmin 非 VIP/管理员 → 403（高级配图、AI 改大纲等）。
+func (a Actor) RequireVipOrAdmin() error {
+	if a.Role != RoleVIP && a.Role != RoleAdmin {
+		return response.NewBizErrorWithDetail(response.Forbidden, "需要 VIP 或管理员权限")
+	}
+	return nil
+}
+
+// RequireSelfOrAdmin 非本人且非管理员 → 403。
+func (a Actor) RequireSelfOrAdmin(targetID int64) error {
+	if a.Role == RoleAdmin || (a.ID != 0 && a.ID == targetID) {
+		return nil
+	}
+	return response.NewBizErrorWithDetail(response.Forbidden, "无权限")
 }
 
 // User 对外可见的用户信息（过滤 user_password 等敏感字段）。
@@ -31,37 +61,10 @@ type User struct {
 	UpdateTime  time.Time  `json:"updateTime"`
 }
 
-// ---------- API 入参（Handler 直接 BindAndValidate 到这些类型）----------
-//
-// 说明：go-playground 的 tag 以英文逗号分段，regexp 模式里不能写 {2,19} 这类逗号。
-// 长度用 min/max；字符形态用 regexp（或 hasalpha/hasdigit）。
-
-// RegisterParams 注册入参。
-type RegisterParams struct {
-	// 字母开头，后仅字母数字下划线；长度 3–20
-	UserAccount  string  `json:"userAccount" validate:"required,min=3,max=20,regexp=^[a-zA-Z][a-zA-Z0-9_]*$"`
-	UserPassword string  `json:"userPassword" validate:"required,min=6,max=20,hasalpha,hasdigit"`
-	UserName     *string `json:"userName" validate:"omitempty,min=1,max=256"`
-	UserAvatar   *string `json:"userAvatar" validate:"omitempty,url,max=1024"`
-	UserProfile  *string `json:"userProfile" validate:"omitempty,max=512"`
-}
-
-// LoginParams 登录入参（密码不做复杂度校验，避免策略变更导致无法登录）。
-type LoginParams struct {
-	UserAccount  string `json:"userAccount" validate:"required,min=3,max=20,regexp=^[a-zA-Z][a-zA-Z0-9_]*$"`
-	UserPassword string `json:"userPassword" validate:"required,min=6,max=20"`
-}
-
-// UpdateParams 部分更新；指针 nil 表示不修改该字段。
-type UpdateParams struct {
-	UserPassword *string `json:"userPassword" validate:"omitempty,min=6,max=20,hasalpha,hasdigit"`
-	UserName     *string `json:"userName" validate:"omitempty,min=1,max=256"`
-	UserAvatar   *string `json:"userAvatar" validate:"omitempty,url,max=1024"`
-	UserProfile  *string `json:"userProfile" validate:"omitempty,max=512"`
-}
-
-// HasUpdates 是否至少带了一个可更新字段。
-func (in UpdateParams) HasUpdates() bool {
-	return in.UserPassword != nil || in.UserName != nil ||
-		in.UserAvatar != nil || in.UserProfile != nil
+// Actor 从已加载用户构造执行者（中间件 GetLoginUser 后可用）。
+func (u *User) Actor() Actor {
+	if u == nil {
+		return Actor{}
+	}
+	return Actor{ID: u.ID, Role: u.UserRole}
 }

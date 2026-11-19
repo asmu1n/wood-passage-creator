@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"projecttemp/internal/pkg/logger"
+	"wood-passage-creator/internal/pkg/logger"
 
 	"github.com/robfig/cron/v3"
 )

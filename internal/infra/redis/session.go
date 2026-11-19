@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"projecttemp/internal/config"
+	"wood-passage-creator/internal/config"
 
 	"github.com/boj/redistore"
 	"github.com/gorilla/sessions"

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 const (
@@ -38,8 +39,26 @@ const (
 	FieldUpdateTime = "update_time"
 	// FieldIsDelete holds the string denoting the is_delete field in the database.
 	FieldIsDelete = "is_delete"
+	// EdgeArticles holds the string denoting the articles edge name in mutations.
+	EdgeArticles = "articles"
+	// EdgePaymentRecords holds the string denoting the payment_records edge name in mutations.
+	EdgePaymentRecords = "payment_records"
 	// Table holds the table name of the user in the database.
 	Table = "users"
+	// ArticlesTable is the table that holds the articles relation/edge.
+	ArticlesTable = "articles"
+	// ArticlesInverseTable is the table name for the Article entity.
+	// It exists in this package in order to avoid circular dependency with the "article" package.
+	ArticlesInverseTable = "articles"
+	// ArticlesColumn is the table column denoting the articles relation/edge.
+	ArticlesColumn = "user_id"
+	// PaymentRecordsTable is the table that holds the payment_records relation/edge.
+	PaymentRecordsTable = "payment_records"
+	// PaymentRecordsInverseTable is the table name for the PaymentRecord entity.
+	// It exists in this package in order to avoid circular dependency with the "paymentrecord" package.
+	PaymentRecordsInverseTable = "payment_records"
+	// PaymentRecordsColumn is the table column denoting the payment_records relation/edge.
+	PaymentRecordsColumn = "user_id"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -191,4 +210,46 @@ func ByUpdateTime(opts ...sql.OrderTermOption) OrderOption {
 // ByIsDelete orders the results by the is_delete field.
 func ByIsDelete(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldIsDelete, opts...).ToFunc()
+}
+
+// ByArticlesCount orders the results by articles count.
+func ByArticlesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newArticlesStep(), opts...)
+	}
+}
+
+// ByArticles orders the results by articles terms.
+func ByArticles(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newArticlesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByPaymentRecordsCount orders the results by payment_records count.
+func ByPaymentRecordsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newPaymentRecordsStep(), opts...)
+	}
+}
+
+// ByPaymentRecords orders the results by payment_records terms.
+func ByPaymentRecords(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPaymentRecordsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+func newArticlesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ArticlesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ArticlesTable, ArticlesColumn),
+	)
+}
+func newPaymentRecordsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PaymentRecordsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, PaymentRecordsTable, PaymentRecordsColumn),
+	)
 }

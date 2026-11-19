@@ -6,6 +6,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema"
+	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
 )
@@ -80,6 +81,15 @@ func (User) Fields() []ent.Field {
 		field.Bool("is_delete").
 			Default(false).
 			Comment("是否删除（软删除）"),
+	}
+}
+
+// Edges of the User.
+// 一对多：用户拥有多篇文章、多条支付记录。
+func (User) Edges() []ent.Edge {
+	return []ent.Edge{
+		edge.To("articles", Article.Type),
+		edge.To("payment_records", PaymentRecord.Type),
 	}
 }
 

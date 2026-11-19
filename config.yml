@@ -1,5 +1,7 @@
-# 默认本地开发环境参数，具体参数由 env 注入覆盖（APP 前缀）
-name: "projecttemp"
+# 主配置（非密钥）。密钥与口令见 .env.example → .env（APP_* / POSTGRES_*）。
+# 本地默认连 localhost Postgres/Redis；compose 内 app 会覆盖 HOST 为服务名。
+
+name: "wood-passage-creator"
 env: "local" # local | production
 log_level: "debug" # debug | info | warn | error
 log_format: "text" # text | json
@@ -8,20 +10,55 @@ database:
   host: "localhost"
   port: 5432
   user: "postgres"
-  password: "postgres"
-  db_name: "projecttemp_db"
+  password: "postgres" # 本地默认；部署用 APP_DATABASE_PASSWORD
+  db_name: "wood-passage-creator_db"
   max_idle_conns: 10
   max_open_conns: 100
 
 redis:
   host: "localhost"
   port: 6379
-  password: ""
+  password: "" # 部署用 APP_REDIS_PASSWORD
   db: 0
 
-agent:
+# LLM Agent（OpenAI 兼容）。model/base_url 放 yml；api_key 用 env
+llm:
+  base_url: "https://api.siliconflow.cn/v1"
+  api_key: "" # 勿把真实 key 提交进仓库；用 APP_LLM_API_KEY
+  model: "deepseek-ai/DeepSeek-V4-Flash"
+
+# Pexels。key 用 env；未配置时 ImageGenerator 降级 Picsum
+pexels:
+  api_key: "" # APP_PEXELS_API_KEY
 
 session:
-  secret: "change-me-session-secret"
-  max_age: 604800 # 7d, seconds
-  secure: false # HTTPS 生产环境设 true（或 APP_SESSION_SECURE=true）
+  secret: "" # APP_SESSION_SECRET；空则代码内开发默认值
+  max_age: 604800 # 7d
+  secure: false # 生产 HTTPS 可改为 true
+
+# ---- 其它配图方式（非密钥默认值；密钥用 APP_* env）----
+iconify:
+  base_url: "https://api.iconify.design"
+  timeout_ms: 5000
+
+emoji_pack:
+  suffix: "表情包"
+  timeout_ms: 8000
+
+svg_diagram:
+  enabled: true
+
+nano_banana:
+  api_key: "" # APP_NANO_BANANA_API_KEY
+  model: "gemini-2.0-flash-preview-image-generation"
+  aspect_ratio: "16:9"
+
+# Cloudflare R2（S3 兼容）。配齐后配图会转存；缺任一关键项则跳过，保留原始 URL。
+r2:
+  account_id: "51ce6b303efe76db77199b02de31c1f1" # Cloudflare Account ID（非密钥，可写 yml）
+  access_key_id: "" # APP_R2_ACCESS_KEY_ID
+  secret_access_key: "" # APP_R2_SECRET_ACCESS_KEY
+  bucket: "cloundfile"
+  endpoint: "" # 可选；空则 https://{account_id}.r2.cloudflarestorage.com
+  public_base_url: "https://bucket.asmu1n.com" # 对外访问前缀：自定义域名或 https://pub-xxx.r2.dev
+  key_prefix: "passage-creator/images"

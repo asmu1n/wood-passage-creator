@@ -10,10 +10,17 @@ import (
 )
 
 type Config struct {
-	App      AppConfig      `mapstructure:"app"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Redis    RedisConfig    `mapstructure:"redis"`
-	Session  SessionConfig  `mapstructure:"session"`
+	App        AppConfig        `mapstructure:",squash"` // 与 config.yml 根级 name/env/log_* 及 APP_ENV 等对齐
+	Database   DatabaseConfig   `mapstructure:"database"`
+	Redis      RedisConfig      `mapstructure:"redis"`
+	Session    SessionConfig    `mapstructure:"session"`
+	LLM        LLMConfig        `mapstructure:"llm"`
+	Pexels     PexelsConfig     `mapstructure:"pexels"`
+	Iconify    IconifyConfig    `mapstructure:"iconify"`
+	EmojiPack  EmojiPackConfig  `mapstructure:"emoji_pack"`
+	SVGDiagram SVGDiagramConfig `mapstructure:"svg_diagram"`
+	NanoBanana NanoBananaConfig `mapstructure:"nano_banana"`
+	R2         R2Config         `mapstructure:"r2"`
 }
 
 type AppConfig struct {
@@ -38,6 +45,97 @@ type RedisConfig struct {
 	Port     int    `mapstructure:"port"`
 	Password string `mapstructure:"password"`
 	DB       int    `mapstructure:"db"`
+}
+
+type LLMConfig struct {
+	APIKey  string `mapstructure:"api_key"`
+	BaseURL string `mapstructure:"base_url"`
+	Model   string `mapstructure:"model"`
+}
+
+// PexelsConfig Pexels 图库检索。
+type PexelsConfig struct {
+	APIKey string `mapstructure:"api_key"`
+}
+
+type IconifyConfig struct {
+	BaseURL   string `mapstructure:"base_url"`
+	TimeoutMs int    `mapstructure:"timeout_ms"`
+}
+
+type EmojiPackConfig struct {
+	Suffix    string `mapstructure:"suffix"`
+	TimeoutMs int    `mapstructure:"timeout_ms"`
+}
+
+type SVGDiagramConfig struct {
+	Enabled bool `mapstructure:"enabled"`
+}
+
+type NanoBananaConfig struct {
+	APIKey      string `mapstructure:"api_key"`
+	Model       string `mapstructure:"model"`
+	AspectRatio string `mapstructure:"aspect_ratio"`
+}
+
+// R2Config Cloudflare R2 应用配置（写入 infra/objectstore.Options）。
+// 密钥走 env：APP_R2_ACCESS_KEY_ID / APP_R2_SECRET_ACCESS_KEY
+// 端口见 port.ObjectStore；实现见 internal/infra/objectstore，可复用于配图、头像等。
+type R2Config struct {
+	AccountID       string `mapstructure:"account_id"`
+	AccessKeyID     string `mapstructure:"access_key_id"`
+	SecretAccessKey string `mapstructure:"secret_access_key"`
+	Bucket          string `mapstructure:"bucket"`
+	Endpoint        string `mapstructure:"endpoint"`        // 可选
+	PublicBaseURL   string `mapstructure:"public_base_url"` // 公开访问前缀
+	KeyPrefix       string `mapstructure:"key_prefix"`      // 全局 key 前缀
+}
+
+func (c IconifyConfig) Normalized() IconifyConfig {
+	out := c
+	if out.BaseURL == "" {
+		out.BaseURL = "https://api.iconify.design"
+	}
+	if out.TimeoutMs <= 0 {
+		out.TimeoutMs = 5000
+	}
+	return out
+}
+
+func (c EmojiPackConfig) Normalized() EmojiPackConfig {
+	out := c
+	if out.Suffix == "" {
+		out.Suffix = "表情包"
+	}
+	if out.TimeoutMs <= 0 {
+		out.TimeoutMs = 8000
+	}
+	return out
+}
+
+func (c NanoBananaConfig) Normalized() NanoBananaConfig {
+	out := c
+	if out.Model == "" {
+		out.Model = "gemini-2.0-flash-preview-image-generation"
+	}
+	if out.AspectRatio == "" {
+		out.AspectRatio = "16:9"
+	}
+	return out
+}
+
+// Enabled 配置是否足以启用对象存储（与 infra/objectstore.Options.Enabled 对齐）。
+func (c R2Config) Enabled() bool {
+	if c.AccessKeyID == "" || c.SecretAccessKey == "" || c.Bucket == "" {
+		return false
+	}
+	if c.Endpoint == "" && c.AccountID == "" {
+		return false
+	}
+	if c.PublicBaseURL == "" {
+		return false
+	}
+	return true
 }
 
 // SessionConfig Cookie Session（Redis 后端）相关配置。
@@ -86,11 +184,13 @@ func LoadConfig() *Config {
 		v.AddConfigPath(".")        // 告诉 viper 在当前目录寻找
 		v.AddConfigPath("./config") // 也可以添加多个查找路径
 
-		// 3. 环境变量覆盖设置
-		// 比如设置了 "APP"，那么 viper 会寻找 "APP_DATABASE_HOST" 来覆盖 database.host
+		// 3. 环境变量覆盖（前缀 APP_，嵌套用 _）
+		// 例: APP_DATABASE_HOST -> database.host
+		//     APP_LLM_API_KEY   -> llm.api_key
+		//     APP_PEXELS_API_KEY -> pexels.api_key
 		v.SetEnvPrefix("APP")
 		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-		v.AutomaticEnv() // 开启自动读取环境变量
+		v.AutomaticEnv()
 
 		// 4. 读取 config.yml
 		if err := v.ReadInConfig(); err != nil {
@@ -105,6 +205,9 @@ func LoadConfig() *Config {
 
 		// 6. session 默认值
 		globalConfig.Session = globalConfig.Session.Normalized()
+		globalConfig.Iconify = globalConfig.Iconify.Normalized()
+		globalConfig.EmojiPack = globalConfig.EmojiPack.Normalized()
+		globalConfig.NanoBanana = globalConfig.NanoBanana.Normalized()
 	})
 
 	return globalConfig

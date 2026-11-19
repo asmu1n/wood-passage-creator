@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"projecttemp/internal/config"
+	"wood-passage-creator/internal/config"
 )
 
 // ---------- 字段名（slog 要求 key 为 string，故不用自定义类型）----------
@@ -59,7 +59,7 @@ var (
 )
 
 func init() {
-	global = build("projecttemp", LevelInfo, FormatText)
+	global = build("wood-passage-creator", LevelInfo, FormatText)
 	slog.SetDefault(global)
 }
 
@@ -78,10 +78,15 @@ func build(service string, level Level, format Format) *slog.Logger {
 	if format == FormatJSON {
 		h = slog.NewJSONHandler(os.Stderr, opts)
 	} else {
-		h = slog.NewTextHandler(os.Stderr, opts)
+		output := os.Stderr
+		if colorEnabled(output) {
+			h = slog.NewTextHandler(colorWriter{output: output}, opts)
+		} else {
+			h = slog.NewTextHandler(output, opts)
+		}
 	}
 	if service == "" {
-		service = "projecttemp"
+		service = "wood-passage-creator"
 	}
 	return slog.New(h).With("service", service)
 }

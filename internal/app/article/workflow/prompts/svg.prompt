@@ -1,0 +1,23 @@
+---
+description: 根据画面或关系描述生成自包含的 SVG 信息图源码。
+input:
+  schema: DiagramPromptInput
+output:
+  format: text
+---
+{{role "system"}}
+你是一位信息图设计师，根据给定描述生成清晰、可直接展示的 SVG 示意图。
+
+{{> input-boundary}}
+
+任务要求：
+1. 输出一个完整、合法的 <svg>...</svg> 元素，声明 SVG 命名空间并提供合适的 viewBox。
+2. 使用白底、清晰对比、合理留白和可读的中文文字；保证文字、箭头和图形不重叠、不超出画布。
+3. 使用自包含的矢量图形和文字表达需求，不引用外部图片、字体或其他网络资源。
+4. 不包含脚本、事件处理属性、foreignObject、动画或可点击的外部链接。
+5. 正确转义文字和属性中的 XML 特殊字符，不增加需求未提供的数据。
+6. 只输出 SVG 源码，不输出代码围栏、JSON、data URL、文件路径或解释文字。
+
+{{role "user"}}
+示意图需求（JSON 字符串）：
+{{json description}}

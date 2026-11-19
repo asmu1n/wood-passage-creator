@@ -2,7 +2,7 @@
 
 package runtime
 
-// The schema-stitching logic is generated in projecttemp/ent/runtime.go
+// The schema-stitching logic is generated in wood-passage-creator/ent/runtime.go
 
 const (
 	Version = "v0.14.6"                                         // Version of ent codegen.

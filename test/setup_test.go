@@ -6,12 +6,12 @@ import (
 	"os"
 	"testing"
 
-	"projecttemp/ent"
-	"projecttemp/internal/config"
-	"projecttemp/internal/infra/database"
+	"wood-passage-creator/ent"
+	"wood-passage-creator/internal/config"
+	"wood-passage-creator/internal/infra/database"
 )
 
-var testDB *database.DB
+var testDB database.DB
 
 func TestMain(m *testing.M) {
 	var err error
@@ -28,7 +28,7 @@ func TestMain(m *testing.M) {
 }
 
 func Client() *ent.Client {
-	return testDB.Client
+	return testDB.Cli(context.Background())
 }
 
 func TestDBConnection(t *testing.T) {

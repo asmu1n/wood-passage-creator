@@ -1,0 +1,127 @@
+package article
+
+import (
+	"time"
+	"wood-passage-creator/internal/port"
+)
+
+type Article struct {
+	ID                  int64               `json:"id"`
+	TaskID              string              `json:"taskId"`
+	UserID              int64               `json:"userId"`
+	Topic               string              `json:"topic"`
+	UserDescription     *string             `json:"userDescription"` // 用户补充描述
+	MainTitle           *string             `json:"mainTitle"`
+	SubTitle            *string             `json:"subTitle"`
+	TitleOptions        []TitleOption       `json:"titleOptions"` // 标题方案列表
+	Outline             []OutlineSection    `json:"outline"`
+	Content             *string             `json:"content"`
+	FullContent         *string             `json:"fullContent"`
+	Images              []port.ImageResult  `json:"images"`
+	GenerationWarnings  []GenerationWarning `json:"generationWarnings,omitempty"`
+	CoverImage          *string             `json:"coverImage,omitempty"`
+	Status              ArticleStatus       `json:"status"`
+	Phase               ArticlePhase        `json:"phase"` // 当前阶段
+	ErrorMessage        *string             `json:"errorMessage"`
+	Style               *ArticleStyle       `json:"style"`                         // 文章风格
+	EnabledImageMethods []port.ImageMethod  `json:"enabledImageMethods,omitempty"` // 任务授权快照；nil 或空列表均不授权工具
+	CreateTime          time.Time           `json:"createTime"`
+	CompletedTime       *time.Time          `json:"completedTime"`
+}
+
+// FillCoverImage 从配图列表派生封面 URL（对齐旧 saveArticleContent：position == 1）。
+func (a *Article) FillCoverImage() {
+	if a == nil {
+		return
+	}
+	a.CoverImage = nil
+	for i := range a.Images {
+		img := a.Images[i]
+		if img.Position == 1 && img.URL != "" {
+			u := img.URL
+			a.CoverImage = &u
+			return
+		}
+	}
+}
+
+type ArticleStatus string
+
+// ArticleStatus 文章状态
+const (
+	StatusPending    ArticleStatus = "PENDING"
+	StatusProcessing ArticleStatus = "PROCESSING"
+	StatusCompleted  ArticleStatus = "COMPLETED"
+	StatusFailed     ArticleStatus = "FAILED"
+)
+
+type ArticlePhase string
+
+// ArticlePhase 文章阶段
+const (
+	PhasePending           ArticlePhase = "PENDING"            // 等待处理
+	PhaseTitleGenerating   ArticlePhase = "TITLE_GENERATING"   // 生成标题中
+	PhaseTitleSelecting    ArticlePhase = "TITLE_SELECTING"    // 等待选择标题
+	PhaseOutlineGenerating ArticlePhase = "OUTLINE_GENERATING" // 生成大纲中
+	PhaseOutlineEditing    ArticlePhase = "OUTLINE_EDITING"    // 等待编辑大纲
+	PhaseContentGenerating ArticlePhase = "CONTENT_GENERATING" // 生成正文中
+	PhaseCompleted         ArticlePhase = "COMPLETED"          // 完成
+)
+
+type ArticleStyle string
+
+// ArticleStyle 文章风格
+const (
+	StyleTech        ArticleStyle = "tech"
+	StyleEmotional   ArticleStyle = "emotional"
+	StyleEducational ArticleStyle = "educational"
+	StyleHumorous    ArticleStyle = "humorous"
+)
+
+// TitleOption 标题方案
+type TitleOption struct {
+	MainTitle string `json:"mainTitle"`
+	SubTitle  string `json:"subTitle"`
+}
+
+// OutlineSection 大纲章节
+type OutlineSection struct {
+	Section int      `json:"section"`
+	Title   string   `json:"title"`
+	Points  []string `json:"points"`
+}
+
+type AgentLogStatus string
+
+const (
+	AgentLogRunning AgentLogStatus = "RUNNING"
+	AgentLogSuccess AgentLogStatus = "SUCCESS"
+	AgentLogFailed  AgentLogStatus = "FAILED"
+)
+
+// AgentLog 单次智能体/步骤执行记录。
+type AgentLog struct {
+	ID           int64          `json:"id"`
+	ArticleID    int64          `json:"articleId"`
+	TaskID       string         `json:"taskId"`
+	AgentName    string         `json:"agentName"`
+	StartTime    time.Time      `json:"startTime"`
+	EndTime      *time.Time     `json:"endTime,omitempty"`
+	DurationMs   *int           `json:"durationMs,omitempty"`
+	Status       AgentLogStatus `json:"status"`
+	ErrorMessage *string        `json:"errorMessage,omitempty"`
+	Prompt       *string        `json:"prompt,omitempty"`
+	InputData    *string        `json:"inputData,omitempty"`
+	OutputData   *string        `json:"outputData,omitempty"`
+	CreateTime   time.Time      `json:"createTime"`
+}
+
+// AgentExecutionStats 某 task 的执行汇总（execution-logs API）。
+type AgentExecutionStats struct {
+	TaskID          string         `json:"taskId"`
+	TotalDurationMs int            `json:"totalDurationMs"`
+	AgentCount      int            `json:"agentCount"`
+	AgentDurations  map[string]int `json:"agentDurations"`
+	OverallStatus   string         `json:"overallStatus"` // SUCCESS/FAILED/RUNNING/NOT_FOUND
+	Logs            []*AgentLog    `json:"logs"`
+}

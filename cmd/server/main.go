@@ -8,27 +8,49 @@ import (
 	"os/signal"
 	"syscall"
 
-	"projecttemp/internal/config"
-	"projecttemp/internal/httpapi"
-	"projecttemp/internal/httpapi/binding"
-	httpmw "projecttemp/internal/httpapi/middleware"
-	"projecttemp/internal/infra/database"
-	"projecttemp/internal/infra/redis"
-	"projecttemp/internal/module/user"
-	userrepo "projecttemp/internal/module/user/repo"
-	"projecttemp/internal/pkg/logger"
+	appcore "wood-passage-creator/internal/app"
+	articleapp "wood-passage-creator/internal/app/article"
+	"wood-passage-creator/internal/app/article/workflow"
+	authapp "wood-passage-creator/internal/app/auth"
+	paymentapp "wood-passage-creator/internal/app/payment"
+	statsapp "wood-passage-creator/internal/app/statistics"
+	userapp "wood-passage-creator/internal/app/user"
+	"wood-passage-creator/internal/config"
+	"wood-passage-creator/internal/httpapi"
+	articleapi "wood-passage-creator/internal/httpapi/api/article"
+	authapi "wood-passage-creator/internal/httpapi/api/auth"
+	paymentapi "wood-passage-creator/internal/httpapi/api/payment"
+	statisticsapi "wood-passage-creator/internal/httpapi/api/statistics"
+	userapi "wood-passage-creator/internal/httpapi/api/user"
+	"wood-passage-creator/internal/httpapi/binding"
+	"wood-passage-creator/internal/httpapi/docsui"
+	httpmw "wood-passage-creator/internal/httpapi/middleware"
+	"wood-passage-creator/internal/infra/cache"
+	"wood-passage-creator/internal/infra/database"
+	"wood-passage-creator/internal/infra/image"
+	"wood-passage-creator/internal/infra/llm"
+	"wood-passage-creator/internal/infra/objectstore"
+	"wood-passage-creator/internal/infra/redis"
+	modart "wood-passage-creator/internal/module/article"
+	articlerepo "wood-passage-creator/internal/module/article/repo"
+	paymentrepo "wood-passage-creator/internal/module/payment/repo"
+	statisticsrepo "wood-passage-creator/internal/module/statistics/repo"
+	userrepo "wood-passage-creator/internal/module/user/repo"
+	"wood-passage-creator/internal/pkg/logger"
+	"wood-passage-creator/internal/pkg/sse"
 
+	_ "wood-passage-creator/docs/api/swagger"
+
+	"github.com/firebase/genkit/go/core/api"
+	"github.com/firebase/genkit/go/plugins/googlegenai"
 	"github.com/labstack/echo-contrib/v5/session"
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"
-	httpSwagger "github.com/swaggo/http-swagger/v2"
-
-	_ "projecttemp/docs/api/swagger"
 )
 
-// @title           Go Web API Template
+// @title           Wood Passage Creator API
 // @version         1.0
-// @description     Go Web 后端工程模板接口文档（业务模块由使用者自行接入）
+// @description     AI 文章生成后端：用户/会话、文章三阶段流水线（SSE 进度）、配图、Agent 日志；开发态 VIP Mock 支付与管理端升降 VIP。
 // @host            localhost:8080
 // @BasePath        /api
 // @securityDefinitions.apikey SessionAuth
@@ -60,6 +82,9 @@ func main() {
 	if err := db.Migrate(ctx); err != nil {
 		logger.Fatal("migrate failed", logger.FieldErr, err)
 	}
+	if err := appcore.InitRuntime(appcore.Runtime{TxManager: db}); err != nil {
+		logger.Fatal("init app runtime failed", logger.FieldErr, err)
+	}
 
 	store, err := redis.NewSessionStore(&cfg.Redis, cfg.Session)
 	if err != nil {
@@ -72,17 +97,63 @@ func main() {
 	}
 	defer redisClient.Close()
 
-	// 业务装配：user 模块（可按需再注入 cache/lock）
-	// locker := lock.New(redisClient)
-	// cacheClient := cache.New(redisClient)
-	_ = redisClient
-	userSvc := user.NewService(userrepo.New(db.Client))
+	var plugins []api.Plugin
+	if cfg.NanoBanana.APIKey != "" {
+		plugins = append(plugins, &googlegenai.GoogleAI{APIKey: cfg.NanoBanana.APIKey})
+	}
+	genkitRuntime, err := llm.NewGenkit(ctx, cfg.LLM, articleworkflow.PromptFS, plugins...)
+	if err != nil {
+		logger.Fatal("init Genkit runtime failed", logger.FieldErr, err)
+	}
+
+	// 装配：module=领域+repo；app=全部用例；httpapi/api 只依赖 app。
+	// 跨 module 强一致写：Runtime.Tx + repo Cli(ctx) 共享同一事务。
+	cacheClient := cache.New(redisClient)
+	ssehub := sse.NewHub()
+	userRepo := userrepo.New(db)
+	statsSvc := statsapp.NewService(statisticsrepo.New(db), cacheClient)
+	userSvc := userapp.NewService(userRepo, statsSvc)
+	authSvc := authapp.NewService(userRepo, statsSvc)
+	paymentSvc := paymentapp.NewService(paymentrepo.New(db), userSvc)
+	objStore := objectstore.NewFromConfig(cfg.R2)
+	articleRepo := articlerepo.NewArticleRepo(db)
+	agentLogRepo := articlerepo.NewAgentLogRepo(db)
+	agentLogRecorder := modart.NewAgentLogRecorder(agentLogRepo)
+	planningFlows, err := articleworkflow.NewPlanningFlows(genkitRuntime, agentLogRecorder)
+	if err != nil {
+		logger.Fatal("init Genkit planning flows failed", logger.FieldErr, err)
+	}
+	sources, err := articleworkflow.NewImageSources(genkitRuntime, cfg.NanoBanana)
+	if err != nil {
+		logger.Fatal("init Genkit image sources failed", logger.FieldErr, err)
+	}
+	executor := image.NewProviderExecutor(cfg, sources, objStore)
+	articleFlows, err := articleworkflow.NewArticleFlows(genkitRuntime, executor, agentLogRecorder)
+	if err != nil {
+		logger.Fatal("init Genkit article flow failed", logger.FieldErr, err)
+	}
+	articleSvc := articleapp.NewService(
+		articleRepo,
+		agentLogRepo,
+		userSvc,
+		planningFlows,
+		articleFlows,
+		executor,
+		ssehub,
+		statsSvc,
+	)
 
 	e.Use(session.Middleware(store))
 
-	e.GET("/swagger/*", echo.WrapHandler(httpSwagger.WrapHandler))
+	docsui.Register(e)
 
-	httpapi.RegisterRouter(e, userSvc)
+	httpapi.RegisterRouter(e,
+		authapi.NewRegistrar(authSvc),
+		userapi.NewRegistrar(userSvc),
+		articleapi.NewRegistrar(articleSvc, userSvc),
+		paymentapi.NewRegistrar(paymentSvc, userSvc),
+		statisticsapi.NewRegistrar(statsSvc, userSvc),
+	)
 
 	logger.Info("http server starting",
 		logger.FieldPurpose, logger.PurposeInfra,
@@ -93,6 +164,11 @@ func main() {
 	sc := echo.StartConfig{
 		Address:    ":8080",
 		HideBanner: true,
+		BeforeServeFunc: func(s *http.Server) error {
+			// SSE 长连接：禁止写超时（0 = 不限制）
+			s.WriteTimeout = 0
+			return nil
+		},
 	}
 	if err := sc.Start(ctx, e); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Fatal("http server stopped", logger.FieldErr, err)

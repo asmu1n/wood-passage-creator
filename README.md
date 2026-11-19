@@ -1,21 +1,24 @@
-# Go Web 后端工程模板
+# Wood Passage Creator
 
-基于 **Echo + Ent + Postgres + Redis** 的标准 Go Web 服务骨架。  
-本仓库**不含具体业务模块**，只保留可复用的工程分层、基础设施与协作约定，便于在此基础上接入自有领域。
+基于 **Echo + Ent + Postgres + Redis** 的 AI 文章生成后端。  
+从 `ai-passage-creator` 迁移并重组为 **app（用例）/ module（领域+仓储）/ httpapi（协议）** 分层。
+
+主要能力：用户会话与 VIP、文章三阶段流水线（SSE 进度）、配图（多 Provider + 可选 R2）、Mock 支付、管理端列表与统计概览。
 
 ---
 
 ## 1. 设计目标（为什么这样拆）
 
-| 目标         | 做法                                                            |
-| ------------ | --------------------------------------------------------------- |
-| 业务可扩展   | 业务只放在 `internal/module/<name>/`，不在 `internal/` 顶层平铺 |
-| 依赖清晰     | 业务依赖 `port` 接口，不直接依赖 Redis/DB 实现细节              |
-| 改动半径可控 | 同一领域的 Handler / Service / Repo 集中在对应 module           |
-| 入口干净     | `cmd/*` 只做装配与生命周期，不写业务规则                        |
-| 公共代码克制 | `pkg` 只放与具体业务无关的工具；业务逻辑不要下沉                |
+| 目标 | 做法 |
+|------|------|
+| 业务可扩展 | 用例在 `app/`；领域 + repo 在 `module/`；HTTP 在 `httpapi/api` |
+| 依赖清晰 | app/module 依赖 `port`；不直接依赖 Redis/DB 实现细节 |
+| 跨域强一致 | 全局 `app.Runtime` 提供事务能力，repo 通过 `Cli(ctx)` 共享事务 |
+| 改动半径可控 | HTTP 只依赖 app；全部 AI 工作流由 app/article/workflow 的 Genkit 编排 |
+| 入口干净 | `cmd/server` 只做装配与生命周期 |
+| 配置分层 | `config.yml` 主配置；`.env` 仅密钥 |
 
-一句话：**业务进 module，协议进 httpapi，能力抽象进 port，技术细节进 infra，公共工具进 pkg，进程在 cmd 拧在一起。**
+一句话：**用例与 Request 进 app，领域与 repo 进 module，HTTP 进 httpapi/api，能力进 port，实现进 infra，工具进 pkg，cmd 装配。**
 
 ---
 
@@ -23,43 +26,41 @@
 
 ```text
 .
-├── cmd/
-│   └── server/          # HTTP API 入口（装配 DB/Redis/路由/定时任务）
+├── cmd/server/              # 装配入口（DB/Redis/Tx/路由）
 ├── docs/
-│   └── api/swagger/     # OpenAPI 生成物（Swagger UI 读这里）
-├── ent/
-│   └── schema/          # 手写 ent schema（改表结构只动这里，再 generate）
+│   ├── api/swagger/         # OpenAPI 生成物
+│   ├── SSE_NOTES.md
+│   └── REDIS_CACHE.md
+├── ent/schema/              # 表结构（改后 go generate）
 ├── internal/
-│   ├── module/          # ★ 业务模块（按领域垂直切片；模板默认为空）
-│   ├── httpapi/         # 路由注册、鉴权中间件、健康检查
-│   ├── port/            # 跨模块技术端口（Cache、Locker）
-│   ├── infra/           # 基础设施实现（DB、Redis、缓存、锁、定时器）
-│   ├── pkg/             # 公共库（logger、分页、统一响应）
-│   └── config/          # 环境变量加载
-├── docker-compose.yml       # 公共底座：postgres / redis / app
-├── docker-compose.dev.yml   # 开发叠加：暴露依赖端口，默认不起 app
-├── Dockerfile
-├── .env.example
-└── test/                # 集成/连通类测试（可选）
+│   ├── app/                 # ★ 应用用例 + *Request（事务边界在此）
+│   ├── module/              # ★ 领域模型 + Repository + repo
+│   ├── httpapi/             # 协议基建 + api/* Handler（只依赖 app）
+│   │   ├── api/             # auth/user/article/payment/statistics
+│   │   └── docsui/          # Scalar 文档页
+│   ├── port/                # Cache / Locker / ObjectStore / TxManager 等能力契约
+│   ├── infra/               # DB/Redis/LLM/Image/ObjectStore 等实现
+│   ├── pkg/                 # logger、page、response、sse 等通用工具
+│   └── config/
+├── config.yml               # 非密钥配置主文件
+├── .env.example             # 仅密钥与 compose 基础设施口令
+└── docker-compose*.yml
 ```
 
 ### 各层职责
 
-| 路径                | 职责                                  | 典型改动                       |
-| ------------------- | ------------------------------------- | ------------------------------ |
-| `cmd/server`        | 组装依赖、启停 HTTP/cron、`logger.Init` | 新模块注入、新定时任务       |
-| `internal/module/*` | 领域模型、用例、该业务的 API 与持久化 | **日常业务开发主战场**         |
-| `internal/httpapi`  | 挂路由、全局鉴权、健康检查            | 注册新 module 的路由           |
-| `internal/port`     | Cache / Locker 等抽象                 | 新增跨模块技术能力时扩接口     |
-| `internal/infra`    | 上述端口的 Redis/DB/cron 实现         | 换客户端、调连接与中间件配置   |
-| `internal/pkg`      | logger、分页、错误码与响应体          | 真正跨业务复用时才加          |
-| `ent/schema`        | 表结构与字段约束                      | 加字段、改索引后 `go generate` |
+| 路径 | 职责 |
+|------|------|
+| `cmd/server` | 组装依赖、初始化 `app.Runtime`、注册 `httpapi` Registrar |
+| `internal/app/*` | **全部业务用例**与 HTTP `*Request`；跨 module 写由 `Runtime` 编排 |
+| `internal/module/*` | 实体、Repository、repo（`Cli(ctx)`）；**无** Service/HTTP |
+| `internal/app/article/workflow` | Genkit 标题、大纲、正文、配图 Flow、图文合成与 Prompt 资产 |
+| `internal/httpapi` | middleware、binding、error、health；`api/*` 只调 app |
+| `internal/port` | 技术端口（Cache / Locker / ObjectStore / Tx…） |
+| `internal/infra` | port 实现（DB/Redis/LLM/Image/ObjectStore 等） |
+| `internal/pkg` | 与领域无关的工具库（logger、page、response、sse…） |
 
-更细的模块约定见：[`internal/module/README.md`](internal/module/README.md)  
-公共库约定见：[`internal/pkg/README.md`](internal/pkg/README.md)  
-结构化日志见：[`internal/pkg/logger/README.md`](internal/pkg/logger/README.md)  
-Redis / 缓存能力见：[`docs/REDIS_CACHE.md`](docs/REDIS_CACHE.md)  
-Schema 约定见：[`ent/schema/README.md`](ent/schema/README.md)
+约定见：[`internal/app/README.md`](internal/app/README.md)、[`internal/module/README.md`](internal/module/README.md)、[`docs/SSE_NOTES.md`](docs/SSE_NOTES.md)、[`docs/REDIS_CACHE.md`](docs/REDIS_CACHE.md)、[`docs/TRANSACTIONS.md`](docs/TRANSACTIONS.md)
 
 ---
 
@@ -69,42 +70,49 @@ Schema 约定见：[`ent/schema/README.md`](ent/schema/README.md)
 cmd/server
     │
     ▼
- httpapi  ──────────────────►  module/*/http
-    │                               │
-    │                               ▼
-    │                          module/* (Service)
-    │                               │
-    │                    ┌──────────┼──────────┐
-    │                    ▼          ▼          ▼
-    │                  port        pkg     （其他 module 的 Service）
-    │                    ▲
-    │                    │ 实现
-    └──────────────►  infra
+ httpapi/api/*  →  app/*  →  module（实体 + Repository）
+                      │           │
+                      │           └─ repo ── Cli(ctx) ──► 同一 ent Tx
+                      └─ Runtime / Cache / …
+                                ▲
+ infra 实现 port（TxManager、Cache…）
 ```
 
 **规则：**
 
-1. `module` **不要** import `infra` 具体实现，只依赖 `port`（及 `pkg`）。
-2. `infra` 实现 `port`；可依赖 `ent`、Redis 客户端等。
-3. 跨业务模块：只调用对方 **Service 公开方法**，不要直接依赖对方 `repo`。
-4. 避免循环依赖：鉴权在 `httpapi/middleware`，供 `module/*/http` 使用；路由装配在 `httpapi` 引用各模块 Handler。
+1. HTTP **只依赖 app**，不依赖 repo / infra。  
+2. app 依赖 module 的 **Repository 接口** 与实体；**不** import `infra`。  
+3. 跨 module **强一致写**：app 内 `CurrentRuntime().WithinTx` + 多方 repo（同一 ctx）。
+4. module **无** Service；AI 工作流与 Prompt 放在 `app/article/workflow`。
+5. 避免循环依赖：鉴权在 `httpapi/middleware`。
 
 ---
 
 ## 4. 请求怎么走（心智模型）
 
-以接入一个业务接口为例：
-
 ```text
-POST /api/<resource>
-  → httpapi 路由（可选 AuthRequired session）
-  → module/<name>/http.Handler
-  → <name>.Service.Xxx
-       → Repository / port.Cache / port.Locker
-  → infra 实际读写 DB / Redis
+POST /api/article/create
+  → httpapi/api/article.Handler
+  → Bind app/article.CreateArticleRequest
+  → app/article.Service.Create
+       → CurrentRuntime().WithinTx：扣配额 + 插文章
+       → Commit 后失效统计缓存
+       → go Phase1（事务外）
+
+POST /api/payment/vip/mock-complete
+  → app/payment.CompleteMockVIP
+       → CurrentRuntime().WithinTx：MarkSucceeded + GrantVIP
+       → GrantVIP 登记 AfterCommit：失效统计缓存
+
+GET /api/article/progress/:taskId
+  → SSE：app SubscribeProgress → pkg/sse.Hub fan-out
 ```
 
-定时任务在 `cmd/server` 用 `infra/scheduler` 注册，**业务逻辑仍写在对应 module**。
+全部生成阶段已通过共享 Genkit Go 运行时执行，继续复用现有 LLM 配置。
+前后端 SSE 已统一为带运行身份和版本的业务事件，大纲使用结构化快照；订阅及重连从完整快照恢复。
+业务执行日志和人工确认阶段保持不变；配图采用只读位置规划与逐图有界执行，
+失败项跳过并持久化警告，不改写正文或使用随机图兜底。
+运行与调试方式见 [`internal/app/README.md`](internal/app/README.md)。
 
 ---
 
@@ -131,11 +139,11 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
 **环境变量分层：**
 
-| 场景 | 需要什么 |
-| ---- | -------- |
-| 本机 `go run` + compose 依赖 | 通常 **不用** `.env`（默认 `DB_HOST/REDIS_HOST=localhost`） |
-| compose 内 `app` | compose **写死** `DB_HOST=postgres`、`REDIS_HOST=redis`；账号等来自 env / `.env` |
-| 生产 / 预发 | 注入 `.env.example` 中的运行时项（库账号、主机、Redis、日志等） |
+| 场景                         | 需要什么                                                                         |
+| ---------------------------- | -------------------------------------------------------------------------------- |
+| 本机 `go run` + compose 依赖 | 通常 **不用** `.env`（默认 `DB_HOST/REDIS_HOST=localhost`）                      |
+| compose 内 `app`             | compose **写死** `DB_HOST=postgres`、`REDIS_HOST=redis`；账号等来自 env / `.env` |
+| 生产 / 预发                  | 注入 `.env.example` 中的运行时项（库账号、主机、Redis、日志等）                  |
 
 开发期几乎不改的宿主端口映射已写死在 `docker-compose.dev.yml`，不再做成 `*_HOST_PORT` 配置项。
 
@@ -146,8 +154,14 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 go run ./cmd/server
 # 默认 :8080
 # 健康检查：http://localhost:8080/health
-# Swagger UI：http://localhost:8080/swagger/index.html
-# 生成物目录：docs/api/swagger（import: projecttemp/docs/api/swagger）
+# API 文档（Scalar）：http://localhost:8080/docs
+# Spec 仍由 swag 生成：docs/api/swagger（import: wood-passage-creator/docs/api/swagger）
+# SSE 契约：docs/SSE_NOTES.md
+#
+# 主要 API 前缀 /api ：
+#   auth  users  article  payment(vip mock)
+# 重新生成文档：
+#   swag init -g cmd/server/main.go -o docs/api/swagger --parseDependency --parseInternal
 ```
 
 访问日志来自 **`httpapi/middleware.AccessLog`**（Echo RequestLogger → `pkg/logger`，event=`http.access`）；业务 / 任务 / 审计同样走 `internal/pkg/logger`（stderr）。HTTP 错误经 **`httpapi.HTTPErrorHandler`** 统一写 JSON。详见 [logger README](internal/pkg/logger/README.md)。
@@ -169,41 +183,40 @@ swag init -g cmd/server/main.go -o docs/api/swagger --parseDependency --parseInt
 
 ## 6. 如何接入一个新功能
 
-### A. 新增业务模块（推荐路径）
+### A. 新增业务能力（推荐路径）
 
-1. 创建 `internal/module/<name>/`（建议拆 `http/`、`repo/`）。  
-2. 在 `ent/schema` 增加表定义 → `go generate ./ent`（若仍保留占位实体，请先删除 `placeholder.go`）。  
-3. 实现 Service / Repository / Handler。  
-4. 在 `httpapi` 增加路由注册。  
-5. 在 `cmd/server` 构造 Service 并注入（cache / lock 等按需）。  
-6. 不要把该业务逻辑写进其他 module 或 `pkg`。
+1. `module/<name>/`：实体 + `Repository` + `repo`（`Cli(ctx)`）；**package 用领域名**（如 `user`）。
+2. `app/<name>/`：`*Request` + Service；**package 名与 module 错开**（如 `userapp` / `articleapp`）。  
+3. `httpapi/api/<name>/`：Handler + Registrar（只依赖 app）；Swagger 注解直接写 `articleapp.Xxx`、`user.User` 等。  
+4. 如需表结构：`ent/schema` + `go generate ./ent`。  
+5. `cmd/server`：注入 repo → app，注册 Registrar。  
+6. `swag init -g cmd/server/main.go -o docs/api/swagger --parseDependency --parseInternal`。
 
-### B. 在已有模块内加接口
+### B. 在已有能力上加接口
 
-1. `module/<name>`：模型 / Service 方法 / 如需则扩展 `Repository` 接口。  
-2. `module/<name>/repo`：实现仓储方法。  
-3. `module/<name>/http`：Handler + Swagger 注释。  
-4. `httpapi`：注册路由（注意是否需 `AuthRequired`）。  
+1. `module/<name>`：扩展模型 / Repository（如需）。  
+2. `app/<name>`：新增用例方法与 `*Request`。  
+3. `httpapi/api/<name>`：Handler + Swagger 注释 + Registrar 挂路由。  
 
-### C. 需要缓存 / 分布式锁
+### C. 需要缓存 / 分布式锁 / 对象存储
 
-- 业务侧使用 `port.Cache` / `port.Locker`。  
-- 实现已在 `infra/cache`、`infra/lock`；一般只需在 `NewService` 注入，无需业务包 import infra。
+- 业务侧使用 `port.Cache` / `port.Locker` / `port.ObjectStore`。  
+- 实现已在 `infra/cache`、`infra/lock`、`infra/objectstore`；由 `cmd` 装配注入，业务包不 import infra。
 
 ---
 
 ## 7. 放哪里？快速判定
 
-| 你要加的内容                         | 放哪里                        |
-| ------------------------------------ | ----------------------------- |
-| 某业务的用例、模型、该业务 API       | `module/<name>/`              |
-| 全局路由挂载、登录态中间件           | `httpapi`                     |
-| 「我需要锁/缓存，不关心 Redis」      | `port` 接口 + `infra` 实现    |
-| 分页、统一 JSON 响应、跨模块基础类型 | `pkg`                         |
+| 你要加的内容                         | 放哪里                           |
+| ------------------------------------ | -------------------------------- |
+| 某业务的用例、模型、该业务 API       | `module/<name>/`                 |
+| 全局路由挂载、登录态中间件           | `httpapi`                        |
+| 「我需要锁/缓存/对象存储，不关心 Redis/R2」 | `port` 接口 + `infra` 实现  |
+| 分页、统一 JSON 响应、跨模块基础类型 | `pkg`                            |
 | 结构化业务/任务/审计日志             | `pkg/logger`（Service/Job 打点） |
-| 仅某一业务用的算法                   | 留在该 `module`，不要进 `pkg` |
-| 表结构                               | `ent/schema`                  |
-| 进程启动参数、组装顺序               | `cmd/*`                       |
+| 仅某一业务用的算法                   | 留在该 `module`，不要进 `pkg`    |
+| 表结构                               | `ent/schema`                     |
+| 进程启动参数、组装顺序               | `cmd/*`                          |
 
 ---
 
@@ -225,6 +238,7 @@ swag init -g cmd/server/main.go -o docs/api/swagger --parseDependency --parseInt
 | [internal/module/README.md](internal/module/README.md)         | 业务模块目录约定                    |
 | [internal/pkg/README.md](internal/pkg/README.md)               | 公共库边界                          |
 | [internal/pkg/logger/README.md](internal/pkg/logger/README.md) | **结构化日志约定与 event 表**       |
+| [docs/TRANSACTIONS.md](docs/TRANSACTIONS.md)                   | **事务、Runtime 与提交后动作**      |
 | [docs/REDIS_CACHE.md](docs/REDIS_CACHE.md)                     | **项目级 Redis / 缓存策略**（总览） |
 | [ent/schema/README.md](ent/schema/README.md)                   | Schema 与 generate 约定             |
 

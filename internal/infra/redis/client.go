@@ -3,7 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
-	"projecttemp/internal/config"
+	"wood-passage-creator/internal/config"
 	"time"
 
 	"github.com/redis/go-redis/v9"
